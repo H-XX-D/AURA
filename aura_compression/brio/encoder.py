@@ -23,6 +23,7 @@ _MATCH_KIND = 2
 _TEMPLATE_KIND = 0x01  # Template metadata kind
 
 _TEMPLATE_TAG = 0x03  # Template token tag
+_WINDOW_TRIM_SLACK = 1024
 
 
 @dataclass
@@ -95,8 +96,8 @@ class BrioEncoder:
                 tokens.append(DictionaryToken(entry.token_id))
                 metadata.append(MetadataEntry(len(tokens) - 1, _DICT_KIND, entry.token_id))
                 window.extend(entry.phrase_bytes)
-                if len(window) > WINDOW_SIZE:
-                    del window[:-WINDOW_SIZE]
+                if len(window) > WINDOW_SIZE + _WINDOW_TRIM_SLACK:
+                    del window[: len(window) - WINDOW_SIZE]
                 pos += len(entry.phrase_bytes)
                 continue
 
@@ -127,8 +128,8 @@ class BrioEncoder:
                 output.append(LiteralToken(lz_token.value))
                 metadata.append(MetadataEntry(len(output) - 1, _LITERAL_KIND, lz_token.value))
                 window.append(lz_token.value)
-                if len(window) > WINDOW_SIZE:
-                    del window[:-WINDOW_SIZE]
+                if len(window) > WINDOW_SIZE + _WINDOW_TRIM_SLACK:
+                    del window[: len(window) - WINDOW_SIZE]
             else:
                 output.append(MatchToken(lz_token.distance, lz_token.length))
                 metadata.append(
@@ -137,8 +138,8 @@ class BrioEncoder:
                 start = len(window) - lz_token.distance
                 match_bytes = [window[start + i] for i in range(lz_token.length)]
                 window.extend(match_bytes)
-                if len(window) > WINDOW_SIZE:
-                    del window[:-WINDOW_SIZE]
+                if len(window) > WINDOW_SIZE + _WINDOW_TRIM_SLACK:
+                    del window[: len(window) - WINDOW_SIZE]
 
     def _serialise_tokens(self, tokens: List[Token]) -> bytes:
         buf = bytearray()

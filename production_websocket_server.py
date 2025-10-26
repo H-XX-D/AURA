@@ -4,12 +4,16 @@ Production WebSocket Server with AURA Hybrid Compression
 - Binary semantic compression + AuraLite fallback
 - Human-readable server-side audit
 - Simulates browser-AI communication
-- Ready for deployment
+- Ready for deployment (WebSocket + health endpoint)
 """
+import argparse
 import asyncio
-import json
-from datetime import datetime
-from typing import Dict, List, Optional
+from http import HTTPStatus
+from typing import List, Optional
+
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
+from websockets.server import WebSocketServerProtocol, serve
+
 from production_hybrid_compression import (
     ProductionHybridCompressor,
     AuditLogger,
@@ -28,7 +32,7 @@ class ProductionWebSocketServer:
     def __init__(self):
         self.compressor = ProductionHybridCompressor(
             binary_advantage_threshold=1.1,  # Use binary if 10%+ better
-            min_compression_size=50           # Skip compression for tiny messages
+            min_compression_size=35           # Skip compression for very small messages
         )
         self.audit_logger = AuditLogger("production_audit.log")
 
@@ -223,6 +227,65 @@ class ProductionWebSocketServer:
 
         return compressed_response
 
+    async def _handle_connection(self, websocket: WebSocketServerProtocol, path: str) -> None:
+        """Handle an inbound WebSocket connection."""
+        client = websocket.remote_address
+        print(f"🔌 Client connected: {client}")
+
+        try:
+            async for message in websocket:
+                if isinstance(message, str):
+                    # Clients must send compressed bytes; return an error payload.
+                    error_payload, _, _ = self.compressor.compress("Error: Expected binary payload")
+                    await websocket.send(error_payload)
+                    continue
+
+                try:
+                    response = self.process_conversation_turn(message)
+                except Exception as exc:  # pragma: no cover - defensive
+                    error_payload, _, _ = self.compressor.compress(f"Server failure: {exc}")
+                    await websocket.send(error_payload)
+                    continue
+
+                await websocket.send(response)
+
+        except ConnectionClosedOK:
+            print(f"🔌 Client disconnected (normal): {client}")
+        except ConnectionClosedError as exc:  # pragma: no cover - network errors
+            print(f"⚠️  Client connection error {client}: {exc}")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"❌ Unexpected error for {client}: {exc}")
+
+    async def _process_request(self, path: str, request_headers):
+        """Serve a lightweight HTTP health check for Docker Compose."""
+        if path == "/health":
+            body = b"ok\n"
+            headers = [
+                ("Content-Type", "text/plain; charset=utf-8"),
+                ("Content-Length", str(len(body))),
+            ]
+            return HTTPStatus.OK, headers, body
+        return None  # Use default WebSocket handshake
+
+    async def serve_forever(self, host: str = "0.0.0.0", port: int = 8765) -> None:
+        """Run the WebSocket server until cancelled."""
+        print("=" * 80)
+        print("AURA PRODUCTION WEBSOCKET SERVER")
+        print("Hybrid compression with human-readable audit logs")
+        print("=" * 80)
+        print(f"Listening on ws://{host}:{port} (health check: http://{host}:{port}/health)")
+
+        async with serve(
+            self._handle_connection,
+            host,
+            port,
+            process_request=self._process_request,
+            max_size=None,
+        ):
+            await asyncio.Future()  # Run until cancelled
+
 
 def demo_production_server():
     """Demonstrate the production server"""
@@ -389,5 +452,36 @@ def demo_production_server():
     print(f"  💰 Annual savings: ${annual_savings * 100:,.2f}")
     print()
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run the AURA production WebSocket server or the console demo",
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run the CLI demo conversation instead of hosting the WebSocket server",
+    )
+    parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host/interface to bind the WebSocket server (default: 0.0.0.0)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Port for the WebSocket server (default: 8765)",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    demo_production_server()
+    args = _parse_args()
+    if args.demo:
+        demo_production_server()
+    else:
+        server = ProductionWebSocketServer()
+        try:
+            asyncio.run(server.serve_forever(host=args.host, port=args.port))
+        except KeyboardInterrupt:
+            print("\nShutting down AURA WebSocket server")

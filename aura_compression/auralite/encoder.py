@@ -8,6 +8,7 @@ from typing import List, Optional, cast, Dict
 
 from aura_compression.brio_full.dictionary import DICTIONARY
 from aura_compression.templates import TemplateMatch, TemplateLibrary
+from aura_compression.brio_full.trie import DictionaryTrie
 
 
 @dataclass
@@ -27,8 +28,10 @@ class AuraLiteEncoder:
         # Filter dictionary to only entries with ID <= 255 (fits in 1 byte)
         # The current format uses 1 byte for dictionary token IDs, so IDs > 255 cannot be encoded
         filtered_dict = [entry for entry in DICTIONARY if entry.token_id <= 255]
-        self._dictionary_entries = sorted(filtered_dict, key=lambda entry: len(entry.phrase), reverse=True)
         self._id_to_entry = {entry.token_id: entry for entry in filtered_dict}
+        self._dictionary_trie = DictionaryTrie()
+        for entry in filtered_dict:
+            self._dictionary_trie.insert(entry.phrase, entry.token_id)
         self._template_library = template_library or TemplateLibrary()
         self._use_compact_header = use_compact_header
         self._enable_fast_path = enable_fast_path
@@ -206,10 +209,12 @@ class AuraLiteEncoder:
         return token_bytes, template_ids
 
     def _longest_dictionary_match(self, text: str, pos: int):
-        for entry in self._dictionary_entries:
-            if text.startswith(entry.phrase, pos):
-                return entry
-        return None
+        match = self._dictionary_trie.longest_prefix_match(text, pos)
+        if match is None:
+            return None
+        _, token_id = match
+        entry = self._id_to_entry.get(token_id)
+        return entry
 
     def clear_cache(self) -> None:
         """Clear the encoding cache"""

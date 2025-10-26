@@ -23,34 +23,38 @@ Token = Union[LZLiteral, LZMatch]
 
 
 def tokenize(data: Sequence[int], initial_window: bytearray | None = None) -> List[Token]:
+    data_bytes = bytes(data)
     window = bytearray(initial_window) if initial_window is not None else bytearray()
+    if len(window) > WINDOW_SIZE:
+        del window[: len(window) - WINDOW_SIZE]
     tokens: List[Token] = []
     pos = 0
-    size = len(data)
+    size = len(data_bytes)
+    data_view = memoryview(data_bytes)
 
     while pos < size:
-        match = _find_match(window, data, pos)
+        match = _find_match(window, data_view, pos)
         if match is None:
-            literal = data[pos]
+            literal = data_bytes[pos]
             tokens.append(LZLiteral(literal))
             window.append(literal)
             if len(window) > WINDOW_SIZE:
-                del window[0]
+                del window[: len(window) - WINDOW_SIZE]
             pos += 1
         else:
             distance, length = match
             tokens.append(LZMatch(distance, length))
             for i in range(length):
-                byte = data[pos + i]
+                byte = data_bytes[pos + i]
                 window.append(byte)
                 if len(window) > WINDOW_SIZE:
-                    del window[0]
+                    del window[: len(window) - WINDOW_SIZE]
             pos += length
 
     return tokens
 
 
-def _find_match(window: bytearray, data: Sequence[int], pos: int) -> Tuple[int, int] | None:
+def _find_match(window: bytearray, data: memoryview, pos: int) -> Tuple[int, int] | None:
     if not window:
         return None
 
@@ -62,23 +66,28 @@ def _find_match(window: bytearray, data: Sequence[int], pos: int) -> Tuple[int, 
     best_length = 0
 
     window_len = len(window)
-    lookback = min(window_len, WINDOW_SIZE)
-    segment = data[pos : pos + max_len]
+    segment_view = data[pos : pos + max_len]
+    prefix = segment_view[:MIN_MATCH].tobytes()
+    window_bytes = bytes(window)
 
-    for distance in range(1, lookback + 1):
-        start = window_len - distance
-        if start < 0:
-            break
-        length = 0
-        while length < max_len and window[start + length] == segment[length]:
+    idx = window_bytes.rfind(prefix)
+    while idx != -1:
+        distance = window_len - idx
+        if distance <= 0 or distance > WINDOW_SIZE:
+            idx = window_bytes.rfind(prefix, 0, idx)
+            continue
+        length = MIN_MATCH
+        # Extend match while bytes continue to align
+        while length < max_len and idx + length < window_len and window_bytes[idx + length] == segment_view[length]:
             length += 1
-            if start + length >= window_len:
-                break
-        if length >= MIN_MATCH and length > best_length:
-            best_distance = distance
-            best_length = length
             if length == max_len:
                 break
+        if length > best_length:
+            best_distance = distance
+            best_length = length
+            if best_length == max_len:
+                break
+        idx = window_bytes.rfind(prefix, 0, idx)
 
     if best_length >= MIN_MATCH:
         return best_distance, best_length

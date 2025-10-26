@@ -59,3 +59,19 @@ def test_auralite_encodes_inline_template_spans():
 
     assert decoded.text == text
     assert decoded.template_ids == [match.template_id for match in spans]
+
+
+def test_substring_matches_respect_word_boundaries():
+    template_library = TemplateLibrary()
+    text = "The system is robust enough to handle load."
+
+    matches = template_library.find_substring_matches(text)
+    assert not any(match.template_id == 1 for match in matches), "Template 'No' should not match inside 'enough'"
+
+    compressor = ProductionHybridCompressor(enable_aura=True, min_compression_size=10)
+    compressed, method, metadata = compressor.compress(text)
+    decompressed = compressor.decompress(compressed)
+
+    assert decompressed == text
+    if metadata.get('template_ids'):
+        assert 1 not in metadata['template_ids'], "Word-boundary enforcement should prevent template 1 from appearing"

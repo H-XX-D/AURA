@@ -59,7 +59,7 @@ class AuditEntry:
         # Convert bytes to hex for JSON serialization
         if data['compressed_payload'] is not None:
             data['compressed_payload'] = data['compressed_payload'].hex()
-        return json.dumps(data, ensure_ascii=False)
+        return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
     @classmethod
     def from_json(cls, json_str: str) -> 'AuditEntry':
@@ -68,10 +68,16 @@ class AuditEntry:
         # Convert hex back to bytes
         if data.get('compressed_payload'):
             data['compressed_payload'] = bytes.fromhex(data['compressed_payload'])
+        if 'metadata' in data:
+            data['metadata'] = expand_metadata(data['metadata'])
         return cls(**data)
 
 
+from .audit_layer import compact_metadata, expand_metadata
+
+
 class AuditLogger:
+
     """
     Append-only audit logger with cryptographic integrity checks
     Implements Patent Claims 2, 11, 32-35
@@ -148,13 +154,15 @@ class AuditLogger:
         # Get previous hash for integrity chain
         previous_hash = self.last_hashes[AuditLogType.CLIENT_DELIVERED]
 
+        compacted_metadata = compact_metadata(metadata)
+
         entry = AuditEntry(
             timestamp=now,
             entry_id=entry_id,
             log_type=AuditLogType.CLIENT_DELIVERED.value,
             plaintext=plaintext,
             compressed_payload=compressed_payload,
-            metadata=metadata,
+            metadata=compacted_metadata,
             session_id=session_id,
             user_id=user_id,
             compression_method=metadata.get('method'),
@@ -229,11 +237,13 @@ class AuditLogger:
 
         previous_hash = self.last_hashes[AuditLogType.METADATA_ONLY]
 
+        compacted_metadata = compact_metadata(metadata)
+
         entry = AuditEntry(
             timestamp=now,
             entry_id=entry_id,
             log_type=AuditLogType.METADATA_ONLY.value,
-            metadata=metadata,
+            metadata=compacted_metadata,
             session_id=session_id,
             plaintext=None,  # No content stored - privacy-preserving
             integrity_hash=None,

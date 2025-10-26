@@ -30,6 +30,9 @@ class TemplateRecord:
     regex: Pattern[str]
     partial_regex: Pattern[str]
     slot_order: List[int]
+    literal_length: int
+    anchor_literal: Optional[str]
+    anchor_casefold: Optional[str]
 
     def match(self, text: str) -> Optional[List[str]]:
         match_obj = self.regex.fullmatch(text.strip())
@@ -318,7 +321,28 @@ class TemplateLibrary:
         candidates: List[TemplateMatch] = []
         seen_spans = set()
         text_length = len(text)
-        for record in self._records.values():
+        text_casefold = text.casefold()
+        if self.enable_fast_matching:
+            max_bucket = len(text) // 10
+            candidate_ids = set()
+            for bucket in range(max_bucket + 1):
+                candidate_ids.update(self._length_buckets.get(bucket, []))
+            if not candidate_ids:
+                candidate_records = self._records.values()
+            else:
+                candidate_records = (
+                    self._records[tid]
+                    for tid in candidate_ids
+                    if tid in self._records
+                )
+        else:
+            candidate_records = self._records.values()
+
+        for record in candidate_records:
+            if record.literal_length > len(text):
+                continue
+            if record.anchor_casefold and record.anchor_casefold not in text_casefold:
+                continue
             for match_obj in record.partial_regex.finditer(text):
                 start = match_obj.start()
                 if start < 0:
@@ -342,6 +366,18 @@ class TemplateLibrary:
 
                 if best_end is None or best_slots is None:
                     continue
+
+                # Enforce word-boundary safety to avoid matching inside words.
+                # If the matched segment starts/ends with an alphanumeric character,
+                # ensure the preceding/following characters (if any) are not alphanumeric.
+                seg = text[start:best_end]
+                if seg:
+                    # Check left boundary
+                    if seg[0].isalnum() and start > 0 and text[start - 1].isalnum():
+                        continue
+                    # Check right boundary
+                    if seg[-1].isalnum() and best_end < text_length and text[best_end].isalnum():
+                        continue
 
                 span = (start, best_end)
                 if span in seen_spans:
@@ -429,8 +465,31 @@ class TemplateLibrary:
 
     # ------------------------------------------------------------------ helpers
 
+    @classmethod
+    def _extract_literal_parts(cls, pattern: str) -> List[str]:
+        parts = cls._SLOT_RE.split(pattern)
+        return [parts[idx] for idx in range(0, len(parts), 2) if idx < len(parts)]
+
+    @staticmethod
+    def _select_anchor_literal(literal_parts: List[str]) -> tuple[Optional[str], Optional[str]]:
+        anchor: Optional[str] = None
+        for part in literal_parts:
+            if not part:
+                continue
+            if not any(ch.isalnum() for ch in part):
+                continue
+            if anchor is None or len(part) > len(anchor):
+                anchor = part
+        if anchor is None:
+            return None, None
+        return anchor, anchor.casefold()
+
     def _register_template(self, template_id: int, pattern: str) -> None:
         regex, partial_regex, slot_order = self._compile_pattern(pattern)
+        pattern_text = re.sub(r'\{[0-9]+\}', '', pattern)
+        literal_length = len(pattern_text)
+        literal_parts = self._extract_literal_parts(pattern)
+        anchor_literal, anchor_casefold = self._select_anchor_literal(literal_parts)
         self._templates[template_id] = pattern
         self._records[template_id] = TemplateRecord(
             template_id=template_id,
@@ -438,13 +497,15 @@ class TemplateLibrary:
             regex=regex,
             partial_regex=partial_regex,
             slot_order=slot_order,
+            literal_length=literal_length,
+            anchor_literal=anchor_literal,
+            anchor_casefold=anchor_casefold,
         )
 
         # Update fast matching indices
         if self.enable_fast_matching:
             # Add to length bucket
             # Approximate pattern length (remove slot placeholders)
-            pattern_text = re.sub(r'\{[0-9]+\}', '', pattern)
             length_bucket = len(pattern_text) // 10
             if length_bucket not in self._length_buckets:
                 self._length_buckets[length_bucket] = []

@@ -4,7 +4,7 @@ Quick-start guide for implementing the high-priority improvements that will boos
 
 ---
 
-## 🎯 Priority 1: Template Selection Bias (Est. +15-20% compression)
+## Priority 1: Template Selection Bias (Est. +15-20% compression)
 
 ### Current Problem
 All templates selected with equal probability, regardless of compression performance.
@@ -78,7 +78,7 @@ async def simulate_conversation(self) -> Dict:
 
 ---
 
-## 🎯 Priority 2: Expand Template Metadata (Est. +5-10% compression)
+## Priority 2: Expand Template Metadata (Est. +5-10% compression)
 
 ### Current Coverage
 Only 10/128 templates have `slot_examples` defined.
@@ -188,7 +188,7 @@ def discover_slot_examples_from_corpus(corpus_path, template_lib, min_examples=5
 
 ---
 
-## 🎯 Priority 3: Lower min_compression_size (Est. +10-15% compression)
+## Priority 3: Lower min_compression_size (Est. +10-15% compression)
 
 ### Current Issue
 Messages <50 bytes are marked UNCOMPRESSED by default (1-byte method overhead).
@@ -245,7 +245,7 @@ def find_optimal_min_compression_size(test_results):
 
 ---
 
-## 🎯 Priority 4: Warmup Phase Auto-Adjustment (Est. +5-8% compression)
+## Priority 4: Warmup Phase Auto-Adjustment (Est. +5-8% compression)
 
 ### Current Behavior
 Warmup runs messages but doesn't analyze or adjust parameters.
@@ -264,20 +264,20 @@ def analyze_warmup_results(warmup_results: Dict) -> Dict[str, Any]:
 
     # If template hit rate is low, messages aren't matching
     if template_hit_rate < 0.35:
-        print("⚠️  Low template hit rate detected during warmup")
+        print("Low template hit rate detected during warmup")
         # Increase message length to favor better template matches
         adjustments['min_length_boost'] = 30
         print("  → Increasing min_length by 30 chars")
 
     # If too many UNCOMPRESSED, messages are too short
     if uncompressed_rate > 0.6:
-        print("⚠️  High UNCOMPRESSED rate during warmup")
+        print("High UNCOMPRESSED rate during warmup")
         adjustments['min_length_boost'] = adjustments.get('min_length_boost', 0) + 20
         print("  → Further increasing min_length by 20 chars")
 
     # If compression ratio is poor, try more corpus messages
     if avg_compression < 1.15:
-        print("⚠️  Low compression ratio during warmup")
+        print("Low compression ratio during warmup")
         adjustments['corpus_weight_boost'] = 0.2
         print("  → Increasing corpus_weight by 20%")
 
@@ -294,7 +294,7 @@ async def run_stress_test(num_users, warmup=False, warmup_messages=100, ...):
         adjustments = analyze_warmup_results(warmup_results)
 
         if adjustments:
-            print("\n📊 Warmup Analysis Recommendations:")
+            print("\nWarmup Analysis Recommendations:")
             # Apply adjustments to message synthesizer or length functions
             if 'min_length_boost' in adjustments:
                 global MIN_LENGTH_ADJUSTMENT
@@ -309,7 +309,7 @@ async def run_stress_test(num_users, warmup=False, warmup_messages=100, ...):
 
 ---
 
-## 🚀 Implementation Priority Order
+## Implementation Priority Order
 
 1. **Week 1**: Template Selection Bias (HIGH impact, MEDIUM effort)
    - Add template performance tracking
@@ -333,7 +333,7 @@ async def run_stress_test(num_users, warmup=False, warmup_messages=100, ...):
 
 ---
 
-## 📈 Expected Results Timeline
+## Expected Results Timeline
 
 | Week | Feature | Compression Ratio | Cumulative Gain |
 |------|---------|-------------------|-----------------|
@@ -347,7 +347,7 @@ async def run_stress_test(num_users, warmup=False, warmup_messages=100, ...):
 
 ---
 
-## 🧪 Testing Strategy
+## Testing Strategy
 
 ### A/B Testing Framework
 
@@ -383,7 +383,7 @@ def check_regression(current_ratio: float, baseline_ratio: float, threshold: flo
     degradation = (baseline_ratio - current_ratio) / baseline_ratio
 
     if degradation > threshold:
-        print(f"⚠️  REGRESSION DETECTED: {degradation*100:.1f}% worse than baseline!")
+        print(f"REGRESSION DETECTED: {degradation*100:.1f}% worse than baseline!")
         print(f"   Baseline: {baseline_ratio:.2f}:1")
         print(f"   Current:  {current_ratio:.2f}:1")
         return False
@@ -392,7 +392,7 @@ def check_regression(current_ratio: float, baseline_ratio: float, threshold: flo
 
 ---
 
-## 📊 Metrics Dashboard (Future)
+## Metrics Dashboard (Future)
 
 Recommended metrics to track in production:
 

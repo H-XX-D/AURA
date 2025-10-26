@@ -24,8 +24,11 @@ class AuraLiteEncoder:
     LITERAL_KIND = 0x03
 
     def __init__(self, template_library: Optional[TemplateLibrary] = None, use_compact_header: bool = True, enable_fast_path: bool = True) -> None:
-        self._dictionary_entries = sorted(DICTIONARY, key=lambda entry: len(entry.phrase), reverse=True)
-        self._id_to_entry = {entry.token_id: entry for entry in DICTIONARY}
+        # Filter dictionary to only entries with ID <= 255 (fits in 1 byte)
+        # The current format uses 1 byte for dictionary token IDs, so IDs > 255 cannot be encoded
+        filtered_dict = [entry for entry in DICTIONARY if entry.token_id <= 255]
+        self._dictionary_entries = sorted(filtered_dict, key=lambda entry: len(entry.phrase), reverse=True)
+        self._id_to_entry = {entry.token_id: entry for entry in filtered_dict}
         self._template_library = template_library or TemplateLibrary()
         self._use_compact_header = use_compact_header
         self._enable_fast_path = enable_fast_path

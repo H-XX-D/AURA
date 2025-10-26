@@ -5,7 +5,7 @@ Comprehensive improvements to the AURA WebSocket stress test implementing realis
 
 ---
 
-## ✅ Implemented Improvements
+## Implemented Improvements
 
 ### 1. **Realistic Message Length Distribution** (Priority: HIGHEST IMPACT)
 
@@ -107,7 +107,7 @@ if total_uses > 3 and diversity_ratio < 0.6:
     low_diversity_templates.append((template_id, diversity, uses, pattern))
 
 # Output:
-⚠️  Low Diversity Warnings (2 templates):
+Low Diversity Warnings (2 templates):
     Template  25: 0.50 diversity with 2 uses
       Pattern: "I can help with {0}."
       → Consider adding more slot_examples or expanding corpus coverage
@@ -171,7 +171,7 @@ if total_original_size > 0:
 
 ---
 
-## 📊 Test Results Comparison
+## Test Results Comparison
 
 ### Before Improvements (Original 10-user test)
 ```
@@ -188,8 +188,7 @@ Avg Latency:             1.45ms
 Compression Ratio:       1.09:1 (lower due to realistic mixing)
 Template Hit Rate:       36.9% BINARY_SEMANTIC
 UNCOMPRESSED:            57.3% (expected with realistic patterns)
-Message Length:          80% in 50-200 byte range ✅
-Corpus Usage:            0% (corpus too short for realistic lengths)
+Message Length:          80% in 50-200 byte range Corpus Usage:            0% (corpus too short for realistic lengths)
 Avg Latency:             2.34ms
 Intelligent Debug:       146 EXPANSION cases, 18 EXCELLENT cases flagged
 Low Diversity Warnings:  2 templates flagged (25, 26)
@@ -197,7 +196,7 @@ Low Diversity Warnings:  2 templates flagged (25, 26)
 
 ---
 
-## 🎯 Key Achievements
+## Key Achievements
 
 1. **Realistic Conversation Patterns**: Messages now follow actual AI/human conversation dynamics
 2. **Actionable Diagnostics**: Low diversity warnings identify template coverage gaps
@@ -207,7 +206,7 @@ Low Diversity Warnings:  2 templates flagged (25, 26)
 
 ---
 
-## 📋 Recommended Further Improvements
+## Recommended Further Improvements
 
 ### HIGH PRIORITY
 
@@ -320,7 +319,7 @@ Low Diversity Warnings:  2 templates flagged (25, 26)
 
 ---
 
-## 📁 Files Modified
+## Files Modified
 
 | File | Lines | Changes |
 |------|-------|---------|
@@ -330,7 +329,7 @@ Low Diversity Warnings:  2 templates flagged (25, 26)
 
 ---
 
-## 🔧 New Command-Line Arguments
+## New Command-Line Arguments
 
 ```bash
 # Corpus weighting
@@ -350,7 +349,7 @@ Low Diversity Warnings:  2 templates flagged (25, 26)
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Basic Test
 ```bash
@@ -377,7 +376,7 @@ python3 tests/stress_test_50_users.py \
 
 ---
 
-## 📈 Expected Improvements Roadmap
+## Expected Improvements Roadmap
 
 | Improvement | Expected Compression Gain | Implementation Effort |
 |-------------|---------------------------|----------------------|
@@ -391,7 +390,7 @@ python3 tests/stress_test_50_users.py \
 
 ---
 
-## 💡 Key Insights
+## Key Insights
 
 1. **Message length is critical**: The shift to realistic lengths (50-200 chars) is more important than template coverage
 
@@ -405,7 +404,7 @@ python3 tests/stress_test_50_users.py \
 
 ---
 
-## 🎓 Lessons Learned
+## Lessons Learned
 
 1. **Don't optimize for the test**: Previous 87% <50 byte messages gave artificially high compression
 
@@ -419,7 +418,7 @@ python3 tests/stress_test_50_users.py \
 
 ---
 
-## 📞 Next Steps
+## Next Steps
 
 1. **Immediate**: Expand template metadata to top 50 templates
 2. **Short-term**: Implement template selection bias based on compression history

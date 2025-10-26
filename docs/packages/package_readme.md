@@ -411,29 +411,29 @@ spec:
 
 ### Core Compression
 
-- ✅ Binary Semantic Compression (95:1 ratio)
-- ✅ AuraLite Fallback (5:1 ratio, proprietary)
-- ✅ BRIO Multi-Template (12:1 ratio)
-- ✅ AURA-Lite Template+Dictionary (8:1 ratio)
-- ✅ 607-template library (120 core + 487 discovered)
-- ✅ 87.1% coverage on AI conversations
+- Binary Semantic Compression (95:1 ratio)
+- AuraLite Fallback (5:1 ratio, proprietary)
+- BRIO Multi-Template (12:1 ratio)
+- AURA-Lite Template+Dictionary (8:1 ratio)
+- 607-template library (120 core + 487 discovered)
+- 87.1% coverage on AI conversations
 
 ### Advanced Features
 
-- ✅ Metadata Side-Channel (371× speedup for fast-path)
-- ✅ Separated Audit Architecture (GDPR/HIPAA/SOC2)
-- ✅ Template Discovery (Claims 15-18)
-- ✅ Conversation Accelerator (Claim 31)
-- ✅ 6-Byte Metadata Entry (Claim 22)
-- ✅ Client/Server SDKs
-- ✅ WebSocket server support
+- Metadata Side-Channel (371× speedup for fast-path)
+- Separated Audit Architecture (GDPR/HIPAA/SOC2)
+- Template Discovery (Claims 15-18)
+- Conversation Accelerator (Claim 31)
+- 6-Byte Metadata Entry (Claim 22)
+- Client/Server SDKs
+- WebSocket server support
 
 ### Compliance
 
-- ✅ GDPR-compliant separated logs
-- ✅ HIPAA-compliant audit trails
-- ✅ SOC2-compliant access logging
-- ✅ Forensic-grade immutable logs
+- GDPR-compliant separated logs
+- HIPAA-compliant audit trails
+- SOC2-compliant access logging
+- Forensic-grade immutable logs
 
 ---
 

@@ -35,8 +35,9 @@ class ProductionWebSocketServer:
         # Simulated AI response templates (in production, this would be ML-based matching)
         self.response_templates = {
             "no_realtime": {
-                "template_id": 0,
-                "pattern": lambda data_type: (0, [data_type, "Please check an appropriate source"])
+                # Use template 21: "I don't have access to {0}. {1}"
+                "template_id": 21,
+                "pattern": lambda data_type: (21, [data_type, "Please check an appropriate source"])
             },
             "definition": {
                 "template_id": 20,
@@ -119,7 +120,7 @@ class ProductionWebSocketServer:
         if "weather" in user_lower or "time" in user_lower or "current" in user_lower:
             return {
                 'response': "I don't have access to real-time information. Please check an appropriate source",
-                'template_id': 0,
+                'template_id': 21,
                 'slots': ["real-time information", "Please check an appropriate source"]
             }
 

@@ -69,7 +69,7 @@ template_id, pattern = self.select_template_intelligently(self.one_slot)  # Bias
 New output section shows which templates perform best:
 
 ```
-📊 Template Performance Analysis (Intelligent Selection):
+Template Performance Analysis (Intelligent Selection):
 
   Top 10 High-Compression Templates:
      1. Template   0: 8.00:1 avg ( 45 uses)
@@ -275,7 +275,7 @@ Compression Method Distribution:
   BINARY_SEMANTIC     :   145 messages ( 52.0%)  ← UP from 37%
   UNCOMPRESSED        :   105 messages ( 38.0%)  ← DOWN from 57%
 
-📊 Template Performance Analysis (Intelligent Selection):
+Template Performance Analysis (Intelligent Selection):
   Top 10 High-Compression Templates:
      1. Template   0: 8.00:1 avg ( 48 uses)  ← "Yes"
      2. Template   1: 8.00:1 avg ( 45 uses)  ← "No"

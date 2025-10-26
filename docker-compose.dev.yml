@@ -34,6 +34,7 @@ services:
       - .:/app
     environment:
       - AURA_TEMPLATE_STORE=/app/data/templates.json
+      - PYTHONPATH=/app
     networks:
       - aura-dev-network
     command: pytest tests/ -v --cov=aura_compression

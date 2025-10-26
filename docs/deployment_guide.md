@@ -546,9 +546,9 @@ test_messages = [...]  # Your messages
 for msg in test_messages:
     match = lib.match(msg)
     if match:
-        print(f"✓ Matched template {match.template_id}")
+        print(f"Matched template {match.template_id}")
     else:
-        print(f"✗ No match: {msg[:60]}")
+        print(f"No match: {msg[:60]}")
 ```
 
 **Solutions:**

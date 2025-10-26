@@ -22,16 +22,18 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /app
 
 # Install Python dependencies
-COPY requirements.txt pyproject.toml setup.py ./
+COPY requirements.txt pyproject.toml setup.py README.md ./
 RUN pip install --no-cache-dir -e ".[dev,websocket]" && \
     pip install --no-cache-dir debugpy watchdog
 
-# Install Node.js dependencies
-COPY package.json ./
-RUN npm install
-
-# Copy source code
+# Copy source code (Python only for dev server)
 COPY . .
+
+# Note: Node.js dependencies are not needed for Python tests/server. Skip npm install to avoid native build failures.
+
+# Note: Skipping Rust and Node builds in dev image since the Python server
+# does not depend on the Node addon or Rust binaries. This keeps builds fast
+# and avoids failing on missing native sources.
 
 # Create data and logs directories
 RUN mkdir -p /app/data /app/logs

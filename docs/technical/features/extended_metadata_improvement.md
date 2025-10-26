@@ -85,12 +85,12 @@ Each template now has **8-18 slot examples** (compared to previous 5-8), includi
 ### Warmup Performance (100 messages)
 
 ```
-📊 Warmup Analysis:
+Warmup Analysis:
   Template hit rate: 52.0% (BINARY_SEMANTIC)  ← UP from 42% baseline
   Average compression: 2.00:1                  ← UP from 1.18:1 baseline
   Uncompressed rate: 43.0%                     ← DOWN from 55.3% baseline
 
-✅ Auto-Adjustments Applied:
+Auto-Adjustments Applied:
   • exploration_rate: 30.0% → 20.0%
 ```
 
@@ -355,10 +355,10 @@ Remaining: Templates 47-66 (20 templates)
 
 ## Summary
 
-✅ **Implemented**: Extended template metadata from 10 to 27 templates
-✅ **Impact**: +9.2% template hit rate, -14.4% UNCOMPRESSED rate, +69% warmup compression
-✅ **Expected Overall Gain**: +5-10% compression ratio improvement
-✅ **Production-Ready**: Comprehensive slot examples for all core templates
+**Implemented**: Extended template metadata from 10 to 27 templates
+**Impact**: +9.2% template hit rate, -14.4% UNCOMPRESSED rate, +69% warmup compression
+**Expected Overall Gain**: +5-10% compression ratio improvement
+**Production-Ready**: Comprehensive slot examples for all core templates
 
 **Total Cumulative Improvements** (Phases 1-3):
 - Phase 1: Realistic message distribution, corpus weighting, reduced concatenation, churn alerting, debug sampling (+5-8%)
@@ -370,5 +370,5 @@ Remaining: Templates 47-66 (20 templates)
 ---
 
 *Implemented: 2025-10-25*
-*Status: Production-Ready ✅*
+*Status: Production-Ready *
 *Template Coverage: 27/67 (40% → future expansion to 100%)*

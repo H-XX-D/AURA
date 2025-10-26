@@ -454,6 +454,7 @@ class ProductionHybridCompressor:
                 'reason': 'message_too_small',
                 'fast_path_candidate': True,
                 'fast_path_used': 'tiny_message_early_exit' if self.enable_fast_path else None,
+                'attempted_methods': ['uncompressed'],
             }
 
             # Audit logging (Claim 2) - Log even for uncompressed messages
@@ -492,6 +493,7 @@ class ProductionHybridCompressor:
                         'slot_count': len(template_match.slots),
                         'fast_path_candidate': True,
                         'fast_path_used': 'binary_semantic_direct',
+                        'attempted_methods': ['binary_semantic'],
                     }
 
                     # Record template usage
@@ -757,6 +759,31 @@ class ProductionHybridCompressor:
             None,
         )
 
+        # If the text is template-heavy (full-match or substring spans), prefer AURA-Lite
+        if aura_lite_candidate and (template_match is not None or (template_spans and len(template_spans) >= 1)):
+            selected_payload, selected_method, selected_metadata = aura_lite_candidate
+            selected_metadata['reason'] = 'template_heavy_preference'
+            attempted_methods = [c[2]['method'] for c in candidates]
+            selected_metadata['attempted_methods'] = attempted_methods
+            # Audit logging (Claim 2)
+            if self.enable_audit_logging and self._audit_logger:
+                self._audit_logger.log_compression(
+                    plaintext=text,
+                    compressed_payload=selected_payload,
+                    metadata=selected_metadata,
+                    session_id=self.session_id,
+                    user_id=self.user_id,
+                )
+                self._audit_logger.log_metadata_only(
+                    metadata=selected_metadata,
+                    session_id=self.session_id,
+                )
+            # Record template usage
+            for tid in selected_metadata.get('template_ids') or []:
+                if tid is not None:
+                    self.template_library.record_use(tid)
+            return selected_payload, selected_method, selected_metadata
+
         # Filter candidates: never expand data beyond original + method byte overhead
         # Uncompressed is always valid (adds only 1 byte for method marker)
         valid_candidates = []
@@ -769,19 +796,26 @@ class ProductionHybridCompressor:
             elif len(payload) < original_size:
                 valid_candidates.append(c)
 
-        # Selection logic following priority order:
+    # Selection logic following priority order:
         # 1. Check if uncompressed is best (compression doesn't help)
         # 2. Binary Semantic (if available and compresses)
         # 3. BRIO (if available and compresses)
-        # 4. AURA-Lite (if available and compresses)
-        # 5. AuraLite (last resort - proprietary fallback)
+    # 4. AURA-Lite (prefer over AuraLite when available, even if within tiny overhead)
+    # 5. AuraLite (last resort - proprietary fallback)
         # 6. Uncompressed (safety fallback)
+
+        # Track which methods were attempted for metadata (Claim 7)
+        attempted_methods = [c[2]['method'] for c in candidates]
 
         # First check if ANY compression helps
         compression_helps = any(
             c[1] != CompressionMethod.UNCOMPRESSED and len(c[0]) < original_size
             for c in valid_candidates
         )
+
+        # Default selection to uncompressed for safety; branches below can override
+        selected_payload, selected_method, selected_metadata = uncompressed_candidate
+        selected_metadata['reason'] = selected_metadata.get('reason', 'default_uncompressed')
 
         if not compression_helps:
             # Priority 1: Use uncompressed if no compression method helps
@@ -797,8 +831,14 @@ class ProductionHybridCompressor:
             selected_payload, selected_method, selected_metadata = brio_candidate
 
         # Priority 4: AURA-Lite (template+dictionary+literals)
-        elif aura_lite_candidate and len(aura_lite_candidate[0]) < original_size:
-            selected_payload, selected_method, selected_metadata = aura_lite_candidate
+        elif aura_lite_candidate:
+            # Prefer AURA-Lite when available. Allow a tiny overhead (<= +1 byte)
+            aura_lite_payload, aura_lite_method, aura_lite_meta = aura_lite_candidate
+            if len(aura_lite_payload) <= original_size + 1:
+                selected_payload, selected_method, selected_metadata = aura_lite_candidate
+            else:
+                # Too large: defer to other candidates
+                pass
 
         # Priority 5: AuraLite (last resort - proprietary fallback compression)
         elif auralite_candidate and len(auralite_candidate[0]) < original_size:
@@ -809,6 +849,9 @@ class ProductionHybridCompressor:
         else:
             selected_payload, selected_method, selected_metadata = uncompressed_candidate
             selected_metadata['reason'] = 'safety_fallback'
+
+        # Add attempted methods to metadata
+        selected_metadata['attempted_methods'] = attempted_methods
 
         # Audit logging (Claim 2) - Log compression event
         if self.enable_audit_logging and self._audit_logger:

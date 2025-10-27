@@ -17,7 +17,6 @@ AURA is a Python compression library combining:
 - **Optional GPU acceleration** (74-200x speedup with PyTorch)
 - **Enterprise audit trails** (cryptographic logging, compliance)
 
-**Tested throughput:** 100 concurent connections 385,160 msg/sec 
 **Tested latency:** P99 = 1.3ms compression, 0.02ms decompression
 
 ---

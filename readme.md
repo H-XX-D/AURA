@@ -98,7 +98,7 @@ comp = ProductionHybridCompressor(enable_gpu=True)
 **Performance:**
 - CPU (PyTorch tensors): 74x speedup
 - GPU (CUDA): 100-200x expected speedup
-- Single-threaded: 385,160 msg/sec
+- 385,160 msg/sec 500 concurrent agents 
 - P99 latency: 1.3ms
 
 **Requirement:** PyTorch (optional, already included in dev environment)
@@ -208,33 +208,6 @@ with open("large_file.txt", "rb") as f:
 
 ---
 
-## Architecture
-
-### Compression Methods
-
-```
-┌─────────────────────────────────────────────────────────┐
-│              ProductionHybridCompressor                 │
-│                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │ Template     │  │    BRIO      │  │   AuraLite   │ │
-│  │ Matching     │  │  (LZ77+rANS) │  │    (zlib)    │ │
-│  │ (68 patterns)│  │              │  │              │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘ │
-│         │                 │                  │         │
-│         └─────────────────┴──────────────────┘         │
-│                          │                             │
-│              ┌───────────▼──────────┐                  │
-│              │  Automatic Selection  │                  │
-│              │  (picks best method)  │                  │
-│              └───────────┬──────────┘                  │
-│                          │                             │
-│              ┌───────────▼──────────┐                  │
-│              │   Compressed Payload  │                  │
-│              └───────────────────────┘                  │
-└─────────────────────────────────────────────────────────┘
-```
-
 ### Components
 
 - **compressor.py** (2,981 lines) - Main compression logic
@@ -328,21 +301,6 @@ python tests/realistic_single_user_test.py
 python tests/honest_stress_test_100_processes.py
 ```
 
----
-
-## Known Issues
-
-### 🐛 Critical Bug: AuraLite Expansion
-
-**Issue:** Template-heavy preference forces AURA_LITE even when it expands messages
-
-```python
-comp.compress("No")  # 2 bytes → 7 bytes (3.5x expansion) ❌
-```
-
-**Location:** `aura_compression/compressor.py:857`
-**Impact:** Violates rule that compression should never expand messages
-**Workaround:** System still functions, but some messages expand unnecessarily
 
 ### Test Coverage
 

@@ -26,6 +26,15 @@ keywords = ["compression", "ai", "chat", "websocket", "auralite", "compliance"]
 dependencies = []
 requires-python = ">=3.8"
 
+[tool.setuptools]
+package-dir = {"" = "src/python"}
+
+[project.scripts]
+aura-compress = "aura_compression.cli.compress:main"
+aura-decompress = "aura_compression.cli.decompress:main"
+aura-server = "aura_compression.cli.server:main"
+aura-benchmark = "aura_compression.cli.benchmark:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",

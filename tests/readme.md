@@ -135,9 +135,9 @@ baseline.update_baseline("compression", "speed_mbps", value, threshold=0.1)  # 1
 
 ## Output Files
 
-- `benchmark_results.json`: Detailed benchmark metrics
-- `test_results.json`: Complete test suite results
-- `performance_baseline.json`: Performance baselines for regression detection
+- `../results/benchmark_results.json`: Detailed benchmark metrics
+- `../results/test_results.json`: Complete test suite results
+- `../results/performance_baseline.json`: Performance baselines for regression detection
 
 ## Example Output
 

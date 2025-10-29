@@ -22,6 +22,11 @@ def create_infrastructure_compressor():
         session_id='global-infrastructure-integration-2025'
     )
 
+def create_aura_heavy_compressor():
+    """Create AURA Heavy compressor for comprehensive assessment."""
+    from aura_compression.aura_heavy import AuraHeavy
+    return AuraHeavy()
+
 def load_industry_scenarios():
     """Load comprehensive industry scenarios for infrastructure integration."""
 
@@ -279,14 +284,18 @@ def load_industry_scenarios():
 def assess_industry_impact():
     """Comprehensive industry impact assessment for infrastructure integration."""
 
-    compressor = create_infrastructure_compressor()
+    # Test both standard infrastructure compressor and AURA Heavy
+    compressors = {
+        'standard': create_infrastructure_compressor(),
+        'aura_heavy': create_aura_heavy_compressor()
+    }
     scenarios = load_industry_scenarios()
 
     print("🏭 INDUSTRY-WIDE INFRASTRUCTURE INTEGRATION IMPACT ASSESSMENT")
     print("=" * 80)
     print("Evaluating AURA compression impact across all industries when integrated")
-    print("into infrastructure - beyond healthcare/financial to human-to-AI and AI-to-AI")
-    print("Date: October 29, 2025 - Global Industry Transformation Analysis")
+    print("into infrastructure - including standard compressor and AURA Heavy")
+    print("Date: October 29, 2025 - Comprehensive Industry Analysis")
     print()
 
     total_original = 0
@@ -319,18 +328,43 @@ def assess_industry_impact():
                     # JSON data
                     pass
 
-                # Compress with infrastructure compressor
-                compressed_data, metadata = compressor.compress(data)
+                # Test both compressors
+                best_ratio = float('inf')
+                best_compressed = None
+                best_method = 'UNKNOWN'
+                best_compressor_name = 'unknown'
 
-                # Calculate metrics
-                ratio = len(compressed_data) / len(data)
+                for comp_name, comp in compressors.items():
+                    try:
+                        if comp_name == 'aura_heavy':
+                            # AURA Heavy has different API
+                            result = comp.compress(data)
+                            compressed_data = result.compressed_data
+                            method = str(result.method)
+                        else:
+                            # Standard compressor
+                            compressed_data, metadata = comp.compress(data)
+                            method = metadata.get('method', 'UNKNOWN')
+
+                        ratio = len(compressed_data) / len(data)
+                        if ratio < best_ratio:
+                            best_ratio = ratio
+                            best_compressed = compressed_data
+                            best_method = method
+                            best_compressor_name = comp_name
+                    except Exception as e:
+                        print(f"   {comp_name} failed: {e}")
+                        continue
+
+                # Use best compression result
+                compressed_data = best_compressed or data.encode('utf-8')  # fallback to original
+                ratio = best_ratio if best_ratio != float('inf') else 1.0
+
                 scenario_ratios.append(ratio)
                 scenario_original += len(data)
                 scenario_compressed += len(compressed_data)
 
-                method = metadata.get('method', 'UNKNOWN')
-
-                print(f"   {i:2d}. {len(data):4d} → {len(compressed_data):4d} bytes ({ratio:.3f}x) [{method}]")
+                print(f"   {i:2d}. {len(data):4d} → {len(compressed_data):4d} bytes ({ratio:.3f}x) [{best_compressor_name}:{best_method}]")
 
             # Scenario summary
             scenario_avg_ratio = sum(scenario_ratios) / len(scenario_ratios)

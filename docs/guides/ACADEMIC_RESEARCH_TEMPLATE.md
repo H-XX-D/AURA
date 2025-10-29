@@ -21,7 +21,7 @@ This template provides standardized references and links for the AURA (AI-Optimi
 
 **Performance Metrics:**
 - **Bandwidth Savings:** 23.8% across internet communication scenarios
-- **Global Economic Impact:** $203-300B annual savings
+- **Global Economic Impact:** $180-275B annual savings
 - **Energy Savings:** 39.3 TWh annually (15.7% of data center energy)
 - **Carbon Reduction:** 18.7 million tonnes CO2 annually
 - **Compression Ratio:** 0.878x average (12.2% reduction)
@@ -214,7 +214,7 @@ GitHub repository: https://github.com/hendrixx-cnc/medicine-cabinet
 
 ### Key Findings
 - 23.8% bandwidth savings across internet scenarios
-- $203-300B global economic opportunity
+- $180-275B global economic opportunity
 - 39.3 TWh annual energy savings
 - 18.7M tonnes CO2 annual reduction
 

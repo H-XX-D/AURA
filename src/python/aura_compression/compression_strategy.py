@@ -183,21 +183,36 @@ class BrioStrategy(CompressionStrategy):
             return uncompressed.compress(context)
 
         try:
-            # Route based on message size
-            if context.original_size < context.tcp_brio_threshold and self.tcp_brio_encoder:
-                # Use TCP-optimized BRIO
-                compressed = self.tcp_brio_encoder.compress(context.text)
-            elif self.aura_encoder:
-                # Use full BRIO with rANS
-                compressed = self.aura_encoder.compress(
-                    context.text,
-                    template_match=context.template_match,
-                )
-            else:
+            compressed_results = []
+            
+            # Try TCP BRIO encoder if available
+            if self.tcp_brio_encoder:
+                try:
+                    tcp_compressed = self.tcp_brio_encoder.compress(context.text)
+                    tcp_payload = bytes([self.method.value]) + tcp_compressed.payload
+                    compressed_results.append(('tcp', tcp_compressed, tcp_payload))
+                except Exception:
+                    pass
+            
+            # Try full BRIO encoder if available
+            if self.aura_encoder:
+                try:
+                    aura_compressed = self.aura_encoder.compress(
+                        context.text,
+                        template_match=context.template_match,
+                    )
+                    aura_payload = bytes([self.method.value]) + aura_compressed.payload
+                    compressed_results.append(('aura', aura_compressed, aura_payload))
+                except Exception:
+                    pass
+            
+            if not compressed_results:
                 uncompressed = UncompressedStrategy()
                 return uncompressed.compress(context)
-
-            payload = bytes([self.method.value]) + compressed.payload
+            
+            # Choose the best compression (smallest payload)
+            best_result = min(compressed_results, key=lambda x: len(x[2]))
+            encoder_type, compressed, payload = best_result
             compressed_size = len(payload)
 
             # Handle metadata format
@@ -377,7 +392,7 @@ class LzmaStrategy(CompressionStrategyInterface):
             can_compress = compressed_size < context.original_size
             payload = bytes([CompressionMethod.LZMA.value]) + compressed
 
-            return CompressionResult(payload, self.get_method(), metadata, can_compress)
+            return CompressionResult(payload, self.get_method(), metadata, True)  # Always include in competition
 
         except Exception as e:
             # Fallback to uncompressed
@@ -416,7 +431,7 @@ class Bz2Strategy(CompressionStrategyInterface):
             can_compress = compressed_size < context.original_size
             payload = bytes([CompressionMethod.BZ2.value]) + compressed
 
-            return CompressionResult(payload, self.get_method(), metadata, can_compress)
+            return CompressionResult(payload, self.get_method(), metadata, True)  # Always include in competition
 
         except Exception as e:
             # Fallback to uncompressed
@@ -455,7 +470,7 @@ class GzipStrategy(CompressionStrategyInterface):
             can_compress = compressed_size < context.original_size
             payload = bytes([CompressionMethod.GZIP.value]) + compressed
 
-            return CompressionResult(payload, self.get_method(), metadata, can_compress)
+            return CompressionResult(payload, self.get_method(), metadata, True)  # Always include in competition
 
         except Exception as e:
             # Fallback to uncompressed
@@ -470,11 +485,69 @@ class GzipStrategy(CompressionStrategyInterface):
             return CompressionResult(uncompressed_payload, CompressionMethod.UNCOMPRESSED, metadata, False)
 
 
+class AuraHeavyStrategy(CompressionStrategy):
+    """Strategy for AURA Heavy compression (hybrid semantic + traditional)"""
+
+    def __init__(self, aura_heavy_compressor: Any = None):
+        super().__init__(CompressionMethod.BRIO)  # Use BRIO method enum for now
+        self.aura_heavy_compressor = aura_heavy_compressor
+
+    def can_compress(self, context: CompressionContext) -> bool:
+        """Can compress if AURA Heavy compressor is available"""
+        return self.aura_heavy_compressor is not None
+
+    def compress(self, context: CompressionContext) -> CompressionResult:
+        """Compress using AURA Heavy method"""
+        if not self.can_compress(context):
+            uncompressed = UncompressedStrategy()
+            return uncompressed.compress(context)
+
+        try:
+            # AURA Heavy has different API - returns AuraHeavyResult
+            result = self.aura_heavy_compressor.compress(context.text)
+
+            payload = bytes([self.method.value]) + result.compressed_data
+            compressed_size = len(payload)
+
+            # Map AURA Heavy method to our method enum
+            method_name = 'aura_heavy'
+            if hasattr(result, 'method'):
+                if result.method == 0x00:
+                    method_name = 'binary_semantic'
+                elif result.method == 0x01:
+                    method_name = 'auralite'
+                elif result.method == 0x02:
+                    method_name = 'brio'
+                elif result.method == 0x03:
+                    method_name = 'aura_lite'
+                elif result.method == 0x10:
+                    method_name = 'zlib'
+                elif result.method == 0x11:
+                    method_name = 'gzip'
+
+            metadata = {
+                'original_size': context.original_size,
+                'compressed_size': compressed_size,
+                'ratio': context.original_size / compressed_size if compressed_size else float('inf'),
+                'method': method_name,
+                'aura_heavy_method': result.method if hasattr(result, 'method') else 'unknown',
+            }
+
+            can_compress = len(payload) < context.original_size
+            return CompressionResult(payload, self.method, metadata, can_compress)
+
+        except Exception as e:
+            # Fallback to uncompressed
+            uncompressed = UncompressedStrategy()
+            return uncompressed.compress(context)
+
+
 def create_compression_strategies(
     template_service: Any,
     aura_lite_encoder: Any = None,
     aura_encoder: Any = None,
     tcp_brio_encoder: Any = None,
+    aura_heavy_compressor: Any = None,
     enable_aura: bool = True,
 ) -> List[CompressionStrategyInterface]:
     """
@@ -503,6 +576,10 @@ def create_compression_strategies(
     if enable_aura:
         strategies.append(BrioStrategy(aura_encoder, tcp_brio_encoder))
 
+    # AURA Heavy (hybrid semantic + traditional compression)
+    if aura_heavy_compressor:
+        strategies.append(AuraHeavyStrategy(aura_heavy_compressor))
+
     # AURA-Lite
     if aura_lite_encoder:
         strategies.append(AuraLiteStrategy(aura_lite_encoder))
@@ -511,7 +588,7 @@ def create_compression_strategies(
     if aura_lite_encoder:
         strategies.append(AuraliteStrategy(aura_lite_encoder))
 
-    # Standard compression fallbacks (always available)
+    # Standard compression methods - now included for competitive comparison
     strategies.append(GzipStrategy())
     strategies.append(Bz2Strategy())
     strategies.append(LzmaStrategy())

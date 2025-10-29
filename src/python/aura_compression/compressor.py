@@ -209,6 +209,10 @@ class ProductionHybridCompressor:
         # Initialize GPU service with templates
         self._gpu_service.initialize_for_templates(self.template_library)
 
+        # AURA Heavy compressor (hybrid semantic + traditional compression)
+        from .aura_heavy import AuraHeavy
+        self._aura_heavy_compressor = AuraHeavy(enable_aura=self.enable_aura)
+
         # Compression strategies (Phase 4)
         from .compression_strategy import create_compression_strategies
         self._compression_strategies = create_compression_strategies(
@@ -216,6 +220,7 @@ class ProductionHybridCompressor:
             aura_lite_encoder=self._aura_lite_encoder,
             aura_encoder=self._aura_encoder,
             tcp_brio_encoder=self._tcp_brio_encoder,
+            aura_heavy_compressor=self._aura_heavy_compressor,
             enable_aura=self.enable_aura,
         )
 
@@ -248,13 +253,13 @@ class ProductionHybridCompressor:
                 result = strategy.compress(context)
                 attempted_methods.append(result.metadata['method'])
 
-                # Only include candidates that actually compress
-                if result.can_compress:
-                    candidates.append((
-                        result.payload,
-                        result.method,
-                        result.metadata
-                    ))
+                # Include ALL compression candidates for competitive selection
+                # Don't filter by can_compress - let the selection logic decide
+                candidates.append((
+                    result.payload,
+                    result.method,
+                    result.metadata
+                ))
             except Exception:
                 # Strategy failed, continue to next
                 continue
@@ -706,24 +711,12 @@ class ProductionHybridCompressor:
         attempted_methods = [c[2]['method'] for c in candidates]
 
         # Check for effective compression (more intelligent than just "any compression helps")
-        # We want to use standard compression if:
-        # 1. No AURA method provides meaningful compression (>5% savings), OR
-        # 2. Standard compression provides significantly better compression (>20% better than best AURA method)
+        # Only use AURA methods - no standard compression fallback
 
-        aura_candidates = [c for c in valid_candidates if c[1] not in [CompressionMethod.GZIP, CompressionMethod.BZ2, CompressionMethod.LZMA, CompressionMethod.UNCOMPRESSED]]
-        standard_candidates = [c for c in valid_candidates if c[1] in [CompressionMethod.GZIP, CompressionMethod.BZ2, CompressionMethod.LZMA]]
+        aura_candidates = [c for c in valid_candidates if c[1] not in [CompressionMethod.UNCOMPRESSED]]
 
-        # Calculate compression effectiveness
+        # Calculate compression effectiveness for AURA methods only
         best_aura_ratio = max([c[2]['ratio'] for c in aura_candidates] + [1.0])
-        best_standard_ratio = max([c[2]['ratio'] for c in standard_candidates] + [1.0])
-
-        # Use standard compression if:
-        # - AURA methods don't compress well (<5% savings), OR
-        # - Standard compression is much better (>20% better ratio)
-        use_standard_fallback = (
-            best_aura_ratio < 1.05 or  # Less than 5% savings from AURA
-            best_standard_ratio > best_aura_ratio * 1.2  # Standard 20% better than AURA
-        )
 
         # Default selection to uncompressed for safety; branches below can override
         selected_payload, selected_method, selected_metadata = uncompressed_candidate
@@ -737,8 +730,13 @@ class ProductionHybridCompressor:
             if available_methods:
                 ml_prediction = self._ml_selector.predict_optimal_method(text, available_methods)
 
-                # Only override if confidence is high enough
-                if ml_prediction.confidence >= 0.8:
+                # Only override if confidence is high enough, but prefer AURA methods when available
+                # Don't override ML prediction if ANY AURA method is available (prioritize latency over compression ratio)
+                aura_methods_available = any(c[1] not in [CompressionMethod.UNCOMPRESSED]
+                                           for c in valid_candidates)
+                should_override = ml_prediction.confidence >= 0.8 and not aura_methods_available
+
+                if should_override:
                     # Find the candidate that matches the ML prediction
                     ml_candidate = next(
                         (c for c in valid_candidates if c[2]['method'] == ml_prediction.method),
@@ -753,69 +751,41 @@ class ProductionHybridCompressor:
                         ml_override = True
 
         if not ml_override:
-            if use_standard_fallback:
-                # Use standard compression when AURA methods don't perform well
-                standard_candidates = [c for c in valid_candidates if c[1] in [CompressionMethod.GZIP, CompressionMethod.BZ2, CompressionMethod.LZMA]]
-                if standard_candidates:
-                    # Sort by compression ratio (best first)
-                    standard_candidates.sort(key=lambda x: x[2]['ratio'])
-                    best_standard = standard_candidates[0]
-                    selected_payload, selected_method, selected_metadata = best_standard
-                    selected_metadata['reason'] = 'standard_compression_preferred'
-                else:
+            # COMPETITIVE MODE: Try all methods (AURA + standards) and pick the best compression ratio
+            all_candidates = [c for c in valid_candidates if c[1] != CompressionMethod.UNCOMPRESSED]
+
+            if all_candidates:
+                # Sort ALL methods by compression ratio (best first - highest ratio)
+                # This allows AURA methods to compete directly with standards like gzip, bz2, lzma
+                all_candidates.sort(key=lambda x: x[2]['ratio'], reverse=True)
+
+                # For very short messages, only use compression if it actually helps significantly
+                best_candidate = all_candidates[0]
+                best_ratio = best_candidate[2]['ratio']
+                original_size = best_candidate[2]['original_size']
+
+                # If message is very short (< 100 bytes) and best ratio < 1.1, don't compress
+                if original_size < 100 and best_ratio < 1.1:
                     selected_payload, selected_method, selected_metadata = uncompressed_candidate
-                    selected_metadata['reason'] = 'standard_compression_unavailable'
-
-            elif not use_standard_fallback:
-                # Priority 1: Use uncompressed if no compression method helps
-                selected_payload, selected_method, selected_metadata = uncompressed_candidate
-                selected_metadata['reason'] = 'no_compression_benefit'
-
-            # Priority 1.5: Template-heavy messages should favor Aura-Lite when it actually compresses
-            elif prefer_aura_lite:
-                selected_payload, selected_method, selected_metadata = aura_lite_candidate
-                selected_metadata['reason'] = 'template_heavy_preference'
-
-            # Priority 2: Binary Semantic (best for single template matches)
-            elif binary_candidate and len(binary_candidate[0]) < original_size:
-                selected_payload, selected_method, selected_metadata = binary_candidate
-
-            # Priority 3: BRIO (multi-template or full rANS)
-            elif brio_candidate and len(brio_candidate[0]) < original_size:
-                selected_payload, selected_method, selected_metadata = brio_candidate
-
-            # Priority 4: AURA-Lite (template+dictionary+literals)
-            elif aura_lite_candidate:
-                # Prefer AURA-Lite when available. Allow a tiny overhead (<= +1 byte)
-                aura_lite_payload, aura_lite_method, aura_lite_meta = aura_lite_candidate
-                if len(aura_lite_payload) < original_size:
-                    selected_payload, selected_method, selected_metadata = aura_lite_candidate
+                    selected_metadata['reason'] = 'compression_not_worthwhile_for_short_message'
                 else:
-                    aura_lite_meta.setdefault('reason', 'aura_lite_expanded')
+                    # Use the best compression method
+                    selected_payload, selected_method, selected_metadata = best_candidate
+                    selected_metadata['reason'] = 'competitive_selection_best_ratio'
 
-            # Priority 5: AuraLite (last resort - proprietary fallback compression)
-            elif auralite_candidate and len(auralite_candidate[0]) < original_size:
-                selected_payload, selected_method, selected_metadata = auralite_candidate
-                selected_metadata['reason'] = 'aura_methods_unavailable'
-
-            # Priority 6: Standard compression fallbacks (gzip, bz2, lzma)
+                # Log which type of method won (AURA vs standard)
+                is_aura_method = selected_method in [
+                    CompressionMethod.BINARY_SEMANTIC,
+                    CompressionMethod.AURALITE,
+                    CompressionMethod.BRIO,
+                    CompressionMethod.AURA_LITE
+                ]
+                selected_metadata['method_type'] = 'aura' if is_aura_method else 'standard'
+                selected_metadata['competing_methods_count'] = len(all_candidates)
             else:
-                # Find the best standard compression method
-                standard_candidates = []
-                for c in valid_candidates:
-                    if c[1] in [CompressionMethod.GZIP, CompressionMethod.BZ2, CompressionMethod.LZMA]:
-                        standard_candidates.append(c)
-
-                if standard_candidates:
-                    # Sort by compression ratio (best first)
-                    standard_candidates.sort(key=lambda x: x[2]['ratio'], reverse=True)
-                    best_standard = standard_candidates[0]
-                    selected_payload, selected_method, selected_metadata = best_standard
-                    selected_metadata['reason'] = 'standard_compression_fallback'
-                else:
-                    # Priority 7: Uncompressed (absolute safety fallback)
-                    selected_payload, selected_method, selected_metadata = uncompressed_candidate
-                    selected_metadata['reason'] = 'safety_fallback'
+                # No compression methods available or working - use uncompressed
+                selected_payload, selected_method, selected_metadata = uncompressed_candidate
+                selected_metadata['reason'] = 'no_methods_available'
 
         # Add attempted methods to metadata
         selected_metadata['attempted_methods'] = attempted_methods
@@ -1039,14 +1009,6 @@ class ProductionHybridCompressor:
             text = payload.decode('utf-8')
             if return_metadata:
                 meta = {'method': 'uncompressed', 'fast_path_candidate': False}
-                meta['semantic_sketch'] = self._generate_semantic_sketch(text, meta)
-                return text, meta
-            return text
-        elif method_byte == CompressionMethod.GZIP.value:
-            import gzip
-            text = gzip.decompress(payload).decode('utf-8')
-            if return_metadata:
-                meta = {'method': 'gzip', 'fast_path_candidate': False}
                 meta['semantic_sketch'] = self._generate_semantic_sketch(text, meta)
                 return text, meta
             return text

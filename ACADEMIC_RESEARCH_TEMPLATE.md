@@ -38,7 +38,7 @@ This template provides standardized references and links for the AURA (AI-Optimi
 pip install aura-compression
 
 # Node.js
-npm install @aura/compression
+npm install @aura-protocol/native
 
 # Docker
 docker run -p 8765:8765 aura/compression

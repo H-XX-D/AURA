@@ -21,7 +21,7 @@ pip install aura-compression
 
 ### One-Line Install (Node.js)
 ```bash
-npm install @aura/compression
+npm install @aura-protocol/native
 ```
 
 ### Docker (All-in-One)
@@ -89,19 +89,19 @@ conda install -c conda-forge aura-compression
 
 ## Node.js Installation
 
-### From NPM (Recommended)
+### From npm (Recommended)
 ```bash
 # Install latest stable version
-npm install @aura/compression
+npm install @aura-protocol/native
 
 # Install globally
-npm install -g @aura/compression
+npm install -g @aura-protocol/native
 
 # Install as dev dependency
-npm install --save-dev @aura/compression
+npm install --save-dev @aura-protocol/native
 
 # Install specific version
-npm install @aura/compression@1.0.0
+npm install @aura-protocol/native@0.1.0
 ```
 
 ### From Source (Development)
@@ -125,23 +125,23 @@ npm test
 
 ### Yarn Installation
 ```bash
-# Install with Yarn
-yarn add @aura/compression
+# Install latest stable version
+yarn add @aura-protocol/native
 
 # Install globally
-yarn global add @aura/compression
+yarn global add @aura-protocol/native
 
 # Install as dev dependency
-yarn add --dev @aura/compression
+yarn add --dev @aura-protocol/native
 ```
 
 ### PNPM Installation
 ```bash
-# Install with PNPM
-pnpm add @aura/compression
+# Install latest stable version
+pnpm add @aura-protocol/native
 
 # Install globally
-pnpm add -g @aura/compression
+pnpm add -g @aura-protocol/native
 ```
 
 ## Docker Installation
@@ -368,7 +368,7 @@ rm -rf node_modules package-lock.json
 npm install
 
 # Use pre-built binaries
-npm install @aura/compression --build-from-source=false
+npm install @aura-protocol/native --build-from-source=false
 ```
 
 #### Python Not Found

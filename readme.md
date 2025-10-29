@@ -60,7 +60,7 @@ AURA compression supports multiple installation methods for different use cases 
 | Method | Use Case | Command |
 |--------|----------|---------|
 | **Python Package** | Development/Production | `pip install aura-compression` |
-| **Node.js Package** | Web Applications | `npm install @aura/compression` |
+| **Node.js Package** | Web Applications | `npm install @aura-protocol/native` |
 | **Docker Image** | Containerized Deployment | `docker run -p 8765:8765 aura/compression` |
 | **Docker Compose** | Full-Stack Deployment | `docker-compose up` |
 
@@ -105,7 +105,7 @@ python setup.py build_ext --inplace
 
 #### From npm
 ```bash
-npm install @aura/compression
+npm install @aura-protocol/native
 ```
 
 #### Development Setup
@@ -126,7 +126,7 @@ npm test
 
 #### TypeScript Support
 ```typescript
-import { ProductionHybridCompressor } from '@aura/compression';
+import { ProductionHybridCompressor } from '@aura-protocol/native';
 
 const compressor = new ProductionHybridCompressor({ enableAura: true });
 const compressed = compressor.compress('Hello World');

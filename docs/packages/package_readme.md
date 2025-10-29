@@ -103,16 +103,16 @@ python -m build
 
 ```bash
 # Install from npm
-npm install @aura/compression
+npm install @aura-protocol/native
 
 # Or with yarn
-yarn add @aura/compression
+yarn add @aura-protocol/native
 ```
 
 ### Quick Start
 
 ```typescript
-import { Compressor, CompressionMethod } from '@aura/compression';
+import { Compressor, CompressionMethod } from '@aura-protocol/native';
 
 // Initialize compressor
 const compressor = new Compressor({
@@ -137,7 +137,7 @@ console.assert(decompressed === text);
 ### Client/Server SDKs
 
 ```typescript
-import { ClientSDK, ServerSDK } from '@aura/compression';
+import { ClientSDK, ServerSDK } from '@aura-protocol/native';
 
 // Client SDK
 const client = new ClientSDK({

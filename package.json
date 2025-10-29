@@ -2,8 +2,8 @@
   "name": "@aura/compression",
   "version": "1.0.0",
   "description": "AI-Optimized Hybrid Compression Protocol for Real-Time Communication",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "tools/packages/aura-node-native/index.js",
+  "types": "tools/packages/aura-node-native/index.d.ts",
   "files": [
     "lib/**/*",
     "native/**/*",
@@ -11,7 +11,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && node scripts/build-native.js",
+    "build": "cd tools/packages/aura-node-native && npm run build",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "lint": "eslint . --ext .ts,.js",

@@ -144,6 +144,8 @@ def test_compression_auditor_chain_and_metrics(tmp_path: Path) -> None:
     assert metrics["binary_semantic"]["total_bytes_out"] == 85
     assert metrics["binary_semantic"]["avg_ratio"] == pytest.approx((4.0 + 3.0) / 2)
 
+    auditor.close()
+
 
 def test_full_system_conversation_flow(tmp_path: Path, template_text: tuple[str, int, list[str]]) -> None:
     reset_audit_logger()
@@ -215,3 +217,5 @@ def test_full_system_conversation_flow(tmp_path: Path, template_text: tuple[str,
     metrics = auditor.db.aggregate_metrics(start, end)
     assert metrics
     assert any(details["operations"] >= 1 for details in metrics.values())
+
+    auditor.close()

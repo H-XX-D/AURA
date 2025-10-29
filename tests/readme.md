@@ -1,53 +1,276 @@
-# 07-TESTS: Test Suite
+# AURA Compression Test Framework
 
-This directory contains the comprehensive test suite for AURA.
+A comprehensive testing framework for the AURA compression system with unit tests, benchmarks, integration tests, and performance monitoring.
 
----
+## Overview
 
-## Test Organization
+This test framework provides:
 
-### Unit Tests
-- `test_core_functionality.py` - Core compression/decompression
-- `test_metadata.py` - Metadata parsing and classification
-- `test_templates.py` - Template matching and substitution
-- `test_conversation_tracking.py` - Conversation acceleration
+- **Unit Tests**: Individual component testing
+- **Integration Tests**: End-to-end workflow testing
+- **Benchmarks**: Performance measurements and regression detection
+- **Data Generators**: Realistic test data for various scenarios
+- **Test Runner**: Unified execution of all test suites
 
-### Integration Tests
-- `test_real_world_scenarios.py` - Real AI conversations
-- `test_streaming_integration.py` - WebSocket streaming
-- `test_client_server_integration.py` - End-to-end communication
+## Directory Structure
 
-### Compliance Tests
-- `test_audit_logging.py` - 4-log audit architecture
-- `test_gdpr_compliance.py` - GDPR requirements
-- `test_content_safety.py` - Content moderation
-
-### Performance Tests
-- `test_compression_benchmarks.py` - Compression ratio benchmarks
-- `test_speed_benchmarks.py` - Processing speed
-- `test_discovery_working.py` - Template discovery validation
-
----
-
-## Running Tests
-
-### All Tests
-```bash
-cd 07-TESTS
-pytest
+```
+tests/
+├── unit/                          # Unit tests for individual components
+│   └── test_compressor.py        # Core compressor tests
+├── integration/                   # Integration and end-to-end tests
+│   └── test_end_to_end.py        # Full workflow tests
+├── performance/                   # Performance test results (auto-generated)
+├── test_data_generator.py         # Test data generators
+├── test_framework.py             # Benchmark framework
+├── test_runner.py                # Main test runner
+└── test_*.py                     # Legacy test files
 ```
 
-### Specific Test File
+## Quick Start
+
+### Run All Tests
 ```bash
-pytest test_core_functionality.py -v
+# Activate virtual environment (if using one)
+source venv/bin/activate
+
+# Run complete test suite
+python test_runner.py --all
+
+# Run with custom benchmark iterations
+python test_runner.py --all --iterations 50
 ```
 
-### Specific Test
+### Run Specific Test Types
 ```bash
-pytest test_core_functionality.py::test_template_compression -v
+# Unit tests only
+python test_runner.py --unit
+
+# Benchmarks only
+python test_runner.py --benchmark --iterations 20
+
+# Integration tests only
+python test_runner.py --integration
+
+# Comprehensive data tests
+python test_runner.py --data
 ```
 
-### With Coverage
+### Run Benchmarks Separately
+```bash
+# Run benchmark framework directly
+python test_framework.py --benchmark --iterations 10
+```
+
+## Test Components
+
+### Unit Tests (`tests/unit/`)
+
+Test individual components in isolation:
+
+- **Compressor Tests**: Core compression/decompression functionality
+- **Data Integrity**: Round-trip verification
+- **Error Handling**: Invalid input handling
+- **Unicode Support**: International character handling
+
+### Integration Tests (`tests/integration/`)
+
+Test component interactions and workflows:
+
+- **End-to-End Compression**: Complete compression pipelines
+- **API Workflows**: Realistic API response compression
+- **WebSocket Messages**: Real-time message compression
+- **Batch Processing**: Multiple message handling
+
+### Benchmarks (`test_framework.py`)
+
+Performance measurements:
+
+- **Compression Speed**: MB/s throughput
+- **Compression Ratio**: Size reduction percentage
+- **Memory Usage**: Peak memory consumption
+- **Latency**: Response time percentiles
+
+### Data Generators (`test_data_generator.py`)
+
+Generate realistic test data:
+
+- **API Responses**: JSON API data
+- **Log Entries**: Server log messages
+- **Chat Messages**: Real-time chat data
+- **Structured Data**: Database records
+- **Random Text**: Variable-length text
+
+## Performance Monitoring
+
+The framework includes automatic performance regression detection:
+
+- **Baseline Tracking**: Stores performance baselines in `performance_baseline.json`
+- **Regression Alerts**: Detects significant performance changes
+- **Improvement Tracking**: Identifies performance improvements
+- **Historical Comparison**: Compares against previous runs
+
+## Configuration
+
+### Benchmark Configuration
+
+```python
+# In test_framework.py
+class CompressorBenchmark:
+    def __init__(self):
+        self.test_data = [
+            # Customize test data
+            TestDataGenerator.generate_api_response('small'),
+            TestDataGenerator.generate_log_entry('large'),
+            # Add custom test cases
+        ]
+```
+
+### Performance Thresholds
+
+```python
+# In test_data_generator.py
+baseline.update_baseline("compression", "speed_mbps", value, threshold=0.1)  # 10% threshold
+```
+
+## Output Files
+
+- `benchmark_results.json`: Detailed benchmark metrics
+- `test_results.json`: Complete test suite results
+- `performance_baseline.json`: Performance baselines for regression detection
+
+## Example Output
+
+```
+🚀 AURA Compression - Complete Test Suite
+============================================================
+
+🧪 Running Unit Tests
+==================================================
+Running tests/unit/test_compressor.py...
+  ✅ tests/unit/test_compressor.py passed
+
+🔗 Running Integration Tests
+==================================================
+Running tests/integration/test_end_to_end.py...
+  ✅ tests/integration/test_end_to_end.py passed
+
+📊 Running Benchmarks (10 iterations)
+==================================================
+Running compressor benchmark...
+  ✅ compressor: 9 metrics collected
+  🔍 Checking for performance regressions...
+  ✅ No performance regressions detected
+
+📋 Running Comprehensive Data Tests
+==================================================
+Testing api_responses (50 messages)...
+  Success rate: 100.0%
+...
+  Overall success rate: 100.0%
+
+================================================================================
+# AURA Compression Test Suite Report
+Generated: 2025-10-27 22:45:03
+
+## Overall Status
+- Unit Tests: ✅ PASS
+- Integration Tests: ✅ PASS
+- Benchmarks: ✅ PASS
+- Data Tests: ✅ PASS
+================================================================================
+
+🎉 All tests passed successfully!
+```
+
+## Benchmark Metrics
+
+The framework measures:
+
+| Metric | Description | Unit |
+|--------|-------------|------|
+| `compression_time_ms` | Time to compress data | milliseconds |
+| `compression_ratio` | Compressed/original size | ratio (e.g., 0.8 = 80%) |
+| `compression_speed_mbps` | Compression throughput | MB/s |
+| `decompression_speed_mbps` | Decompression throughput | MB/s |
+| `memory_usage_mb` | Peak memory usage | MB |
+| `latency_ms` | End-to-end latency | milliseconds |
+
+## Extending the Framework
+
+### Adding New Unit Tests
+
+1. Create `tests/unit/test_your_component.py`
+2. Inherit from `unittest.TestCase`
+3. Add test methods following the pattern `test_*`
+
+### Adding New Benchmarks
+
+1. Create a new benchmark class inheriting from `BenchmarkTest`
+2. Implement `setup()`, `run()`, and `teardown()` methods
+3. Add to `TestRunner.benchmarks` dictionary
+
+### Adding New Test Data
+
+1. Extend `TestDataGenerator` with new static methods
+2. Add to `generate_compression_test_suite()` for automatic inclusion
+
+## CI/CD Integration
+
+Add to your CI pipeline:
+
+```yaml
+# GitHub Actions example
+- name: Run AURA Tests
+  run: |
+    source venv/bin/activate
+    python test_runner.py --all --iterations 20
+
+- name: Check Performance Regression
+  run: |
+    # Check if performance_checks show regressions
+    python -c "
+    import json
+    with open('test_results.json') as f:
+        results = json.load(f)
+    regressions = results['performance_checks']['regressions']
+    if regressions:
+        print(f'🚨 Performance regressions detected: {len(regressions)}')
+        for reg in regressions:
+            print(f'  - {reg[\"test\"]}: {reg[\"message\"]}')
+        exit(1)
+    else:
+        print('✅ No performance regressions')
+    "
+```
+
+## Troubleshooting
+
+### Import Errors
+Ensure the virtual environment is activated and PYTHONPATH is set:
+```bash
+source venv/bin/activate
+PYTHONPATH=/path/to/aura/src/python python test_runner.py
+```
+
+### Performance Baselines
+Delete `performance_baseline.json` to reset baselines:
+```bash
+rm performance_baseline.json
+```
+
+### Test Failures
+Check detailed results in `test_results.json` for specific error messages.
+
+## Contributing
+
+When adding new tests:
+
+1. Follow existing naming conventions
+2. Add comprehensive docstrings
+3. Include edge cases and error conditions
+4. Update this README if adding new functionality
+5. Ensure tests pass in CI/CD pipeline
 ```bash
 pytest --cov=aura_compression --cov-report=html
 ```
@@ -400,7 +623,7 @@ pytest test_regression.py
 ### Generating Test Data
 
 ```bash
-python scripts/generate_test_data.py --count 1000
+python tools/scripts/generate_test_data.py --count 1000
 ```
 
 ---

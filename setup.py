@@ -27,7 +27,8 @@ setup(
         "Documentation": "https://github.com/hendrixx-cnc/AURA/blob/main/docs/technical/DEVELOPER_GUIDE.md",
         "Source Code": "https://github.com/hendrixx-cnc/AURA",
     },
-    packages=find_packages(exclude=["tests", "archive", "docs", "examples"]),
+    package_dir={"": "src/python"},
+    packages=find_packages(where="src/python", exclude=["tests", "archive", "docs", "examples"]),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

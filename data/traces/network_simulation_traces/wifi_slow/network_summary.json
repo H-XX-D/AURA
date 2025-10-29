@@ -1,0 +1,22 @@
+{
+  "network_type": "wifi_slow",
+  "total_entries": 60,
+  "total_users": 3,
+  "compression_methods": {
+    "UNCOMPRESSED": 57,
+    "AURA_LITE": 3
+  },
+  "avg_compression_ratio": 0.9779706114555855,
+  "avg_compression_latency_ms": 0.008308887481689453,
+  "avg_network_latency_ms": 56.22943346857463,
+  "avg_end_to_end_latency_ms": 56.23774235605632,
+  "min_end_to_end_latency_ms": 30.198491875366294,
+  "max_end_to_end_latency_ms": 374.30351885777907,
+  "network_profile": {
+    "bandwidth_mbps": 25.0,
+    "base_latency_ms": 25.0,
+    "jitter_ms": 10.0,
+    "packet_loss_rate": 0.005
+  },
+  "protocol_type": "websocket"
+}

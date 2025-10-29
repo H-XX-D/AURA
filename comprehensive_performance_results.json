@@ -1,0 +1,597 @@
+{
+  "datasets": {
+    "chat_messages": {
+      "aura": {
+        "total_original_bytes": 464,
+        "total_compressed_bytes": 469,
+        "compression_ratio": 0.9893390191897654,
+        "bandwidth_savings_percent": -1.0660980810234588,
+        "total_time_seconds": 0.010311126708984375,
+        "avg_compression_time_ms": 0.5146145820617676,
+        "throughput_msg_per_sec": 1939.6522382537921,
+        "throughput_mbps": 0.3599994554199038,
+        "method_distribution": {
+          "UNCOMPRESSED": 17,
+          "AURA_LITE": 3
+        },
+        "expansion_cases": 17
+      },
+      "gzip": {
+        "total_original_bytes": 464,
+        "total_compressed_bytes": 863,
+        "compression_ratio": 0.5376593279258401,
+        "bandwidth_savings_percent": -46.23406720741598,
+        "total_time_seconds": 0.00015282630920410156,
+        "avg_compression_time_ms": 0.007319450378417969,
+        "throughput_msg_per_sec": 130867.51950078004,
+        "throughput_mbps": 24.289011619344773,
+        "expansion_cases": 20
+      },
+      "bz2": {
+        "total_original_bytes": 464,
+        "total_compressed_bytes": 1209,
+        "compression_ratio": 0.3837882547559967,
+        "bandwidth_savings_percent": -61.621174524400324,
+        "total_time_seconds": 0.00023031234741210938,
+        "avg_compression_time_ms": 0.011265277862548828,
+        "throughput_msg_per_sec": 86838.59213250517,
+        "throughput_mbps": 16.11724269979296,
+        "expansion_cases": 20
+      },
+      "lzma": {
+        "total_original_bytes": 464,
+        "total_compressed_bytes": 1620,
+        "compression_ratio": 0.28641975308641976,
+        "bandwidth_savings_percent": -71.35802469135803,
+        "total_time_seconds": 0.003281116485595703,
+        "avg_compression_time_ms": 0.16362667083740234,
+        "throughput_msg_per_sec": 6095.486121203314,
+        "throughput_mbps": 1.131322224095335,
+        "expansion_cases": 20
+      }
+    },
+    "api_responses": {
+      "aura": {
+        "total_original_bytes": 624,
+        "total_compressed_bytes": 625,
+        "compression_ratio": 0.9984,
+        "bandwidth_savings_percent": -0.16000000000000458,
+        "total_time_seconds": 0.004088163375854492,
+        "avg_compression_time_ms": 0.5829334259033203,
+        "throughput_msg_per_sec": 1712.2603370852044,
+        "throughput_mbps": 1.2210862289613342,
+        "method_distribution": {
+          "UNCOMPRESSED": 6,
+          "AURA_LITE": 1
+        },
+        "expansion_cases": 6
+      },
+      "gzip": {
+        "total_original_bytes": 624,
+        "total_compressed_bytes": 672,
+        "compression_ratio": 0.9285714285714286,
+        "bandwidth_savings_percent": -7.14285714285714,
+        "total_time_seconds": 8.20159912109375e-05,
+        "avg_compression_time_ms": 0.01141003199986049,
+        "throughput_msg_per_sec": 85349.20930232559,
+        "throughput_mbps": 60.86617897674419,
+        "expansion_cases": 6
+      },
+      "bz2": {
+        "total_original_bytes": 624,
+        "total_compressed_bytes": 755,
+        "compression_ratio": 0.8264900662251655,
+        "bandwidth_savings_percent": -17.350993377483448,
+        "total_time_seconds": 0.00014495849609375,
+        "avg_compression_time_ms": 0.020435878208705356,
+        "throughput_msg_per_sec": 48289.68421052631,
+        "throughput_mbps": 34.43744336842105,
+        "expansion_cases": 7
+      },
+      "lzma": {
+        "total_original_bytes": 624,
+        "total_compressed_bytes": 976,
+        "compression_ratio": 0.639344262295082,
+        "bandwidth_savings_percent": -36.065573770491795,
+        "total_time_seconds": 0.0011067390441894531,
+        "avg_compression_time_ms": 0.15783309936523438,
+        "throughput_msg_per_sec": 6324.887548470487,
+        "throughput_mbps": 4.510548377423524,
+        "expansion_cases": 7
+      }
+    },
+    "log_entries": {
+      "aura": {
+        "total_original_bytes": 1715,
+        "total_compressed_bytes": 1735,
+        "compression_ratio": 0.9884726224783862,
+        "bandwidth_savings_percent": -1.1527377521613813,
+        "total_time_seconds": 0.010122299194335938,
+        "avg_compression_time_ms": 0.5054235458374023,
+        "throughput_msg_per_sec": 1975.8356887130205,
+        "throughput_mbps": 1.355423282457132,
+        "method_distribution": {
+          "UNCOMPRESSED": 20
+        },
+        "expansion_cases": 20
+      },
+      "gzip": {
+        "total_original_bytes": 1715,
+        "total_compressed_bytes": 2024,
+        "compression_ratio": 0.8473320158102767,
+        "bandwidth_savings_percent": -15.266798418972327,
+        "total_time_seconds": 0.00023102760314941406,
+        "avg_compression_time_ms": 0.011348724365234375,
+        "throughput_msg_per_sec": 86569.74200206398,
+        "throughput_mbps": 59.38684301341589,
+        "expansion_cases": 20
+      },
+      "bz2": {
+        "total_original_bytes": 1715,
+        "total_compressed_bytes": 2322,
+        "compression_ratio": 0.7385874246339362,
+        "bandwidth_savings_percent": -26.14125753660638,
+        "total_time_seconds": 0.00040602684020996094,
+        "avg_compression_time_ms": 0.020003318786621094,
+        "throughput_msg_per_sec": 49257.827363476215,
+        "throughput_mbps": 33.790869571344686,
+        "expansion_cases": 20
+      },
+      "lzma": {
+        "total_original_bytes": 1715,
+        "total_compressed_bytes": 2880,
+        "compression_ratio": 0.5954861111111112,
+        "bandwidth_savings_percent": -40.451388888888886,
+        "total_time_seconds": 0.003278970718383789,
+        "avg_compression_time_ms": 0.16324520111083984,
+        "throughput_msg_per_sec": 6099.4750236312075,
+        "throughput_mbps": 4.1842398662110085,
+        "expansion_cases": 20
+      }
+    },
+    "emails": {
+      "aura": {
+        "total_original_bytes": 649,
+        "total_compressed_bytes": 533,
+        "compression_ratio": 1.2176360225140712,
+        "bandwidth_savings_percent": 21.76360225140712,
+        "total_time_seconds": 0.0037081241607666016,
+        "avg_compression_time_ms": 1.2331008911132812,
+        "throughput_msg_per_sec": 809.0343985083264,
+        "throughput_mbps": 1.4001688656850768,
+        "method_distribution": {
+          "GZIP": 3
+        },
+        "expansion_cases": 0
+      },
+      "gzip": {
+        "total_original_bytes": 649,
+        "total_compressed_bytes": 530,
+        "compression_ratio": 1.2245283018867925,
+        "bandwidth_savings_percent": 22.45283018867925,
+        "total_time_seconds": 0.00028896331787109375,
+        "avg_compression_time_ms": 0.09632110595703125,
+        "throughput_msg_per_sec": 10381.940594059406,
+        "throughput_mbps": 17.967678521452143,
+        "expansion_cases": 0
+      },
+      "bz2": {
+        "total_original_bytes": 649,
+        "total_compressed_bytes": 613,
+        "compression_ratio": 1.0587275693311582,
+        "bandwidth_savings_percent": 5.872756933115819,
+        "total_time_seconds": 0.0001289844512939453,
+        "avg_compression_time_ms": 0.04267692565917969,
+        "throughput_msg_per_sec": 23258.617375231053,
+        "throughput_mbps": 40.25291380406654,
+        "expansion_cases": 1
+      },
+      "lzma": {
+        "total_original_bytes": 649,
+        "total_compressed_bytes": 700,
+        "compression_ratio": 0.9271428571428572,
+        "bandwidth_savings_percent": -7.285714285714285,
+        "total_time_seconds": 0.0005052089691162109,
+        "avg_compression_time_ms": 0.16808509826660156,
+        "throughput_msg_per_sec": 5938.136857008023,
+        "throughput_mbps": 10.27693552052855,
+        "expansion_cases": 3
+      }
+    },
+    "iot_data": {
+      "aura": {
+        "total_original_bytes": 449,
+        "total_compressed_bytes": 449,
+        "compression_ratio": 1.0,
+        "bandwidth_savings_percent": 0.0,
+        "total_time_seconds": 0.003101348876953125,
+        "avg_compression_time_ms": 0.7739663124084473,
+        "throughput_msg_per_sec": 1289.7613776137762,
+        "throughput_mbps": 1.1582057170971711,
+        "method_distribution": {
+          "UNCOMPRESSED": 3,
+          "GZIP": 1
+        },
+        "expansion_cases": 3
+      },
+      "gzip": {
+        "total_original_bytes": 449,
+        "total_compressed_bytes": 456,
+        "compression_ratio": 0.9846491228070176,
+        "bandwidth_savings_percent": -1.5350877192982448,
+        "total_time_seconds": 5.817413330078125e-05,
+        "avg_compression_time_ms": 0.01424551010131836,
+        "throughput_msg_per_sec": 68759.08196721312,
+        "throughput_mbps": 61.74565560655738,
+        "expansion_cases": 3
+      },
+      "bz2": {
+        "total_original_bytes": 449,
+        "total_compressed_bytes": 498,
+        "compression_ratio": 0.9016064257028112,
+        "bandwidth_savings_percent": -9.839357429718875,
+        "total_time_seconds": 0.00010800361633300781,
+        "avg_compression_time_ms": 0.026464462280273438,
+        "throughput_msg_per_sec": 37035.796909492274,
+        "throughput_mbps": 33.258145624724065,
+        "expansion_cases": 4
+      },
+      "lzma": {
+        "total_original_bytes": 449,
+        "total_compressed_bytes": 640,
+        "compression_ratio": 0.7015625,
+        "bandwidth_savings_percent": -29.843750000000004,
+        "total_time_seconds": 0.0006699562072753906,
+        "avg_compression_time_ms": 0.1671910285949707,
+        "throughput_msg_per_sec": 5970.53950177936,
+        "throughput_mbps": 5.361544472597865,
+        "expansion_cases": 4
+      }
+    },
+    "repetitive": {
+      "aura": {
+        "total_original_bytes": 1495,
+        "total_compressed_bytes": 195,
+        "compression_ratio": 7.666666666666667,
+        "bandwidth_savings_percent": 666.6666666666667,
+        "total_time_seconds": 0.005621910095214844,
+        "avg_compression_time_ms": 1.1225223541259766,
+        "throughput_msg_per_sec": 889.3774385072095,
+        "throughput_mbps": 2.1273908329092452,
+        "method_distribution": {
+          "GZIP": 5
+        },
+        "expansion_cases": 0
+      },
+      "gzip": {
+        "total_original_bytes": 1495,
+        "total_compressed_bytes": 190,
+        "compression_ratio": 7.868421052631579,
+        "bandwidth_savings_percent": 686.8421052631579,
+        "total_time_seconds": 5.7220458984375e-05,
+        "avg_compression_time_ms": 0.0110626220703125,
+        "throughput_msg_per_sec": 87381.33333333333,
+        "throughput_mbps": 209.01614933333335,
+        "expansion_cases": 0
+      },
+      "bz2": {
+        "total_original_bytes": 1495,
+        "total_compressed_bytes": 314,
+        "compression_ratio": 4.761146496815287,
+        "bandwidth_savings_percent": 376.1146496815287,
+        "total_time_seconds": 0.0001251697540283203,
+        "avg_compression_time_ms": 0.024175643920898438,
+        "throughput_msg_per_sec": 39945.752380952385,
+        "throughput_mbps": 95.55023969523809,
+        "expansion_cases": 0
+      },
+      "lzma": {
+        "total_original_bytes": 1495,
+        "total_compressed_bytes": 424,
+        "compression_ratio": 3.525943396226415,
+        "bandwidth_savings_percent": 252.5943396226415,
+        "total_time_seconds": 0.0008859634399414062,
+        "avg_compression_time_ms": 0.1620769500732422,
+        "throughput_msg_per_sec": 5643.573735199139,
+        "throughput_mbps": 13.49942837459634,
+        "expansion_cases": 0
+      }
+    }
+  },
+  "size_scaling": {
+    "tiny": {
+      "aura": {
+        "total_original_bytes": 490,
+        "total_compressed_bytes": 510,
+        "compression_ratio": 0.9607843137254902,
+        "bandwidth_savings_percent": -3.9215686274509776,
+        "total_time_seconds": 0.0067861080169677734,
+        "avg_compression_time_ms": 0.33856630325317383,
+        "throughput_msg_per_sec": 2947.197414186839,
+        "throughput_mbps": 0.5776506931806205,
+        "method_distribution": {
+          "UNCOMPRESSED": 20
+        },
+        "expansion_cases": 20
+      },
+      "gzip": {
+        "total_original_bytes": 490,
+        "total_compressed_bytes": 890,
+        "compression_ratio": 0.550561797752809,
+        "bandwidth_savings_percent": -44.9438202247191,
+        "total_time_seconds": 0.0001380443572998047,
+        "avg_compression_time_ms": 0.006747245788574219,
+        "throughput_msg_per_sec": 144880.96718480138,
+        "throughput_mbps": 28.39666956822107,
+        "expansion_cases": 20
+      },
+      "bz2": {
+        "total_original_bytes": 490,
+        "total_compressed_bytes": 1258,
+        "compression_ratio": 0.38950715421303655,
+        "bandwidth_savings_percent": -61.04928457869634,
+        "total_time_seconds": 0.00019979476928710938,
+        "avg_compression_time_ms": 0.009906291961669922,
+        "throughput_msg_per_sec": 100102.72076372315,
+        "throughput_mbps": 19.620133269689738,
+        "expansion_cases": 20
+      },
+      "lzma": {
+        "total_original_bytes": 490,
+        "total_compressed_bytes": 1640,
+        "compression_ratio": 0.29878048780487804,
+        "bandwidth_savings_percent": -70.1219512195122,
+        "total_time_seconds": 0.003298044204711914,
+        "avg_compression_time_ms": 0.16480684280395508,
+        "throughput_msg_per_sec": 6064.200101207258,
+        "throughput_mbps": 1.1885832198366226,
+        "expansion_cases": 20
+      }
+    },
+    "small": {
+      "aura": {
+        "total_original_bytes": 2410,
+        "total_compressed_bytes": 1170,
+        "compression_ratio": 2.0598290598290596,
+        "bandwidth_savings_percent": 105.98290598290596,
+        "total_time_seconds": 0.016370058059692383,
+        "avg_compression_time_ms": 0.817418098449707,
+        "throughput_msg_per_sec": 1221.7427651796509,
+        "throughput_mbps": 1.1777600256331833,
+        "method_distribution": {
+          "GZIP": 20
+        },
+        "expansion_cases": 0
+      },
+      "gzip": {
+        "total_original_bytes": 2410,
+        "total_compressed_bytes": 1150,
+        "compression_ratio": 2.0956521739130434,
+        "bandwidth_savings_percent": 109.56521739130434,
+        "total_time_seconds": 0.00013709068298339844,
+        "avg_compression_time_ms": 0.006616115570068359,
+        "throughput_msg_per_sec": 145888.8347826087,
+        "throughput_mbps": 140.63683673043477,
+        "expansion_cases": 0
+      },
+      "bz2": {
+        "total_original_bytes": 2410,
+        "total_compressed_bytes": 1706,
+        "compression_ratio": 1.4126611957796014,
+        "bandwidth_savings_percent": 41.26611957796014,
+        "total_time_seconds": 0.0002989768981933594,
+        "avg_compression_time_ms": 0.014698505401611328,
+        "throughput_msg_per_sec": 66894.80063795853,
+        "throughput_mbps": 64.48658781499202,
+        "expansion_cases": 0
+      },
+      "lzma": {
+        "total_original_bytes": 2410,
+        "total_compressed_bytes": 2080,
+        "compression_ratio": 1.1586538461538463,
+        "bandwidth_savings_percent": 15.865384615384626,
+        "total_time_seconds": 0.003206968307495117,
+        "avg_compression_time_ms": 0.15990734100341797,
+        "throughput_msg_per_sec": 6236.419597055981,
+        "throughput_mbps": 6.011908491561965,
+        "expansion_cases": 0
+      }
+    },
+    "medium": {
+      "aura": {
+        "total_original_bytes": 21310,
+        "total_compressed_bytes": 1290,
+        "compression_ratio": 16.51937984496124,
+        "bandwidth_savings_percent": 1551.937984496124,
+        "total_time_seconds": 0.052285194396972656,
+        "avg_compression_time_ms": 2.61305570602417,
+        "throughput_msg_per_sec": 382.5174646602827,
+        "throughput_mbps": 3.2605788687642496,
+        "method_distribution": {
+          "GZIP": 20
+        },
+        "expansion_cases": 0
+      },
+      "gzip": {
+        "total_original_bytes": 21310,
+        "total_compressed_bytes": 1270,
+        "compression_ratio": 16.77952755905512,
+        "bandwidth_savings_percent": 1577.9527559055118,
+        "total_time_seconds": 0.0001659393310546875,
+        "avg_compression_time_ms": 0.008034706115722656,
+        "throughput_msg_per_sec": 120525.97701149425,
+        "throughput_mbps": 1027.363428045977,
+        "expansion_cases": 0
+      },
+      "bz2": {
+        "total_original_bytes": 21310,
+        "total_compressed_bytes": 1947,
+        "compression_ratio": 10.945043656908064,
+        "bandwidth_savings_percent": 994.5043656908064,
+        "total_time_seconds": 0.0012080669403076172,
+        "avg_compression_time_ms": 0.060117244720458984,
+        "throughput_msg_per_sec": 16555.373988553383,
+        "throughput_mbps": 141.11800787842904,
+        "expansion_cases": 0
+      },
+      "lzma": {
+        "total_original_bytes": 21310,
+        "total_compressed_bytes": 2240,
+        "compression_ratio": 9.513392857142858,
+        "bandwidth_savings_percent": 851.3392857142858,
+        "total_time_seconds": 0.0032930374145507812,
+        "avg_compression_time_ms": 0.1643061637878418,
+        "throughput_msg_per_sec": 6073.4202143064,
+        "throughput_mbps": 51.769833906747756,
+        "expansion_cases": 0
+      }
+    },
+    "large": {
+      "aura": {
+        "total_original_bytes": 210310,
+        "total_compressed_bytes": 1954,
+        "compression_ratio": 107.63050153531218,
+        "bandwidth_savings_percent": 10663.050153531218,
+        "total_time_seconds": 0.5613648891448975,
+        "avg_compression_time_ms": 28.066468238830566,
+        "throughput_msg_per_sec": 35.62745085547677,
+        "throughput_mbps": 2.9971236757661277,
+        "method_distribution": {
+          "GZIP": 20
+        },
+        "expansion_cases": 0
+      },
+      "gzip": {
+        "total_original_bytes": 210310,
+        "total_compressed_bytes": 1934,
+        "compression_ratio": 108.7435367114788,
+        "bandwidth_savings_percent": 10774.35367114788,
+        "total_time_seconds": 0.0004849433898925781,
+        "avg_compression_time_ms": 0.023448467254638672,
+        "throughput_msg_per_sec": 41241.92723697148,
+        "throughput_mbps": 3469.435886882989,
+        "expansion_cases": 0
+      },
+      "bz2": {
+        "total_original_bytes": 210310,
+        "total_compressed_bytes": 2146,
+        "compression_ratio": 98.0009319664492,
+        "bandwidth_savings_percent": 9700.09319664492,
+        "total_time_seconds": 0.023686885833740234,
+        "avg_compression_time_ms": 1.1834025382995605,
+        "throughput_msg_per_sec": 844.3490689481631,
+        "throughput_mbps": 71.03002107619527,
+        "expansion_cases": 0
+      },
+      "lzma": {
+        "total_original_bytes": 210310,
+        "total_compressed_bytes": 2920,
+        "compression_ratio": 72.02397260273973,
+        "bandwidth_savings_percent": 7102.397260273973,
+        "total_time_seconds": 0.004582881927490234,
+        "avg_compression_time_ms": 0.22792816162109375,
+        "throughput_msg_per_sec": 4364.066174175424,
+        "throughput_mbps": 367.12270283633336,
+        "expansion_cases": 0
+      }
+    }
+  },
+  "network_conditions": {
+    "dialup": {
+      "compression_results": {
+        "total_original_bytes": 4640,
+        "total_compressed_bytes": 4690,
+        "compression_ratio": 0.9893390191897654,
+        "bandwidth_savings_percent": -1.0660980810234588,
+        "total_time_seconds": 0.062487125396728516,
+        "avg_compression_time_ms": 0.3118288516998291,
+        "throughput_msg_per_sec": 3200.6593155023083,
+        "throughput_mbps": 0.5940423689572284,
+        "method_distribution": {
+          "UNCOMPRESSED": 170,
+          "AURA_LITE": 30
+        },
+        "expansion_cases": 170
+      },
+      "original_transmission_seconds": 0.6628571428571428,
+      "compressed_transmission_seconds": 0.67,
+      "latency_overhead_seconds": 40.0,
+      "retransmission_overhead_seconds": 0.06628571428571428,
+      "total_original_time_seconds": 40.729142857142854,
+      "total_compressed_time_seconds": 40.736285714285714,
+      "time_savings_percent": -1.0775862068965647
+    },
+    "dsl": {
+      "compression_results": {
+        "total_original_bytes": 4640,
+        "total_compressed_bytes": 4690,
+        "compression_ratio": 0.9893390191897654,
+        "bandwidth_savings_percent": -1.0660980810234588,
+        "total_time_seconds": 0.060585975646972656,
+        "avg_compression_time_ms": 0.3023397922515869,
+        "throughput_msg_per_sec": 3301.093988572148,
+        "throughput_mbps": 0.6126830442789907,
+        "method_distribution": {
+          "UNCOMPRESSED": 170,
+          "AURA_LITE": 30
+        },
+        "expansion_cases": 170
+      },
+      "original_transmission_seconds": 0.03712,
+      "compressed_transmission_seconds": 0.037520000000000005,
+      "latency_overhead_seconds": 10.0,
+      "retransmission_overhead_seconds": 0.0007424,
+      "total_original_time_seconds": 10.0378624,
+      "total_compressed_time_seconds": 10.0382624,
+      "time_savings_percent": -1.077586206896564
+    },
+    "cable": {
+      "compression_results": {
+        "total_original_bytes": 4640,
+        "total_compressed_bytes": 4690,
+        "compression_ratio": 0.9893390191897654,
+        "bandwidth_savings_percent": -1.0660980810234588,
+        "total_time_seconds": 0.06018400192260742,
+        "avg_compression_time_ms": 0.3002166748046875,
+        "throughput_msg_per_sec": 3323.1422572594383,
+        "throughput_mbps": 0.6167752029473518,
+        "method_distribution": {
+          "UNCOMPRESSED": 170,
+          "AURA_LITE": 30
+        },
+        "expansion_cases": 170
+      },
+      "original_transmission_seconds": 0.0014847999999999999,
+      "compressed_transmission_seconds": 0.0015008,
+      "latency_overhead_seconds": 4.0,
+      "retransmission_overhead_seconds": 1.4847999999999999e-05,
+      "total_original_time_seconds": 4.001499648,
+      "total_compressed_time_seconds": 4.001515648,
+      "time_savings_percent": -1.0775862068965634
+    },
+    "fiber": {
+      "compression_results": {
+        "total_original_bytes": 4640,
+        "total_compressed_bytes": 4690,
+        "compression_ratio": 0.9893390191897654,
+        "bandwidth_savings_percent": -1.0660980810234588,
+        "total_time_seconds": 0.05953526496887207,
+        "avg_compression_time_ms": 0.29711484909057617,
+        "throughput_msg_per_sec": 3359.353487459403,
+        "throughput_mbps": 0.6234960072724651,
+        "method_distribution": {
+          "UNCOMPRESSED": 170,
+          "AURA_LITE": 30
+        },
+        "expansion_cases": 170
+      },
+      "original_transmission_seconds": 0.00037119999999999997,
+      "compressed_transmission_seconds": 0.0003752,
+      "latency_overhead_seconds": 1.0,
+      "retransmission_overhead_seconds": 7.424e-07,
+      "total_original_time_seconds": 1.0003719424,
+      "total_compressed_time_seconds": 1.0003759423999998,
+      "time_savings_percent": -1.0775862068965634
+    }
+  }
+}

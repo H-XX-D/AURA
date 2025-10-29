@@ -1,0 +1,22 @@
+{
+  "network_type": "fiber",
+  "total_entries": 60,
+  "total_users": 3,
+  "compression_methods": {
+    "UNCOMPRESSED": 57,
+    "AURA_LITE": 3
+  },
+  "avg_compression_ratio": 0.9779706114555855,
+  "avg_compression_latency_ms": 0.00818173090616862,
+  "avg_network_latency_ms": 30.05904275766098,
+  "avg_end_to_end_latency_ms": 30.06722448856715,
+  "min_end_to_end_latency_ms": 15.408655155281167,
+  "max_end_to_end_latency_ms": 314.7207909806332,
+  "network_profile": {
+    "bandwidth_mbps": 10000.0,
+    "base_latency_ms": 0.5,
+    "jitter_ms": 0.1,
+    "packet_loss_rate": 1e-05
+  },
+  "protocol_type": "websocket"
+}

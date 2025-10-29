@@ -1,0 +1,192 @@
+{
+  "excellent": [
+    {
+      "message_index": 0,
+      "original_size": 11,
+      "compressed_size": 12,
+      "ratio": 0.9166666666666666,
+      "method": "UNCOMPRESSED",
+      "strategy": "maximum_compression",
+      "compression_time": 0.10323524475097656,
+      "target_ratio": 3.0,
+      "max_latency": 100.0,
+      "network_condition": "excellent"
+    },
+    {
+      "message_index": 1,
+      "original_size": 56,
+      "compressed_size": 57,
+      "ratio": 0.9824561403508771,
+      "method": "UNCOMPRESSED",
+      "strategy": "maximum_compression",
+      "compression_time": 0.18405914306640625,
+      "target_ratio": 3.0,
+      "max_latency": 100.0,
+      "network_condition": "excellent"
+    },
+    {
+      "message_index": 2,
+      "original_size": 234,
+      "compressed_size": 230,
+      "ratio": 1.017391304347826,
+      "method": "BINARY_SEMANTIC",
+      "strategy": "maximum_compression",
+      "compression_time": 0.11706352233886719,
+      "target_ratio": 3.0,
+      "max_latency": 100.0,
+      "network_condition": "excellent"
+    }
+  ],
+  "good": [
+    {
+      "message_index": 0,
+      "original_size": 11,
+      "compressed_size": 12,
+      "ratio": 0.9166666666666666,
+      "method": "UNCOMPRESSED",
+      "strategy": "balanced",
+      "compression_time": 0.012874603271484375,
+      "target_ratio": 2.0,
+      "max_latency": 50.0,
+      "network_condition": "good"
+    },
+    {
+      "message_index": 1,
+      "original_size": 56,
+      "compressed_size": 57,
+      "ratio": 0.9824561403508771,
+      "method": "UNCOMPRESSED",
+      "strategy": "balanced",
+      "compression_time": 0.09202957153320312,
+      "target_ratio": 2.0,
+      "max_latency": 50.0,
+      "network_condition": "good"
+    },
+    {
+      "message_index": 2,
+      "original_size": 234,
+      "compressed_size": 230,
+      "ratio": 1.017391304347826,
+      "method": "BINARY_SEMANTIC",
+      "strategy": "balanced",
+      "compression_time": 0.041961669921875,
+      "target_ratio": 2.0,
+      "max_latency": 50.0,
+      "network_condition": "good"
+    }
+  ],
+  "moderate": [
+    {
+      "message_index": 0,
+      "original_size": 11,
+      "compressed_size": 12,
+      "ratio": 0.9166666666666666,
+      "method": "UNCOMPRESSED",
+      "strategy": "balanced",
+      "compression_time": 0.018358230590820312,
+      "target_ratio": 2.0,
+      "max_latency": 50.0,
+      "network_condition": "moderate"
+    },
+    {
+      "message_index": 1,
+      "original_size": 56,
+      "compressed_size": 57,
+      "ratio": 0.9824561403508771,
+      "method": "UNCOMPRESSED",
+      "strategy": "balanced",
+      "compression_time": 0.11706352233886719,
+      "target_ratio": 2.0,
+      "max_latency": 50.0,
+      "network_condition": "moderate"
+    },
+    {
+      "message_index": 2,
+      "original_size": 234,
+      "compressed_size": 230,
+      "ratio": 1.017391304347826,
+      "method": "BINARY_SEMANTIC",
+      "strategy": "balanced",
+      "compression_time": 0.04792213439941406,
+      "target_ratio": 2.0,
+      "max_latency": 50.0,
+      "network_condition": "moderate"
+    }
+  ],
+  "poor": [
+    {
+      "message_index": 0,
+      "original_size": 11,
+      "compressed_size": 12,
+      "ratio": 0.9166666666666666,
+      "method": "UNCOMPRESSED",
+      "strategy": "fast_compression",
+      "compression_time": 0.010013580322265625,
+      "target_ratio": 1.5,
+      "max_latency": 20.0,
+      "network_condition": "poor"
+    },
+    {
+      "message_index": 1,
+      "original_size": 56,
+      "compressed_size": 57,
+      "ratio": 0.9824561403508771,
+      "method": "UNCOMPRESSED",
+      "strategy": "fast_compression",
+      "compression_time": 0.06103515625,
+      "target_ratio": 1.5,
+      "max_latency": 20.0,
+      "network_condition": "poor"
+    },
+    {
+      "message_index": 2,
+      "original_size": 234,
+      "compressed_size": 230,
+      "ratio": 1.017391304347826,
+      "method": "BINARY_SEMANTIC",
+      "strategy": "fast_compression",
+      "compression_time": 0.0362396240234375,
+      "target_ratio": 1.5,
+      "max_latency": 20.0,
+      "network_condition": "poor"
+    }
+  ],
+  "very_poor": [
+    {
+      "message_index": 0,
+      "original_size": 11,
+      "compressed_size": 12,
+      "ratio": 0.9166666666666666,
+      "method": "UNCOMPRESSED",
+      "strategy": "minimal_compression",
+      "compression_time": 0.008821487426757812,
+      "target_ratio": 1.2,
+      "max_latency": 5.0,
+      "network_condition": "very_poor"
+    },
+    {
+      "message_index": 1,
+      "original_size": 56,
+      "compressed_size": 57,
+      "ratio": 0.9824561403508771,
+      "method": "UNCOMPRESSED",
+      "strategy": "minimal_compression",
+      "compression_time": 0.053882598876953125,
+      "target_ratio": 1.2,
+      "max_latency": 5.0,
+      "network_condition": "very_poor"
+    },
+    {
+      "message_index": 2,
+      "original_size": 234,
+      "compressed_size": 230,
+      "ratio": 1.017391304347826,
+      "method": "BINARY_SEMANTIC",
+      "strategy": "minimal_compression",
+      "compression_time": 0.032901763916015625,
+      "target_ratio": 1.2,
+      "max_latency": 5.0,
+      "network_condition": "very_poor"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "network_type": "edge_2g",
+  "total_entries": 60,
+  "total_users": 3,
+  "compression_methods": {
+    "UNCOMPRESSED": 57,
+    "AURA_LITE": 3
+  },
+  "avg_compression_ratio": 0.9779706114555855,
+  "avg_compression_latency_ms": 0.010101000467936197,
+  "avg_network_latency_ms": 718.132752790994,
+  "avg_end_to_end_latency_ms": 718.1428537914619,
+  "min_end_to_end_latency_ms": 327.2729743875772,
+  "max_end_to_end_latency_ms": 1745.5615644706436,
+  "network_profile": {
+    "bandwidth_mbps": 0.2,
+    "base_latency_ms": 500.0,
+    "jitter_ms": 200.0,
+    "packet_loss_rate": 0.1
+  },
+  "protocol_type": "websocket"
+}

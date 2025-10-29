@@ -1,0 +1,12 @@
+{
+  "total_users": 15,
+  "total_entries": 1125,
+  "compression_methods": {
+    "UNCOMPRESSED": 1041,
+    "AURA_LITE": 84
+  },
+  "avg_compression_ratio": 0.9837556875083769,
+  "avg_latency_ms": 0.023016399807400174,
+  "success_rate": 1.0,
+  "generated_at": "2025-10-27T17:16:12.099948"
+}

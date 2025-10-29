@@ -1,0 +1,74 @@
+{
+  "wifi_fast": {
+    "total_entries": 60,
+    "avg_compression_ratio": 0.9779706114555855,
+    "avg_compression_latency_ms": 0.012842814127604166,
+    "avg_network_latency_ms": 40.10284733594299,
+    "avg_end_to_end_latency_ms": 40.11569015007059,
+    "bandwidth_mbps": 100.0,
+    "base_latency_ms": 10.0
+  },
+  "wifi_slow": {
+    "total_entries": 60,
+    "avg_compression_ratio": 0.9779706114555855,
+    "avg_compression_latency_ms": 0.008308887481689453,
+    "avg_network_latency_ms": 56.22943346857463,
+    "avg_end_to_end_latency_ms": 56.23774235605632,
+    "bandwidth_mbps": 25.0,
+    "base_latency_ms": 25.0
+  },
+  "ethernet": {
+    "total_entries": 60,
+    "avg_compression_ratio": 0.9779706114555855,
+    "avg_compression_latency_ms": 0.007903575897216797,
+    "avg_network_latency_ms": 30.18711004926463,
+    "avg_end_to_end_latency_ms": 30.195013625161845,
+    "bandwidth_mbps": 1000.0,
+    "base_latency_ms": 1.0
+  },
+  "lte_4g": {
+    "total_entries": 60,
+    "avg_compression_ratio": 0.9779706114555855,
+    "avg_compression_latency_ms": 0.00849167505900065,
+    "avg_network_latency_ms": 75.94087864200658,
+    "avg_end_to_end_latency_ms": 75.94937031706559,
+    "bandwidth_mbps": 50.0,
+    "base_latency_ms": 45.0
+  },
+  "lte_3g": {
+    "total_entries": 60,
+    "avg_compression_ratio": 0.9779706114555855,
+    "avg_compression_latency_ms": 0.007748603820800781,
+    "avg_network_latency_ms": 214.17250741018623,
+    "avg_end_to_end_latency_ms": 214.18025601400703,
+    "bandwidth_mbps": 2.0,
+    "base_latency_ms": 150.0
+  },
+  "edge_2g": {
+    "total_entries": 60,
+    "avg_compression_ratio": 0.9779706114555855,
+    "avg_compression_latency_ms": 0.010101000467936197,
+    "avg_network_latency_ms": 718.132752790994,
+    "avg_end_to_end_latency_ms": 718.1428537914619,
+    "bandwidth_mbps": 0.2,
+    "base_latency_ms": 500.0
+  },
+  "satellite": {
+    "total_entries": 60,
+    "avg_compression_ratio": 0.9779706114555855,
+    "avg_compression_latency_ms": 0.009250640869140625,
+    "avg_network_latency_ms": 718.1168636030626,
+    "avg_end_to_end_latency_ms": 718.1261142439317,
+    "bandwidth_mbps": 10.0,
+    "base_latency_ms": 600.0
+  },
+  "fiber": {
+    "total_entries": 60,
+    "avg_compression_ratio": 0.9779706114555855,
+    "avg_compression_latency_ms": 0.00818173090616862,
+    "avg_network_latency_ms": 30.05904275766098,
+    "avg_end_to_end_latency_ms": 30.06722448856715,
+    "bandwidth_mbps": 10000.0,
+    "base_latency_ms": 0.5
+  }
+}

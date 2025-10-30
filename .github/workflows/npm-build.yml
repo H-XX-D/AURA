@@ -46,14 +46,37 @@ jobs:
         # Build Windows binary (cross-compilation may not work perfectly)
         npx napi build --platform --release --target x86_64-pc-windows-msvc || echo "Windows cross-compilation failed, skipping"
 
-    - name: List built binaries
+    - name: Prepare package for publishing
       run: |
         cd tools/packages/aura-node-native
-        ls -la *.node
+        # Create a temporary package directory
+        mkdir -p ../publish-package
+        cp package.json ../publish-package/
+        cp index.js ../publish-package/
+        cp index.d.ts ../publish-package/
+        cp README.md ../publish-package/ 2>/dev/null || echo "README.md not found, skipping"
+        
+        # Copy only the binaries that were successfully built
+        for binary in *.node; do
+          if [ -f "$binary" ]; then
+            cp "$binary" "../publish-package/"
+            echo "Included binary: $binary"
+          fi
+        done
+        
+        # Update package.json files array to only include existing files
+        cd ../publish-package
+        existing_files=$(ls -1 *.node 2>/dev/null | sed 's/^/    "/;s/$/",/' | tr '\n' '\n' | sed '$ s/,$//')
+        if [ -n "$existing_files" ]; then
+          # Update the files array in package.json
+          sed -i 's|"files": \[|"files": [\n    "index.js",\n    "index.d.ts",\n'"$existing_files"'\n  ],|' package.json
+        fi
+        
+        ls -la
 
     - name: Publish to npm
       run: |
-        cd tools/packages/aura-node-native
+        cd tools/packages/aura-node-native/../publish-package
         npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
         npm publish --ignore-scripts
       env:

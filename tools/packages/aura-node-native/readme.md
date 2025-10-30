@@ -23,7 +23,8 @@ npm install @aura-protocol/native
 ```javascript
 const { AuraCompressor } = require('@aura-protocol/native');
 
-const compressor = new AuraCompressor();
+// Create compressor with aggressive settings for maximum compression ratios
+const compressor = AuraCompressor.withConfig(3.0, 10); // High binary threshold, low min size
 
 // Compress
 const result = compressor.compress("Hello, world!");
@@ -60,14 +61,15 @@ const compressor = new AuraCompressor();
 
 #### `AuraCompressor.withConfig(binaryThreshold, minSize)`
 
-Create compressor with custom configuration.
+Create compressor with custom configuration for aggressive compression ratios.
 
 **Parameters:**
-- `binaryThreshold` (number): Ratio threshold for binary semantic compression (default: 1.1)
-- `minSize` (number): Minimum message size to compress in bytes (default: 50)
+- `binaryThreshold` (number): Ratio threshold for binary semantic compression (recommended: 3.0 for high ratios)
+- `minSize` (number): Minimum message size to compress in bytes (recommended: 10 for maximum compression)
 
 ```javascript
-const compressor = AuraCompressor.withConfig(1.2, 100);
+// Aggressive settings for maximum compression ratios
+const compressor = AuraCompressor.withConfig(3.0, 10);
 ```
 
 #### `compressor.compress(text)`
@@ -252,7 +254,7 @@ AURA's compression algorithms are CPU-intensive. The native Rust implementation 
 const { AuraCompressor } = require('@aura-protocol/native');
 const express = require('express');
 
-const compressor = new AuraCompressor();
+const compressor = AuraCompressor.withConfig(3.0, 10); // Aggressive settings for high ratios
 const app = express();
 
 app.use(express.json());
@@ -260,7 +262,7 @@ app.use(express.json());
 app.post('/api/chat', (req, res) => {
   const response = "Your AI response here";
 
-  // Compress response
+  // Compress response with high ratio
   const result = compressor.compress(response);
 
   res.set('Content-Encoding', 'aura');
@@ -274,7 +276,7 @@ app.post('/api/chat', (req, res) => {
 const { AuraCompressor } = require('@aura-protocol/native');
 const WebSocket = require('ws');
 
-const compressor = new AuraCompressor();
+const compressor = AuraCompressor.withConfig(3.0, 10); // Aggressive settings for high ratios
 const wss = new WebSocket.Server({ port: 8080 });
 
 wss.on('connection', (ws) => {
@@ -283,7 +285,7 @@ wss.on('connection', (ws) => {
     const decoded = compressor.decompress(data);
     console.log('Received:', decoded.plaintext);
 
-    // Compress outgoing
+    // Compress outgoing with high ratio
     const response = "AI response here";
     const result = compressor.compress(response);
     ws.send(result.data);

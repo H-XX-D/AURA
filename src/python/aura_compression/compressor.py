@@ -78,7 +78,7 @@ class ProductionHybridCompressor:
     """
 
     def __init__(self,
-                 binary_advantage_threshold: float = 1.1,
+                 binary_advantage_threshold: float = 1.05,  # Reduced from 1.1 to 1.05 (5% better is enough)
                  min_compression_size: int = 20,  # Reduced from 50 to allow compression of smaller messages that compress well
                  enable_aura: Optional[bool] = None,
                  aura_preference_margin: float = 0.05,
@@ -89,14 +89,14 @@ class ProductionHybridCompressor:
                  template_store_path: Optional[str] = None,
                  template_cache_size: int = 128,
                  enable_normalization: bool = True,
-                 tcp_brio_threshold: int = 2000,
+                 tcp_brio_threshold: int = 1000,  # Reduced from 2000 to 1000 (more messages use TCP-optimized BRIO)
                  enable_fast_path: bool = True,
                  enable_gpu: bool = True,
                  enable_sidechain: Optional[bool] = None,
                  sidechain_config: Optional[Dict[str, Any]] = None):
         """
         Args:
-            binary_advantage_threshold: Use binary if >this times better than AuraLite (1.1 = 10% better)
+            binary_advantage_threshold: Use binary if >this times better than AuraLite (1.05 = 5% better, was 1.1)
             min_compression_size: Don't compress messages smaller than this
             enable_audit_logging: Enable GDPR/HIPAA/SOC2 compliant audit logging (Claim 2)
             audit_log_directory: Directory for audit logs
@@ -105,7 +105,7 @@ class ProductionHybridCompressor:
             template_store_path: Path to template store JSON (for loading discovered templates)
             template_cache_size: Maximum active dynamic templates for auto-matching
             enable_normalization: Enable template normalization (timestamps, UUIDs, IPs)
-            tcp_brio_threshold: Use TCP-optimized BRIO for messages < this size (default 2000 bytes)
+            tcp_brio_threshold: Use TCP-optimized BRIO for messages < this size (default 1000 bytes, was 2000)
             enable_fast_path: Enable fast path optimizations for ultra-low latency (default True)
         """
         # Template service
@@ -198,6 +198,14 @@ class ProductionHybridCompressor:
         from .gpu_accelerator_service import create_gpu_accelerator_service
         self._gpu_service = create_gpu_accelerator_service(enable_gpu=enable_gpu)
 
+        # Fuzzy matching for similar messages
+        from .fuzzy_matcher import create_fuzzy_matcher
+        self._fuzzy_matcher = create_fuzzy_matcher(
+            min_similarity=0.85,  # Match messages that are 85% similar
+            max_distance=30,      # Allow up to 30 character differences
+            enable_caching=True
+        )
+
         # Initialize GPU service with templates
         self._gpu_service.initialize_for_templates(self.template_library)
 
@@ -255,6 +263,46 @@ class ProductionHybridCompressor:
             except Exception:
                 # Strategy failed, continue to next
                 continue
+
+        # Try fuzzy matching if no exact template match found
+        if template_match is None and len(template_spans) == 0:
+            try:
+                # Get all template patterns for fuzzy matching
+                template_patterns = []
+                for template_id in self.template_library.get_all_template_ids():
+                    entry = self.template_library.get_entry(template_id)
+                    if entry:
+                        template_patterns.append(entry.pattern)
+
+                # Try fuzzy matching
+                fuzzy_result = self._fuzzy_matcher.compress_similar_message(text, template_patterns)
+                if fuzzy_result:
+                    # Create a fuzzy compression candidate
+                    fuzzy_payload = json.dumps({
+                        'method': 'fuzzy_match',
+                        'data': fuzzy_result
+                    }).encode('utf-8')
+
+                    fuzzy_metadata = {
+                        'original_size': original_size,
+                        'compressed_size': len(fuzzy_payload) + 1,  # +1 for method byte
+                        'ratio': original_size / (len(fuzzy_payload) + 1) if len(fuzzy_payload) + 1 > 0 else 1.0,
+                        'method': 'fuzzy_match',
+                        'similarity': fuzzy_result['similarity'],
+                        'distance': fuzzy_result['distance'],
+                        'template_id': fuzzy_result['template_id'],
+                        'fuzzy_match': True,
+                    }
+
+                    candidates.append((
+                        fuzzy_payload,
+                        CompressionMethod.AURA_LITE,  # Use AURA_LITE method for fuzzy matches
+                        fuzzy_metadata
+                    ))
+                    attempted_methods.append('fuzzy_match')
+            except Exception:
+                # Fuzzy matching failed, continue
+                pass
 
         # Add uncompressed as fallback (always available)
         uncompressed_strategy = next(s for s in self._compression_strategies

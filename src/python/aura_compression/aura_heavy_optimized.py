@@ -20,7 +20,7 @@ import gzip
 import json
 import struct
 import hashlib
-from typing import Dict, Tuple, Optional, Any
+from typing import Dict, Tuple, Optional, Any, List
 from enum import IntEnum
 from dataclasses import dataclass
 from functools import lru_cache
@@ -38,6 +38,7 @@ class AuraHeavyMethod(IntEnum):
     # AuraHeavy methods (0x10-0x1F) - Traditional compression
     ZLIB = 0x10        # Fast, good compression (2.5-3:1)
     GZIP = 0x11        # Browser-compatible (2.5-3:1)
+    HARDWARE_OPTIMIZED = 0x12  # Hardware-accelerated compression
 
     # Special
     UNCOMPRESSED = 0xFF
@@ -124,8 +125,8 @@ class AuraHeavyOptimized:
     """
 
     # Thresholds for method selection
-    LARGE_FILE_THRESHOLD = 2048  # 2KB - switch to traditional compression
-    VERY_LARGE_THRESHOLD = 100_000  # 100KB - use faster compression
+    LARGE_FILE_THRESHOLD = 512  # 512B - switch to traditional compression (was 2048)
+    VERY_LARGE_THRESHOLD = 50_000  # 50KB - use faster compression (was 100_000)
 
     # Fast-path detection
     FAST_PATH_MIN_SIZE = 1000  # Minimum size to consider fast-path
@@ -143,7 +144,9 @@ class AuraHeavyOptimized:
                  use_gzip: bool = False,
                  enable_cache: bool = True,
                  cache_size: int = 1000,
-                 enable_fast_path: bool = True):
+                 enable_fast_path: bool = True,
+                 enable_hardware_acceleration: bool = True,
+                 enable_gpu_acceleration: bool = True):
         """
         Initialize optimized hybrid compressor.
 
@@ -155,15 +158,23 @@ class AuraHeavyOptimized:
             enable_cache: Enable LRU caching for repeated payloads
             cache_size: Maximum number of cached compression results
             enable_fast_path: Enable fast-path detection for highly compressible content
+            enable_hardware_acceleration: Enable SIMD and architecture-specific optimizations
+            enable_gpu_acceleration: Enable GPU acceleration for template matching
         """
         self.enable_aura = enable_aura
         self.prefer_speed = prefer_speed
         self.use_gzip = use_gzip
         self.enable_cache = enable_cache
         self.enable_fast_path = enable_fast_path
+        self.enable_hardware_acceleration = enable_hardware_acceleration
+        self.enable_gpu_acceleration = enable_gpu_acceleration
 
         # Lazy initialization - only create AURA compressor when needed
         self._aura_compressor = None
+
+        # Initialize hardware acceleration components
+        self._hardware_accelerator = None
+        self._gpu_accelerator = None
 
         # Set compression level
         if compression_level is None:
@@ -184,6 +195,8 @@ class AuraHeavyOptimized:
             'fast_path_used': 0,
             'aura_calls': 0,
             'zlib_calls': 0,
+            'hardware_accelerations': 0,
+            'gpu_accelerations': 0,
         }
 
     @property
@@ -191,8 +204,24 @@ class AuraHeavyOptimized:
         """Lazy-load AURA compressor only when needed."""
         if self._aura_compressor is None and self.enable_aura:
             from aura_compression.compressor import ProductionHybridCompressor
-            self._aura_compressor = ProductionHybridCompressor()
+            self._aura_compressor = ProductionHybridCompressor(enable_gpu=self.enable_gpu_acceleration)
         return self._aura_compressor
+
+    @property
+    def hardware_accelerator(self):
+        """Lazy-load hardware accelerator only when needed."""
+        if self._hardware_accelerator is None and self.enable_hardware_acceleration:
+            from aura_compression.hardware_accelerated_compression import HardwareAcceleratedCompressor
+            self._hardware_accelerator = HardwareAcceleratedCompressor()
+        return self._hardware_accelerator
+
+    @property
+    def gpu_accelerator(self):
+        """Lazy-load GPU accelerator only when needed."""
+        if self._gpu_accelerator is None and self.enable_gpu_acceleration:
+            from aura_compression.gpu_accelerator_service import GPUAcceleratorService
+            self._gpu_accelerator = GPUAcceleratorService()
+        return self._gpu_accelerator
 
     def _compute_cache_key(self, data: bytes, is_binary: bool) -> str:
         """Compute fast cache key using hash."""
@@ -249,19 +278,151 @@ class AuraHeavyOptimized:
                 cached_result.metadata['from_cache'] = True
                 return cached_result
 
-        # Route to appropriate compression method
-        if is_binary or original_size >= self.LARGE_FILE_THRESHOLD:
-            result = self._compress_large(original_bytes, original_size)
-        elif self.enable_aura:
-            result = self._compress_with_aura(data, original_bytes, original_size)
-        else:
-            result = self._compress_large(original_bytes, original_size)
+        # Apply hardware acceleration if enabled and beneficial
+        hardware_optimized = False
+        if self.enable_hardware_acceleration and not is_binary and original_size < self.LARGE_FILE_THRESHOLD:
+            try:
+                # Create a simple base compressor that returns tuple format expected by hardware accelerator
+                class BaseCompressor:
+                    def compress(self, msg):
+                        # Use zlib for base compression
+                        import zlib
+                        msg_bytes = msg.encode('utf-8') if isinstance(msg, str) else msg
+                        compressed = zlib.compress(msg_bytes)
+                        return compressed, 'zlib', {'base_method': 'zlib'}
+
+                base_compressor = BaseCompressor()
+                compressed_bytes, compression_method, metadata = self.hardware_accelerator.compress_hardware_optimized(data, base_compressor)
+                compressed_size = len(compressed_bytes)
+                ratio = original_size / compressed_size if compressed_size > 0 else 1.0
+
+                # Use hardware acceleration if it provides reasonable compression or performance benefits
+                # Allow slight expansion (up to 5%) for hardware acceleration benefits
+                hardware_time = metadata.get('hardware_optimization_time', 0)
+                should_use_hardware = ratio > 0.95 or (ratio > 0.9 and hardware_time < 1.0)  # Fast hardware processing
+
+                if should_use_hardware:
+                    self.stats['hardware_accelerations'] += 1
+                    hardware_optimized = True
+
+                    result = AuraHeavyResult(
+                        compressed_data=compressed_bytes,
+                        method=AuraHeavyMethod.HARDWARE_OPTIMIZED,
+                        original_size=original_size,
+                        compressed_size=compressed_size,
+                        ratio=ratio,
+                        metadata={
+                            'compression_layer': 'hardware_accelerated',
+                            'from_cache': False,
+                            'hardware_method': compression_method,
+                            **metadata
+                        }
+                    )
+                else:
+                    hardware_optimized = False
+            except Exception as e:
+                # Fallback to normal compression if hardware acceleration fails
+                hardware_optimized = False
+
+        if not hardware_optimized:
+            # Route to appropriate compression method
+            if is_binary or original_size >= self.LARGE_FILE_THRESHOLD:
+                result = self._compress_large(original_bytes, original_size)
+            elif self.enable_aura:
+                result = self._compress_with_aura(data, original_bytes, original_size)
+            else:
+                result = self._compress_large(original_bytes, original_size)
 
         # Store in cache
         if self.enable_cache:
             self.cache.put(cache_key, result)
 
         return result
+
+    def compress_batch(self, messages: List[str], use_simd: bool = True) -> List[AuraHeavyResult]:
+        """
+        Compress multiple messages in batch with SIMD acceleration.
+
+        Args:
+            messages: List of messages to compress
+            use_simd: Enable SIMD acceleration for batch processing
+
+        Returns:
+            List of AuraHeavyResult objects
+        """
+        if not messages:
+            return []
+
+        # Use SIMD acceleration if enabled and beneficial
+        if use_simd and self.enable_hardware_acceleration and len(messages) > 1:
+            try:
+                from aura_compression.simd_accelerator import SIMDMessageProcessor
+                simd_processor = SIMDMessageProcessor()
+
+                # Pre-process messages to determine optimal batch strategy
+                message_lengths = simd_processor.process_batch_simd(messages, "length")
+                small_messages = [msg for msg, length in zip(messages, message_lengths) if length < self.LARGE_FILE_THRESHOLD]
+                large_messages = [msg for msg, length in zip(messages, message_lengths) if length >= self.LARGE_FILE_THRESHOLD]
+
+                results = []
+
+                # Process small messages with SIMD batching
+                if small_messages:
+                    batch_results = self._compress_batch_simd(small_messages)
+                    results.extend(batch_results)
+
+                # Process large messages individually
+                for msg in large_messages:
+                    result = self.compress(msg)
+                    results.append(result)
+
+                return results
+
+            except Exception:
+                # Fallback to individual compression
+                pass
+
+        # Fallback to individual compression for each message
+        return [self.compress(msg) for msg in messages]
+
+    def _compress_batch_simd(self, messages: List[str]) -> List[AuraHeavyResult]:
+        """Compress small messages using SIMD-accelerated batch processing."""
+        results = []
+
+        for msg in messages:
+            # Apply hardware acceleration if available
+            if self.enable_hardware_acceleration:
+                try:
+                    compressed_bytes, compression_method, metadata = self.hardware_accelerator.compress_hardware_optimized(msg, self)
+                    compressed_size = len(compressed_bytes)
+                    original_size = len(msg.encode('utf-8'))
+                    ratio = original_size / compressed_size if compressed_size > 0 else 1.0
+
+                    if ratio > 1.0:  # Only use if compression helps
+                        self.stats['hardware_accelerations'] += 1
+                        result = AuraHeavyResult(
+                            compressed_data=compressed_bytes,
+                            method=AuraHeavyMethod.HARDWARE_OPTIMIZED,
+                            original_size=original_size,
+                            compressed_size=compressed_size,
+                            ratio=ratio,
+                            metadata={
+                                'compression_layer': 'hardware_accelerated_batch',
+                                'from_cache': False,
+                                'hardware_method': compression_method,
+                                **metadata
+                            }
+                        )
+                        results.append(result)
+                        continue
+                except Exception:
+                    pass
+
+            # Fallback to regular compression
+            result = self.compress(msg)
+            results.append(result)
+
+        return results
 
     def _compress_with_aura(self, text: str, original_bytes: bytes, original_size: int) -> AuraHeavyResult:
         """Compress using AURA semantic compression."""
@@ -456,6 +617,8 @@ class AuraHeavyOptimized:
             'use_gzip': self.use_gzip,
             'cache_enabled': self.enable_cache,
             'fast_path_enabled': self.enable_fast_path,
+            'hardware_acceleration_enabled': self.enable_hardware_acceleration,
+            'gpu_acceleration_enabled': self.enable_gpu_acceleration,
             'dependencies': 'None (Python standard library only)',
             'thresholds': {
                 'large_file_bytes': self.LARGE_FILE_THRESHOLD,
@@ -464,12 +627,39 @@ class AuraHeavyOptimized:
             'performance': {
                 'total_compressions': self.stats['compressions'],
                 'cache_hits': self.stats['cache_hits'],
-                'cache_hit_rate': f"{(self.stats['cache_hits'] / self.stats['compressions'] * 100):.2f}%" if self.stats['compressions'] > 0 else "0%",
+                                'cache_hit_rate': f"{(self.stats['cache_hits'] / self.stats['compressions'] * 100):.2f}%" if self.stats['compressions'] > 0 else "0%",
                 'fast_path_used': self.stats['fast_path_used'],
                 'aura_calls': self.stats['aura_calls'],
                 'zlib_calls': self.stats['zlib_calls'],
+                'hardware_accelerations': self.stats['hardware_accelerations'],
+                'gpu_accelerations': self.stats['gpu_accelerations'],
             }
         }
+
+        # Add hardware capability information
+        if self.enable_hardware_acceleration and self._hardware_accelerator:
+            try:
+                capabilities = self._hardware_accelerator.capabilities
+                stats['hardware_capabilities'] = {
+                    'architecture': capabilities.architecture.value,
+                    'features': [f.value for f in capabilities.features],
+                    'cpu_count': capabilities.cpu_count,
+                    'memory_gb': capabilities.memory_gb,
+                    'vector_width': capabilities.vector_width,
+                    'simd_efficiency': capabilities.simd_efficiency,
+                }
+            except Exception:
+                stats['hardware_capabilities'] = {'error': 'Unable to detect capabilities'}
+
+        # Add GPU capability information
+        if self.enable_gpu_acceleration and self._gpu_accelerator:
+            try:
+                stats['gpu_capabilities'] = {
+                    'available': self._gpu_accelerator.is_available(),
+                    'enabled': self._gpu_accelerator.is_enabled(),
+                }
+            except Exception:
+                stats['gpu_capabilities'] = {'error': 'Unable to detect GPU capabilities'}
 
         if self.cache:
             stats['cache'] = self.cache.get_stats()

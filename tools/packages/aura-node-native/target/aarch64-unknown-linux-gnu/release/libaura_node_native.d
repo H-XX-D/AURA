@@ -1,0 +1,1 @@
+/Users/hendrixx./AURA/tools/packages/aura-node-native/target/aarch64-unknown-linux-gnu/release/libaura_node_native.so: /Users/hendrixx./AURA/tools/packages/aura-node-native/build.rs /Users/hendrixx./AURA/tools/packages/aura-node-native/src/lib.rs

@@ -37,7 +37,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./aura-native.android-arm64.node')
           } else {
-            nativeBinding = require('@aura-protocol/native-android-arm64')
+            nativeBinding = require('aura-compression-native-android-arm64')
           }
         } catch (e) {
           loadError = e
@@ -49,7 +49,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./aura-native.android-arm-eabi.node')
           } else {
-            nativeBinding = require('@aura-protocol/native-android-arm-eabi')
+            nativeBinding = require('aura-compression-native-android-arm-eabi')
           }
         } catch (e) {
           loadError = e
@@ -69,7 +69,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./aura-native.win32-x64-msvc.node')
           } else {
-            nativeBinding = require('@aura-protocol/native-win32-x64-msvc')
+            nativeBinding = require('aura-compression-native-win32-x64-msvc')
           }
         } catch (e) {
           loadError = e
@@ -83,7 +83,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./aura-native.win32-ia32-msvc.node')
           } else {
-            nativeBinding = require('@aura-protocol/native-win32-ia32-msvc')
+            nativeBinding = require('aura-compression-native-win32-ia32-msvc')
           }
         } catch (e) {
           loadError = e
@@ -97,7 +97,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./aura-native.win32-arm64-msvc.node')
           } else {
-            nativeBinding = require('@aura-protocol/native-win32-arm64-msvc')
+            nativeBinding = require('aura-compression-native-win32-arm64-msvc')
           }
         } catch (e) {
           loadError = e
@@ -113,7 +113,7 @@ switch (platform) {
       if (localFileExisted) {
         nativeBinding = require('./aura-native.darwin-universal.node')
       } else {
-        nativeBinding = require('@aura-protocol/native-darwin-universal')
+        nativeBinding = require('aura-compression-native-darwin-universal')
       }
       break
     } catch {}
@@ -124,7 +124,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./aura-native.darwin-x64.node')
           } else {
-            nativeBinding = require('@aura-protocol/native-darwin-x64')
+            nativeBinding = require('aura-compression-native-darwin-x64')
           }
         } catch (e) {
           loadError = e
@@ -138,7 +138,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./aura-native.darwin-arm64.node')
           } else {
-            nativeBinding = require('@aura-protocol/native-darwin-arm64')
+            nativeBinding = require('aura-compression-native-darwin-arm64')
           }
         } catch (e) {
           loadError = e
@@ -157,7 +157,7 @@ switch (platform) {
       if (localFileExisted) {
         nativeBinding = require('./aura-native.freebsd-x64.node')
       } else {
-        nativeBinding = require('@aura-protocol/native-freebsd-x64')
+        nativeBinding = require('aura-compression-native-freebsd-x64')
       }
     } catch (e) {
       loadError = e
@@ -174,7 +174,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-x64-musl.node')
             } else {
-              nativeBinding = require('@aura-protocol/native-linux-x64-musl')
+              throw new Error('Native binary not found for linux-x64-musl')
             }
           } catch (e) {
             loadError = e
@@ -187,7 +187,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-x64-gnu.node')
             } else {
-              nativeBinding = require('@aura-protocol/native-linux-x64-gnu')
+              throw new Error('Native binary not found for linux-x64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -203,7 +203,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-arm64-musl.node')
             } else {
-              nativeBinding = require('@aura-protocol/native-linux-arm64-musl')
+              throw new Error('Native binary not found for linux-arm64-musl')
             }
           } catch (e) {
             loadError = e
@@ -216,7 +216,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-arm64-gnu.node')
             } else {
-              nativeBinding = require('@aura-protocol/native-linux-arm64-gnu')
+              throw new Error('Native binary not found for linux-arm64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -232,7 +232,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-arm-musleabihf.node')
             } else {
-              nativeBinding = require('@aura-protocol/native-linux-arm-musleabihf')
+              nativeBinding = require('aura-compression-native-linux-arm-musleabihf')
             }
           } catch (e) {
             loadError = e
@@ -245,7 +245,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-arm-gnueabihf.node')
             } else {
-              nativeBinding = require('@aura-protocol/native-linux-arm-gnueabihf')
+              nativeBinding = require('aura-compression-native-linux-arm-gnueabihf')
             }
           } catch (e) {
             loadError = e
@@ -261,7 +261,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-riscv64-musl.node')
             } else {
-              nativeBinding = require('@aura-protocol/native-linux-riscv64-musl')
+              nativeBinding = require('aura-compression-native-linux-riscv64-musl')
             }
           } catch (e) {
             loadError = e
@@ -274,7 +274,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-riscv64-gnu.node')
             } else {
-              nativeBinding = require('@aura-protocol/native-linux-riscv64-gnu')
+              nativeBinding = require('aura-compression-native-linux-riscv64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -289,7 +289,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./aura-native.linux-s390x-gnu.node')
           } else {
-            nativeBinding = require('@aura-protocol/native-linux-s390x-gnu')
+            nativeBinding = require('aura-compression-native-linux-s390x-gnu')
           }
         } catch (e) {
           loadError = e

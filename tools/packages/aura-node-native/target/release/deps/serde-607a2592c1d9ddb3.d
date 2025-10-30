@@ -1,0 +1,14 @@
+/Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/deps/serde-607a2592c1d9ddb3.d: /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/build/serde-964e7503de6b8e03/out/private.rs
+
+/Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/deps/libserde-607a2592c1d9ddb3.rlib: /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/build/serde-964e7503de6b8e03/out/private.rs
+
+/Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/deps/libserde-607a2592c1d9ddb3.rmeta: /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/build/serde-964e7503de6b8e03/out/private.rs
+
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/build/serde-964e7503de6b8e03/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/build/serde-964e7503de6b8e03/out

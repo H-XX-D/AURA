@@ -1,6 +1,6 @@
 {
-  "name": "@aura-protocol/native",
-  "version": "0.1.0",
+  "name": "aura-compression-native",
+  "version": "1.1.3",
   "description": "AURA Protocol - Native Node.js bindings for high-performance compression",
   "main": "index.js",
   "types": "index.d.ts",
@@ -47,23 +47,26 @@
   },
   "homepage": "https://auraprotocol.org",
   "devDependencies": {
-    "@napi-rs/cli": "^2.17.0"
+    "@napi-rs/cli": "^2.18.4"
   },
   "optionalDependencies": {
-    "@aura-protocol/native-win32-x64-msvc": "0.1.0",
-    "@aura-protocol/native-darwin-x64": "0.1.0",
-    "@aura-protocol/native-linux-x64-gnu": "0.1.0",
-    "@aura-protocol/native-darwin-arm64": "0.1.0",
-    "@aura-protocol/native-linux-arm64-gnu": "0.1.0",
-    "@aura-protocol/native-linux-arm64-musl": "0.1.0",
-    "@aura-protocol/native-win32-arm64-msvc": "0.1.0",
-    "@aura-protocol/native-linux-x64-musl": "0.1.0"
+    "aura-compression-native-darwin-arm64": "1.1.0",
+    "aura-compression-native-darwin-x64": "1.1.0",
+    "aura-compression-native-linux-arm64-gnu": "1.1.0",
+    "aura-compression-native-linux-arm64-musl": "1.1.0",
+    "aura-compression-native-linux-x64-gnu": "1.1.0",
+    "aura-compression-native-linux-x64-musl": "1.1.0",
+    "aura-compression-native-win32-arm64-msvc": "1.1.0",
+    "aura-compression-native-win32-x64-msvc": "1.1.0"
   },
   "files": [
     "index.js",
     "index.d.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "aura-native.darwin-arm64.node",
+    "aura-native.linux-x64-gnu.node",
+    "aura-native.linux-arm64-gnu.node"
   ],
   "engines": {
     "node": ">= 16"

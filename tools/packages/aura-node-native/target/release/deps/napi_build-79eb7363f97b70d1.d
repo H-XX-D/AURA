@@ -1,0 +1,11 @@
+/Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/deps/napi_build-79eb7363f97b70d1.d: /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/lib.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/android.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/macos.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/wasi.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/windows.rs
+
+/Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/deps/libnapi_build-79eb7363f97b70d1.rlib: /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/lib.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/android.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/macos.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/wasi.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/windows.rs
+
+/Users/hendrixx./AURA/tools/packages/aura-node-native/target/release/deps/libnapi_build-79eb7363f97b70d1.rmeta: /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/lib.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/android.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/macos.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/wasi.rs /Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/windows.rs
+
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/lib.rs:
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/android.rs:
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/macos.rs:
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/wasi.rs:
+/Users/hendrixx./.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/napi-build-2.2.3/src/windows.rs:

@@ -117,4 +117,6 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ---
 
-**Version 1.1.0** - Production-ready with GPU acceleration, adaptive caching, and comprehensive memory profiling.
+**Version 1.1.4** - Production-ready with GPU acceleration, adaptive caching, and comprehensive memory profiling.
+
+*Last updated: October 30, 2025*

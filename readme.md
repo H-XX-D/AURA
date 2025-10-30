@@ -484,7 +484,71 @@ python -c "from aura_compression import demo_memory_monitoring; demo_memory_moni
 
 ### Impact Assessment Methodology
 
-## 📈 Industry Applications
+## � CI/CD & Automated Publishing
+
+### GitHub Actions Setup
+
+AURA uses GitHub Actions for automated multi-platform builds and publishing. The CI/CD pipeline builds native binaries for:
+
+- **macOS**: x64 and ARM64 (Apple Silicon)
+- **Linux**: x64 and ARM64
+- **Windows**: x64
+
+### Setting up NPM_TOKEN for Automated Publishing
+
+To enable automated npm publishing through GitHub Actions, you need to configure an NPM_TOKEN secret:
+
+#### 1. Generate an npm Token
+
+1. Log in to [npmjs.com](https://www.npmjs.com)
+2. Go to **Access Tokens** in your account settings
+3. Click **Generate New Token**
+4. Select **Automation** token type
+5. Copy the generated token
+
+#### 2. Add NPM_TOKEN to GitHub Repository Secrets
+
+1. Go to your GitHub repository: `https://github.com/hendrixx-cnc/AURA`
+2. Click **Settings** tab
+3. In the left sidebar, click **Secrets and variables** → **Actions**
+4. Click **New repository secret**
+5. Set **Name** to: `NPM_TOKEN`
+6. Set **Secret** to: the npm token you generated
+7. Click **Add secret**
+
+#### 3. Verify CI/CD Pipeline
+
+Once the NPM_TOKEN is configured:
+- Push changes to the `main` branch
+- GitHub Actions will automatically build for all platforms
+- On successful builds, packages are published to npm
+- Check the **Actions** tab to monitor build status
+
+### Publishing Triggers
+
+The npm package is automatically published when:
+- Code is pushed to the `main` branch
+- All tests pass
+- All platform builds complete successfully
+- A new version is detected in `package.json`
+
+### Manual Publishing (Alternative)
+
+If you prefer manual control over publishing:
+
+```bash
+# Build for all platforms locally
+npm run build
+
+# Publish to npm
+npm publish
+```
+
+**Note**: Automated publishing through CI/CD is recommended for consistency and reliability across all supported platforms.
+
+---
+
+## �📈 Industry Applications
 
 ### Industry-Specific Risks**Data-Driven Calculations Based on Validated Performance:**
 

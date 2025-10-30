@@ -174,7 +174,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-x64-musl.node')
             } else {
-              throw new Error('Native binary not found for linux-x64-musl')
+              nativeBinding = require('aura-compression-native-linux-x64-musl')
             }
           } catch (e) {
             loadError = e
@@ -187,7 +187,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-x64-gnu.node')
             } else {
-              throw new Error('Native binary not found for linux-x64-gnu')
+              nativeBinding = require('aura-compression-native-linux-x64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -203,7 +203,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-arm64-musl.node')
             } else {
-              throw new Error('Native binary not found for linux-arm64-musl')
+              nativeBinding = require('aura-compression-native-linux-arm64-musl')
             }
           } catch (e) {
             loadError = e
@@ -216,7 +216,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./aura-native.linux-arm64-gnu.node')
             } else {
-              throw new Error('Native binary not found for linux-arm64-gnu')
+              nativeBinding = require('aura-compression-native-linux-arm64-gnu')
             }
           } catch (e) {
             loadError = e

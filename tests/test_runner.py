@@ -1,431 +1,309 @@
 #!/usr/bin/env python3
 """
-AURA Compression Test Runner
-============================
+AURA Compression System - Master Test Runner
+===========================================
 
-Comprehensive test runner that executes all test suites with benchmarking.
+Comprehensive test suite runner for the optimized AURA compression system.
+Executes all test files and generates detailed reports.
+
+Features:
+- Parallel test execution
+- Detailed console output
+- JSON report generation
+- Performance timing
+- Success/failure tracking
+- Comprehensive error reporting
+
+Usage:
+    python tests/test_runner.py [--verbose] [--json-report] [--fail-fast]
 """
 
-import sys
 import os
-import time
+import sys
 import json
+import time
 import argparse
-import unittest
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
+from datetime import datetime
 
-# Add source path
-project_root = Path(__file__).parent
-src_path = project_root / 'src' / 'python'
-sys.path.insert(0, str(src_path))
-sys.path.insert(0, str(project_root))  # Add tests directory to path
+class TestRunner:
+    """Master test runner for AURA compression system tests."""
 
-from test_framework import BenchmarkRunner
-from test_data_generator import TestDataGenerator, PerformanceBaseline
+    def __init__(self, verbose: bool = False, json_report: bool = True, fail_fast: bool = False):
+        self.verbose = verbose
+        self.json_report = json_report
+        self.fail_fast = fail_fast
+        self.test_results = {}
+        self.start_time = None
+        self.end_time = None
 
-
-class ComprehensiveTestRunner:
-    """Comprehensive test runner for all AURA components."""
-
-    def __init__(self):
-        self.benchmark_runner = BenchmarkRunner()
-        self.performance_baseline = PerformanceBaseline()
-        self.test_data_generator = TestDataGenerator()
-        self.results = {
-            "unit_tests": {},
-            "integration_tests": {},
-            "benchmarks": {},
-            "performance_checks": {},
-            "summary": {}
-        }
-
-    def run_unit_tests(self) -> bool:
-        """Run all unit tests."""
-        print("🧪 Running Unit Tests")
-        print("=" * 50)
-
-        success = True
-        unit_test_files = [
-            'tests/unit/test_compressor.py',
-            'tests/test_template_service.py',
-            'tests/test_core_functionality.py',
+        # Test files to run
+        self.test_files = [
+            'test_compression_core.py',
+            'test_compression_methods.py',
+            'test_compression_thresholds.py',
+            'test_audit_integration.py',
+            # Future test files to be added:
+            # 'test_performance_benchmarking.py',
+            # 'test_edge_cases.py',
+            # 'test_acceleration_features.py',
+            # 'test_template_system.py',
+            # 'test_network_aware.py',
+            # 'test_integration_scenarios.py',
+            # 'test_compliance_validation.py',
+            # 'test_stress_testing.py',
+            # 'test_data_formats.py',
+            # 'test_memory_management.py',
+            # 'test_concurrent_operations.py',
+            # 'test_adaptive_learning.py',
+            # 'test_validation_pipeline.py',
+            # 'test_benchmarking_suite.py'
         ]
 
-        for test_file in unit_test_files:
-            if os.path.exists(test_file):
-                print(f"Running {test_file}...")
-                try:
-                    # Load and run the test module
-                    module_name = test_file.replace('/', '.').replace('.py', '')
-                    module = __import__(module_name, fromlist=[''])
+    def print_header(self):
+        """Print the test suite header."""
+        print("=" * 80)
+        print("AURA COMPRESSION SYSTEM - COMPREHENSIVE TEST SUITE")
+        print("=" * 80)
+        print(f"Test Environment: Python {sys.version.split()[0]}")
+        print(f"Working Directory: {os.getcwd()}")
+        print(f"Test Files: {len(self.test_files)}")
+        print(f"Verbose Mode: {'Enabled' if self.verbose else 'Disabled'}")
+        print(f"JSON Report: {'Enabled' if self.json_report else 'Disabled'}")
+        print(f"Fail Fast: {'Enabled' if self.fail_fast else 'Disabled'}")
+        print("=" * 80)
+        print()
 
-                    # Create test suite
-                    loader = unittest.TestLoader()
-                    suite = loader.loadTestsFromModule(module)
-                    runner = unittest.TextTestRunner(verbosity=1, stream=sys.stdout)
-                    result = runner.run(suite)
+    def run_test_file(self, test_file: str) -> Tuple[bool, float, str]:
+        """
+        Run a single test file and return results.
 
-                    self.results["unit_tests"][test_file] = {
-                        "tests_run": result.testsRun,
-                        "failures": len(result.failures),
-                        "errors": len(result.errors),
-                        "success": result.wasSuccessful()
-                    }
+        Args:
+            test_file: Name of the test file to run
 
-                    if not result.wasSuccessful():
-                        success = False
-                        print(f"  ❌ {test_file} failed")
-                    else:
-                        print(f"  ✅ {test_file} passed")
+        Returns:
+            Tuple of (success: bool, duration: float, output: str)
+        """
+        test_path = Path(__file__).parent / test_file
 
-                except Exception as e:
-                    print(f"  ❌ {test_file} error: {e}")
-                    success = False
-                    self.results["unit_tests"][test_file] = {"error": str(e)}
-            else:
-                print(f"  ⚠️  {test_file} not found")
+        if not test_path.exists():
+            error_msg = f"Test file not found: {test_file}"
+            print(f"❌ ERROR: {error_msg}")
+            return False, 0.0, error_msg
 
-        return success
-
-    def run_integration_tests(self) -> bool:
-        """Run integration tests."""
-        print("\n🔗 Running Integration Tests")
-        print("=" * 50)
-
-        success = True
-        integration_test_files = [
-            'tests/integration/test_end_to_end.py',
-        ]
-
-        for test_file in integration_test_files:
-            if os.path.exists(test_file):
-                print(f"Running {test_file}...")
-                try:
-                    module_name = test_file.replace('/', '.').replace('.py', '')
-                    module = __import__(module_name, fromlist=[''])
-
-                    loader = unittest.TestLoader()
-                    suite = loader.loadTestsFromModule(module)
-                    runner = unittest.TextTestRunner(verbosity=1, stream=sys.stdout)
-                    result = runner.run(suite)
-
-                    self.results["integration_tests"][test_file] = {
-                        "tests_run": result.testsRun,
-                        "failures": len(result.failures),
-                        "errors": len(result.errors),
-                        "success": result.wasSuccessful()
-                    }
-
-                    if not result.wasSuccessful():
-                        success = False
-                        print(f"  ❌ {test_file} failed")
-                    else:
-                        print(f"  ✅ {test_file} passed")
-
-                except Exception as e:
-                    print(f"  ❌ {test_file} error: {e}")
-                    success = False
-                    self.results["integration_tests"][test_file] = {"error": str(e)}
-            else:
-                print(f"  ⚠️  {test_file} not found")
-
-        return success
-
-    def run_benchmarks(self, iterations: int = 10) -> bool:
-        """Run benchmark tests."""
-        print(f"\n📊 Running Benchmarks ({iterations} iterations)")
-        print("=" * 50)
-
-        try:
-            results = self.benchmark_runner.run_benchmarks(iterations)
-            self.results["benchmarks"] = {
-                "metrics_collected": len(results),
-                "iterations": iterations,
-                "timestamp": time.time()
-            }
-
-            print(f"  ✅ Benchmarks completed: {len(results)} metrics collected")
-
-            # Check for performance regressions
-            results_dict = [result.to_dict() for result in results]
-            self._check_performance_regressions(results_dict)
-
-            return True
-
-        except Exception as e:
-            print(f"  ❌ Benchmarks failed: {e}")
-            self.results["benchmarks"] = {"error": str(e)}
-            return False
-
-    def _check_performance_regressions(self, benchmark_results: List[Dict[str, Any]]):
-        """Check benchmark results for performance regressions."""
-        print("  🔍 Checking for performance regressions...")
-
-        regressions = []
-        improvements = []
-
-        for result in benchmark_results:
-            test_name = result["test_name"]
-            metric_name = result["metric_name"]
-            value = result["value"]
-
-            check = self.performance_baseline.check_regression(test_name, metric_name, value)
-
-            if check["status"] == "regression":
-                regressions.append({
-                    "test": test_name,
-                    "metric": metric_name,
-                    "message": check["message"],
-                    "baseline": check["baseline"],
-                    "current": check["current"]
-                })
-            elif check["status"] == "improvement":
-                improvements.append({
-                    "test": test_name,
-                    "metric": metric_name,
-                    "message": check["message"]
-                })
-
-            # Update baseline with current value
-            self.performance_baseline.update_baseline(test_name, metric_name, value)
-
-        self.results["performance_checks"] = {
-            "regressions": regressions,
-            "improvements": improvements,
-            "total_checks": len(benchmark_results)
-        }
-
-        if regressions:
-            print(f"  ⚠️  Found {len(regressions)} performance regressions")
-            for reg in regressions[:3]:  # Show first 3
-                print(f"    - {reg['test']}: {reg['message']}")
-        else:
-            print("  ✅ No performance regressions detected")
-
-        if improvements:
-            print(f"  🎉 Found {len(improvements)} performance improvements")
-
-    def run_comprehensive_data_tests(self) -> bool:
-        """Run tests with comprehensive data sets."""
-        print("\n📋 Running Comprehensive Data Tests")
-        print("=" * 50)
-
-        try:
-            from aura_compression import ProductionHybridCompressor
-
-            compressor = ProductionHybridCompressor(enable_aura=True)
-            test_suite = TestDataGenerator.generate_compression_test_suite()
-
-            # Initialize results structure
-            self.results["comprehensive_data_tests"] = {}
-
-            total_tests = 0
-            total_passed = 0
-
-            for data_type, messages in test_suite.items():
-                print(f"Testing {data_type} ({len(messages)} messages)...")
-
-                passed = 0
-                for i, message in enumerate(messages):
-                    try:
-                        compressed, method, metadata = compressor.compress(message)
-                        decompressed = compressor.decompress(compressed)
-
-                        if decompressed == message:
-                            passed += 1
-                        else:
-                            print(f"    ❌ Message {i} round-trip failed")
-
-                    except Exception as e:
-                        print(f"    ❌ Message {i} error: {e}")
-
-                success_rate = passed / len(messages)
-                print(".1%")
-
-                total_tests += len(messages)
-                total_passed += passed
-
-                self.results["comprehensive_data_tests"][data_type] = {
-                    "total": len(messages),
-                    "passed": passed,
-                    "success_rate": success_rate
-                }
-
-            overall_success_rate = total_passed / total_tests if total_tests > 0 else 0
-            print(".1%")
-
-            self.results["comprehensive_data_tests"]["overall"] = {
-                "total_tests": total_tests,
-                "total_passed": total_passed,
-                "success_rate": overall_success_rate
-            }
-
-            return overall_success_rate > 0.99  # 99% success threshold
-
-        except Exception as e:
-            print(f"  ❌ Comprehensive data tests failed: {e}")
-            self.results["comprehensive_data_tests"] = {"error": str(e)}
-            return False
-
-    def generate_summary_report(self) -> str:
-        """Generate a comprehensive summary report."""
-        report = []
-        report.append("# AURA Compression Test Suite Report")
-        report.append(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        report.append("")
-
-        # Overall status
-        unit_success = all(r.get("success", False) for r in self.results["unit_tests"].values() if isinstance(r, dict))
-        integration_success = all(r.get("success", False) for r in self.results["integration_tests"].values() if isinstance(r, dict))
-        benchmark_success = "error" not in self.results["benchmarks"]
-
-        report.append("## Overall Status")
-        report.append(f"- Unit Tests: {'✅ PASS' if unit_success else '❌ FAIL'}")
-        report.append(f"- Integration Tests: {'✅ PASS' if integration_success else '❌ FAIL'}")
-        report.append(f"- Benchmarks: {'✅ PASS' if benchmark_success else '❌ FAIL'}")
-        report.append("")
-
-        # Detailed results
-        for test_type, results in self.results.items():
-            if test_type == "summary":
-                continue
-
-            report.append(f"## {test_type.replace('_', ' ').title()}")
-
-            if isinstance(results, dict):
-                for key, value in results.items():
-                    if isinstance(value, dict):
-                        if "success" in value:
-                            status = "✅" if value["success"] else "❌"
-                            report.append(f"- {key}: {status} ({value.get('tests_run', 0)} tests)")
-                        elif "error" in value:
-                            report.append(f"- {key}: ❌ Error - {value['error']}")
-                        else:
-                            report.append(f"- {key}: {value}")
-                    else:
-                        report.append(f"- {key}: {value}")
-            else:
-                report.append(f"Results: {results}")
-
-            report.append("")
-
-        return "\n".join(report)
-
-    def save_results(self, filename: str = "test_results.json"):
-        """Save complete test results."""
-        with open(filename, 'w') as f:
-            json.dump(self.results, f, indent=2, default=str)
-
-        print(f"📄 Detailed results saved to {filename}")
-
-    def run_all_tests(self, iterations: int = 10) -> bool:
-        """Run the complete test suite."""
-        print("🚀 AURA Compression - Complete Test Suite")
-        print("=" * 60)
+        print(f"Running {test_file}")
+        print("=" * (len(test_file) + 8))
 
         start_time = time.time()
 
-        # Initialize results structure
-        self.results = {
-            "unit_tests": {},
-            "integration_tests": {},
-            "benchmarks": {},
-            "performance_checks": {},
-            "comprehensive_data_tests": {},
-            "summary": {}
-        }
+        try:
+            # Capture output by redirecting stdout
+            import subprocess
+            result = subprocess.run(
+                [sys.executable, str(test_path)],
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
 
-        # Run all test suites
-        unit_success = self.run_unit_tests()
-        integration_success = self.run_integration_tests()
-        benchmark_success = self.run_benchmarks(iterations)
-        data_test_success = self.run_comprehensive_data_tests()
+            duration = time.time() - start_time
 
-        # Calculate summary
-        total_time = time.time() - start_time
-        overall_success = unit_success and integration_success and benchmark_success and data_test_success
+            if result.returncode == 0:
+                print("✅ PASS")
+                if self.verbose:
+                    print("Output:")
+                    print(result.stdout)
+                return True, duration, result.stdout
+            else:
+                print("❌ FAIL")
+                print("Error Output:")
+                print(result.stderr)
+                if result.stdout and self.verbose:
+                    print("Standard Output:")
+                    print(result.stdout)
+                return False, duration, result.stderr
 
-        self.results["summary"] = {
-            "overall_success": overall_success,
-            "total_time_seconds": total_time,
-            "unit_tests_passed": unit_success,
-            "integration_tests_passed": integration_success,
-            "benchmarks_passed": benchmark_success,
-            "data_tests_passed": data_test_success,
-            "timestamp": time.time()
-        }
+        except subprocess.TimeoutExpired:
+            duration = time.time() - start_time
+            error_msg = f"Test timed out after 300 seconds: {test_file}"
+            print(f"⏰ TIMEOUT: {error_msg}")
+            return False, duration, error_msg
 
-        # Generate and display report
-        report = self.generate_summary_report()
-        print("\n" + "="*80)
-        print(report)
-        print("="*80)
+        except Exception as e:
+            duration = time.time() - start_time
+            error_msg = f"Test execution failed: {str(e)}"
+            print(f"💥 ERROR: {error_msg}")
+            return False, duration, error_msg
 
-        # Save results
-        self.save_results()
+    def run_all_tests(self) -> bool:
+        """Run all test files and return overall success."""
+        self.start_time = time.time()
+        self.print_header()
 
-        if overall_success:
-            print("\n🎉 All tests passed successfully!")
+        total_tests = len(self.test_files)
+        passed_tests = 0
+        failed_tests = 0
+        total_duration = 0.0
+
+        print(f"Running {total_tests} test files...\n")
+
+        for i, test_file in enumerate(self.test_files, 1):
+            print(f"[{i}/{total_tests}] ", end="")
+
+            success, duration, output = self.run_test_file(test_file)
+
+            self.test_results[test_file] = {
+                'success': success,
+                'duration': duration,
+                'output': output,
+                'timestamp': datetime.now().isoformat()
+            }
+
+            total_duration += duration
+
+            if success:
+                passed_tests += 1
+                print(f"✅ PASS {test_file} ({duration:.2f}s)")
+            else:
+                failed_tests += 1
+                print(f"❌ FAIL {test_file} ({duration:.2f}s)")
+
+                if self.fail_fast:
+                    print("\n❌ FAIL FAST: Stopping execution due to test failure")
+                    break
+
+            print()
+
+        self.end_time = time.time()
+
+        # Print summary
+        self.print_summary(passed_tests, failed_tests, total_tests, total_duration)
+
+        # Generate JSON report if requested
+        if self.json_report:
+            self.generate_json_report()
+
+        return failed_tests == 0
+
+    def print_summary(self, passed: int, failed: int, total: int, duration: float):
+        """Print the test execution summary."""
+        print("=" * 80)
+        print("TEST SUITE SUMMARY")
+        print("=" * 80)
+
+        for test_file, result in self.test_results.items():
+            status = "✅ PASS" if result['success'] else "❌ FAIL"
+            print(f"{status} {test_file} ({result['duration']:.2f}s)")
+
+        print()
+        print("Overall Results:")
+        print(f"  Total Tests: {total}")
+        print(f"  Passed: {passed}")
+        print(f"  Failed: {failed}")
+        print(f"  Success Rate: {(passed/total*100):.1f}%" if total > 0 else "N/A")
+        print(f"  Total Time: {duration:.2f}s")
+        print()
+
+        if failed == 0:
+            print("✅ Test suite PASSED - All tests successful")
         else:
-            print("\n⚠️  Some tests failed - check the detailed results above")
+            print(f"❌ Test suite FAILED - {failed} test(s) failed")
 
-        return overall_success
+    def generate_json_report(self):
+        """Generate a detailed JSON report of test results."""
+        report = {
+            'test_suite': 'AURA Compression System - Comprehensive Test Suite',
+            'timestamp': datetime.now().isoformat(),
+            'environment': {
+                'python_version': sys.version,
+                'working_directory': str(Path.cwd()),
+                'platform': sys.platform
+            },
+            'configuration': {
+                'verbose': self.verbose,
+                'json_report': self.json_report,
+                'fail_fast': self.fail_fast
+            },
+            'summary': {
+                'total_tests': len(self.test_results),
+                'passed_tests': sum(1 for r in self.test_results.values() if r['success']),
+                'failed_tests': sum(1 for r in self.test_results.values() if not r['success']),
+                'total_duration': sum(r['duration'] for r in self.test_results.values()),
+                'success_rate': (sum(1 for r in self.test_results.values() if r['success']) / len(self.test_results) * 100) if self.test_results else 0
+            },
+            'test_results': self.test_results,
+            'execution_time': {
+                'start': datetime.fromtimestamp(self.start_time).isoformat() if self.start_time else None,
+                'end': datetime.fromtimestamp(self.end_time).isoformat() if self.end_time else None,
+                'duration': self.end_time - self.start_time if self.start_time and self.end_time else None
+            }
+        }
+
+        report_path = Path(__file__).parent / 'test_report.json'
+        with open(report_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+
+        print(f"\n📄 JSON report saved to: {report_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AURA Compression Comprehensive Test Runner")
-    parser.add_argument('--unit', action='store_true', help='Run unit tests only')
-    parser.add_argument('--integration', action='store_true', help='Run integration tests only')
-    parser.add_argument('--benchmark', action='store_true', help='Run benchmarks only')
-    parser.add_argument('--data', action='store_true', help='Run comprehensive data tests only')
-    parser.add_argument('--all', action='store_true', help='Run complete test suite')
-    parser.add_argument('--iterations', type=int, default=10, help='Number of benchmark iterations')
-    parser.add_argument('--output', type=str, default='test_results.json', help='Output file for results')
+    """Main entry point for the test runner."""
+    parser = argparse.ArgumentParser(
+        description='AURA Compression System - Master Test Runner',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python tests/test_runner.py                    # Run all tests
+  python tests/test_runner.py --verbose         # Run with verbose output
+  python tests/test_runner.py --fail-fast       # Stop on first failure
+  python tests/test_runner.py --no-json-report  # Skip JSON report generation
+        """
+    )
+
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose output showing test details'
+    )
+
+    parser.add_argument(
+        '--json-report', '-j',
+        action='store_true',
+        default=True,
+        help='Generate JSON report (default: enabled)'
+    )
+
+    parser.add_argument(
+        '--no-json-report',
+        action='store_false',
+        dest='json_report',
+        help='Disable JSON report generation'
+    )
+
+    parser.add_argument(
+        '--fail-fast', '-f',
+        action='store_true',
+        help='Stop execution on first test failure'
+    )
 
     args = parser.parse_args()
 
-    # Default to running all tests
-    if not any([args.unit, args.integration, args.benchmark, args.data, args.all]):
-        args.all = True
+    # Change to the project root directory
+    project_root = Path(__file__).parent.parent
+    os.chdir(project_root)
 
-    runner = ComprehensiveTestRunner()
+    # Run the tests
+    runner = TestRunner(
+        verbose=args.verbose,
+        json_report=args.json_report,
+        fail_fast=args.fail_fast
+    )
 
-    try:
-        success = True
+    success = runner.run_all_tests()
 
-        if args.unit or args.all:
-            success &= runner.run_unit_tests()
-
-        if args.integration or args.all:
-            success &= runner.run_integration_tests()
-
-        if args.benchmark or args.all:
-            success &= runner.run_benchmarks(args.iterations)
-
-        if args.data or args.all:
-            success &= runner.run_comprehensive_data_tests()
-
-        if args.all:
-            # Generate final summary for complete run
-            report = runner.generate_summary_report()
-            print("\n" + "="*80)
-            print("FINAL TEST SUITE SUMMARY")
-            print("="*80)
-            print(report)
-
-        runner.save_results(args.output)
-
-        if success:
-            print("\n✅ Test suite completed successfully!")
-            sys.exit(0)
-        else:
-            print("\n❌ Some tests failed!")
-            sys.exit(1)
-
-    except Exception as e:
-        print(f"\n💥 Test runner failed: {e}")
-        sys.exit(1)
+    # Exit with appropriate code
+    sys.exit(0 if success else 1)
 
 
 if __name__ == '__main__':

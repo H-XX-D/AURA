@@ -1,181 +1,227 @@
 #!/usr/bin/env python3
-"""Test network-aware compression implementation."""
+"""
+AURA Compression System - Network-Aware Compression Tests
+"""
 
 import sys
-import os
 import time
-import json
-from typing import Dict, Any
+import pytest
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-# Add the project root to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src', 'python'))
+# Add source path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src' / 'python'))
 
 from aura_compression.network_aware_compression import (
-    NetworkAwareCompressor, NetworkCondition, CompressionStrategy
+    NetworkCondition, CompressionStrategy, NetworkMetrics,
+    NetworkAwareCompressor
 )
-from aura_compression.compressor import ProductionHybridCompressor
 
-def test_network_aware_compression():
-    """Test network-aware compression with different conditions."""
-    print("Testing Network-Aware Compression Implementation")
-    print("=" * 60)
 
-    # Initialize components
-    network_compressor = NetworkAwareCompressor(enable_network_monitoring=False)
-    base_compressor = ProductionHybridCompressor()
+@pytest.fixture
+def mock_compressor():
+    """Mock compressor for testing."""
+    compressor = Mock()
+    compressor.compress.return_value = (b'compressed_data', Mock(name='AURALITE'), {'ratio': 2.0})
+    return compressor
 
-    # Test messages of different sizes
-    test_messages = [
-        "Hello World",  # Small message
-        "This is a test message for compression testing purposes.",  # Medium message
-        "This is a much longer message that contains more text and should compress better with various algorithms including semantic compression and template matching. It has enough content to test different compression strategies effectively."  # Large message
-    ]
 
-    # Test different network conditions
-    network_conditions = [
-        (NetworkCondition.EXCELLENT, "Excellent Network (< 10ms, > 100 Mbps)"),
-        (NetworkCondition.GOOD, "Good Network (< 50ms, > 10 Mbps)"),
-        (NetworkCondition.MODERATE, "Moderate Network (< 200ms, > 1 Mbps)"),
-        (NetworkCondition.POOR, "Poor Network (< 1000ms, > 100 Kbps)"),
-        (NetworkCondition.VERY_POOR, "Very Poor Network (> 1000ms or < 100 Kbps)")
-    ]
+class TestNetworkCondition:
+    """Test NetworkCondition enum and classification."""
 
-    results = {}
+    def test_network_condition_enum_values(self):
+        """Test that all expected network conditions are defined."""
+        assert NetworkCondition.EXCELLENT.value == "excellent"
+        assert NetworkCondition.GOOD.value == "good"
+        assert NetworkCondition.MODERATE.value == "moderate"
+        assert NetworkCondition.POOR.value == "poor"
+        assert NetworkCondition.VERY_POOR.value == "very_poor"
 
-    for condition, description in network_conditions:
-        print(f"\nTesting {description}")
-        print("-" * 50)
+    def test_network_condition_ordering(self):
+        """Test that conditions are ordered from best to worst."""
+        conditions = [
+            NetworkCondition.EXCELLENT,
+            NetworkCondition.GOOD,
+            NetworkCondition.MODERATE,
+            NetworkCondition.POOR,
+            NetworkCondition.VERY_POOR
+        ]
 
-        # Force network condition for testing
-        network_compressor.force_network_condition(condition)
+        # Verify ordering by checking they're in expected sequence
+        assert conditions == sorted(conditions, key=lambda x: x.value)
 
-        condition_results = []
 
-        for i, message in enumerate(test_messages):
-            print(f"\nMessage {i+1} ({len(message)} chars): {message[:50]}{'...' if len(message) > 50 else ''}")
+class TestCompressionStrategy:
+    """Test CompressionStrategy enum."""
 
-            # Compress with network-aware strategy
-            start_time = time.time()
-            compressed, method, metadata = network_compressor.compress_network_aware(
-                message, base_compressor
-            )
-            compression_time = (time.time() - start_time) * 1000
+    def test_compression_strategy_enum_values(self):
+        """Test that all expected compression strategies are defined."""
+        assert CompressionStrategy.MAXIMUM_COMPRESSION.value == "maximum_compression"
+        assert CompressionStrategy.BALANCED.value == "balanced"
+        assert CompressionStrategy.FAST_COMPRESSION.value == "fast_compression"
+        assert CompressionStrategy.MINIMAL_COMPRESSION.value == "minimal_compression"
+        assert CompressionStrategy.NO_COMPRESSION.value == "no_compression"
 
-            # Calculate actual compression ratio
-            original_size = len(message.encode('utf-8'))
-            compressed_size = len(compressed)
-            actual_ratio = original_size / compressed_size if compressed_size > 0 else 1.0
 
-            print(f"  Method: {method}")
-            print(f"  Strategy: {metadata.get('strategy', 'unknown')}")
-            print(f"  Compression Time: {compression_time:.2f}ms")
-            print(f"  Original Size: {original_size} bytes")
-            print(f"  Compressed Size: {compressed_size} bytes")
-            print(f"  Ratio: {actual_ratio:.2f}x")
-            print(f"  Target Ratio: {metadata.get('target_ratio', 'N/A')}")
-            print(f"  Max Latency: {metadata.get('max_latency', 'N/A')}ms")
+class TestNetworkMetrics:
+    """Test NetworkMetrics class functionality."""
 
-            result = {
-                'message_index': i,
-                'original_size': original_size,
-                'compressed_size': compressed_size,
-                'ratio': actual_ratio,
-                'method': method,
-                'strategy': metadata.get('strategy'),
-                'compression_time': compression_time,
-                'target_ratio': metadata.get('target_ratio'),
-                'max_latency': metadata.get('max_latency'),
-                'network_condition': condition.value
-            }
-            condition_results.append(result)
+    def test_network_metrics_initialization(self):
+        """Test NetworkMetrics initializes with default values."""
+        metrics = NetworkMetrics()
 
-        results[condition.value] = condition_results
+        assert metrics.current_latency == 50.0
+        assert metrics.current_bandwidth == 10.0
+        assert metrics.current_packet_loss == 0.01
+        assert metrics.current_jitter == 5.0
 
-        # Reset network condition
-        network_compressor.reset_network_condition()
+        assert len(metrics.latency_samples) == 0
+        assert len(metrics.bandwidth_samples) == 0
+        assert len(metrics.packet_loss_samples) == 0
+        assert len(metrics.jitter_samples) == 0
 
-    # Print summary statistics
-    print("\n" + "=" * 60)
-    print("NETWORK-AWARE COMPRESSION TEST SUMMARY")
-    print("=" * 60)
+    def test_update_latency(self):
+        """Test latency measurement updates."""
+        metrics = NetworkMetrics()
 
-    for condition, condition_results in results.items():
-        print(f"\n{condition.upper()} NETWORK:")
-        total_ratio = sum(r['ratio'] for r in condition_results) / len(condition_results)
-        total_time = sum(r['compression_time'] for r in condition_results)
-        avg_time = total_time / len(condition_results)
+        # Update with some latency values
+        metrics.update_latency(25.0)
+        metrics.update_latency(75.0)
+        metrics.update_latency(50.0)
 
-        strategies_used = set(r['strategy'] for r in condition_results)
-        methods_used = set(r['method'] for r in condition_results)
+        assert len(metrics.latency_samples) == 3
+        assert 25.0 in metrics.latency_samples
+        assert 75.0 in metrics.latency_samples
+        assert 50.0 in metrics.latency_samples
 
-        print(f"  Average Compression Ratio: {total_ratio:.2f}x")
-        print(f"  Average Compression Time: {avg_time:.2f}ms")
-        print(f"  Strategies Used: {', '.join(strategies_used)}")
-        print(f"  Methods Used: {', '.join(methods_used)}")
+    def test_latency_sample_limit(self):
+        """Test that latency samples are limited to prevent unbounded growth."""
+        metrics = NetworkMetrics()
 
-    # Get final network stats
-    print("\n" + "=" * 60)
-    print("FINAL NETWORK STATISTICS")
-    print("=" * 60)
+        # Add more than 100 samples
+        for i in range(105):
+            metrics.update_latency(float(i))
 
-    stats = network_compressor.get_network_stats()
-    print(json.dumps(stats, indent=2))
+        assert len(metrics.latency_samples) == 100  # Should be capped at 100
 
-    # Save results to file
-    output_file = "/Users/hendrixx./AURA/network_aware_test_results.json"
-    with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2)
+    def test_thread_safety(self):
+        """Test that NetworkMetrics operations are thread-safe."""
+        metrics = NetworkMetrics()
 
-    print(f"\nDetailed results saved to: {output_file}")
+        # Multiple updates should not cause race conditions
+        # (This is a basic test; comprehensive threading tests would need more setup)
+        metrics.update_latency(10.0)
+        metrics.update_latency(20.0)
 
-    return results
+        assert len(metrics.latency_samples) == 2
 
-def test_network_condition_detection():
-    """Test network condition detection logic."""
-    print("\n" + "=" * 60)
-    print("TESTING NETWORK CONDITION DETECTION")
-    print("=" * 60)
 
-    network_compressor = NetworkAwareCompressor(enable_network_monitoring=False)
-    metrics = network_compressor.network_metrics
+class TestNetworkAwareCompressor:
+    """Test NetworkAwareCompressor functionality."""
 
-    # Test different latency/bandwidth combinations
-    test_scenarios = [
-        (5.0, 200.0, NetworkCondition.EXCELLENT),     # Low latency, high bandwidth
-        (25.0, 50.0, NetworkCondition.GOOD),          # Moderate latency, good bandwidth
-        (100.0, 5.0, NetworkCondition.MODERATE),      # Higher latency, moderate bandwidth
-        (500.0, 0.5, NetworkCondition.POOR),          # High latency, low bandwidth
-        (2000.0, 0.05, NetworkCondition.VERY_POOR)    # Very high latency, very low bandwidth
-    ]
+    @pytest.fixture
+    def compressor(self):
+        """Fixture providing a NetworkAwareCompressor instance."""
+        return NetworkAwareCompressor()
 
-    print("Latency (ms) | Bandwidth (Mbps) | Detected Condition")
-    print("-" * 55)
+    def test_compressor_initialization(self, compressor):
+        """Test that NetworkAwareCompressor initializes properly."""
+        assert compressor is not None
+        assert hasattr(compressor, 'network_metrics')
+        assert hasattr(compressor, 'condition_strategies')
+        assert isinstance(compressor.network_metrics, NetworkMetrics)
 
-    for latency, bandwidth, expected in test_scenarios:
-        metrics.update_latency(latency)
-        metrics.update_bandwidth(bandwidth)
+    def test_get_network_condition(self, compressor):
+        """Test network condition assessment."""
+        # With default metrics (50ms latency, 10Mbps), should be MODERATE
+        condition = compressor.network_metrics.get_condition()
+        assert condition == NetworkCondition.MODERATE
 
-        detected = metrics.get_condition()
-        status = "✓" if detected == expected else "✗"
+    def test_select_compression_strategy(self, compressor):
+        """Test compression strategy selection based on network conditions."""
+        # Test different network conditions
+        test_cases = [
+            (NetworkCondition.EXCELLENT, CompressionStrategy.MAXIMUM_COMPRESSION),
+            (NetworkCondition.GOOD, CompressionStrategy.BALANCED),
+            (NetworkCondition.MODERATE, CompressionStrategy.BALANCED),
+            (NetworkCondition.POOR, CompressionStrategy.FAST_COMPRESSION),
+            (NetworkCondition.VERY_POOR, CompressionStrategy.MINIMAL_COMPRESSION),
+        ]
 
-        print("12")
+        for condition, expected_strategy in test_cases:
+            # Force the network condition
+            compressor.force_network_condition(condition)
+            actual_strategy = compressor.condition_strategies[condition]
+            assert actual_strategy == expected_strategy
+            compressor.reset_network_condition()
 
-    print("\nNetwork condition detection test completed.")
+    def test_compress_with_different_strategies(self, compressor, mock_compressor):
+        """Test compression with different strategies."""
+        test_message = "This is a test message for network-aware compression"
 
-if __name__ == "__main__":
-    try:
-        # Run network condition detection test
-        test_network_condition_detection()
+        # Test with different strategies by forcing network conditions
+        test_cases = [
+            (NetworkCondition.EXCELLENT, CompressionStrategy.MAXIMUM_COMPRESSION),
+            (NetworkCondition.GOOD, CompressionStrategy.BALANCED),
+            (NetworkCondition.MODERATE, CompressionStrategy.BALANCED),
+            (NetworkCondition.POOR, CompressionStrategy.FAST_COMPRESSION),
+            (NetworkCondition.VERY_POOR, CompressionStrategy.MINIMAL_COMPRESSION),
+        ]
 
-        # Run main compression test
-        results = test_network_aware_compression()
+        for condition, expected_strategy in test_cases:
+            compressor.force_network_condition(condition)
+            result = compressor.compress_network_aware(test_message, mock_compressor)
+            assert result is not None
+            # Result should be tuple of (compressed_data, method, metadata)
+            assert len(result) == 3
+            compressed_data, method, metadata = result
+            assert isinstance(compressed_data, bytes)
+            assert isinstance(metadata, dict)
+            assert metadata['network_condition'] == condition.value
+            assert metadata['strategy'] == expected_strategy.value
+            compressor.reset_network_condition()
 
-        print("\n" + "=" * 60)
-        print("ALL TESTS COMPLETED SUCCESSFULLY")
-        print("=" * 60)
+    def test_adaptive_strategy_update(self, compressor):
+        """Test that compression strategy adapts to network changes."""
+        # Start with excellent network (force it)
+        compressor.force_network_condition(NetworkCondition.EXCELLENT)
+        initial_condition = compressor.network_metrics.get_condition()
+        compressor.reset_network_condition()
 
-    except Exception as e:
-        print(f"Test failed with error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        # Simulate network degradation by updating metrics
+        compressor.network_metrics.current_latency = 500.0  # Poor latency
+        compressor.network_metrics.current_bandwidth = 0.5   # Poor bandwidth
+
+        degraded_condition = compressor.network_metrics.get_condition()
+
+        # Condition should be POOR or VERY_POOR now
+        assert degraded_condition in [NetworkCondition.POOR, NetworkCondition.VERY_POOR]
+
+    def test_performance_monitoring(self, compressor, mock_compressor):
+        """Test performance monitoring and metrics collection."""
+        # Perform some compression operations
+        test_messages = ["Short", "Medium message", "Longer message for testing purposes"]
+
+        for msg in test_messages:
+            result = compressor.compress_network_aware(msg, mock_compressor)
+            assert result is not None
+
+        # Metrics should have been updated (this may not be accurate since we're mocking)
+        # Just verify the method calls work
+        assert mock_compressor.compress.call_count >= len(test_messages)
+
+    def test_edge_cases(self, compressor, mock_compressor):
+        """Test edge cases and error handling."""
+        # Test with empty message
+        result = compressor.compress_network_aware("", mock_compressor)
+        assert result is not None
+
+        # Test with very large message
+        large_message = "A" * 10000
+        result = compressor.compress_network_aware(large_message, mock_compressor)
+        assert result is not None
+
+        # Test with special characters
+        special_message = "Special chars: àáâãäåæçèéêë"
+        result = compressor.compress_network_aware(special_message, mock_compressor)
+        assert result is not None

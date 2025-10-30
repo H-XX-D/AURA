@@ -1,0 +1,52 @@
+{
+  "test_suite": "AURA Compression System - Comprehensive Test Suite",
+  "timestamp": "2025-10-30T05:28:08.616600",
+  "environment": {
+    "python_version": "3.13.7 (main, Aug 14 2025, 11:12:11) [Clang 16.0.0 (clang-1600.0.26.6)]",
+    "working_directory": "/Users/hendrixx./AURA",
+    "platform": "darwin"
+  },
+  "configuration": {
+    "verbose": false,
+    "json_report": true,
+    "fail_fast": false
+  },
+  "summary": {
+    "total_tests": 4,
+    "passed_tests": 4,
+    "failed_tests": 0,
+    "total_duration": 0.5137348175048828,
+    "success_rate": 100.0
+  },
+  "test_results": {
+    "test_compression_core.py": {
+      "success": true,
+      "duration": 0.14119386672973633,
+      "output": "Loaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 157 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 157 training samples\n================================================================================\nAURA COMPRESSION SYSTEM - CORE TESTS (1-5)\n================================================================================\n✅ PASS test_1_compression_initialization\n   Found 6 compression strategies\n\n   Large (63 bytes): 1.105:1\n✅ PASS test_2_ultra_aggressive_thresholds\n   Ultra-aggressive thresholds working - some messages compressed\n\n✅ PASS test_3_uncompressed_fallback\n   Correctly chose UNCOMPRESSED for 3 incompressible messages\n\n✅ PASS test_4_compression_ratio_calculation\n   Compression ratio: 0.982:1 (55 → 56 bytes)\n\n✅ PASS test_5_round_trip_integrity\n   Round-trip integrity verified for 6 test messages\n\nResults: 5/5 tests passed\n",
+      "timestamp": "2025-10-30T05:28:08.243322"
+    },
+    "test_compression_methods.py": {
+      "success": true,
+      "duration": 0.08898687362670898,
+      "output": "Loaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 157 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 157 training samples\n================================================================================\nAURA COMPRESSION SYSTEM - METHOD TESTS (6-10)\n================================================================================\n✅ PASS test_6_binary_semantic_method\n   BINARY_SEMANTIC strategy available and functional\n\n✅ PASS test_7_auralite_method\n   AURALITE strategy available and functional\n\n✅ PASS test_8_brio_method\n   BRIO strategy available and functional\n\n✅ PASS test_9_aura_heavy_method\n   AURA_HEAVY strategy not yet implemented (expected)\n\n✅ PASS test_10_uncompressed_method\n   UNCOMPRESSED fallback working correctly for 3 messages\n\nResults: 5/5 tests passed\n",
+      "timestamp": "2025-10-30T05:28:08.332560"
+    },
+    "test_compression_thresholds.py": {
+      "success": true,
+      "duration": 0.17272305488586426,
+      "output": "================================================================================\nAURA COMPRESSION SYSTEM - THRESHOLD TESTS (11-15)\n================================================================================\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 157 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 157 training samples\n   Large (63 bytes): 1.105:1\n✅ PASS test_11_ultra_aggressive_thresholds\n   Ultra-aggressive thresholds working - some messages compressed\n\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 158 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 158 training samples\n✅ PASS test_12_conservative_thresholds\n   Conservative thresholds: 3 small messages uncompressed, large message compressed: True\n\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 159 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 159 training samples\n   Code: UNCOMPRESSED (0.980:1)\n   Text: AURA_LITE (1.120:1)\n   JSON: UNCOMPRESSED (0.981:1)\n   Binary: UNCOMPRESSED (0.944:1)\n✅ PASS test_13_adaptive_thresholds\n   Adaptive thresholds applied to 4 content types\n\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 160 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 160 training samples\n   9 bytes: Uncompressed\n   10 bytes: Uncompressed\n   11 bytes: Uncompressed\n✅ PASS test_14_threshold_boundary_conditions\n   Boundary conditions tested: 3 cases\n\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 160 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 160 training samples\n   Ultra-aggressive: 1.96ms, 1.139:1, AURA_LITE\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 160 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 160 training samples\n   Balanced: 2.11ms, 1.139:1, AURA_LITE\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 161 training samples\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 161 training samples\n   Conservative: 2.11ms, 1.139:1, AURA_LITE\n✅ PASS test_15_performance_vs_ratio_tradeoffs\n   Performance/ratio tradeoffs analyzed for 3 configurations\n\nResults: 5/5 tests passed\n",
+      "timestamp": "2025-10-30T05:28:08.505468"
+    },
+    "test_audit_integration.py": {
+      "success": true,
+      "duration": 0.11083102226257324,
+      "output": "================================================================================\nAURA COMPRESSION SYSTEM - AUDIT TESTS (16-20)\n================================================================================\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 162 training samples\n✅ PASS test_16_audit_logger_initialization\n   Created 2 audit log files: ['client_delivered.jsonl', 'metadata_only.jsonl']\n\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 162 training samples\n✅ PASS test_17_compression_audit_logging\n   Audit logs contain 1 client and 1 metadata entries\n\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 162 training samples\n✅ PASS test_18_separated_audit_streams\n   Separated audit streams: {'client_delivered': 3, 'ai_generated': 0, 'metadata_only': 3, 'safety_alerts': 0}\n\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 162 training samples\n✅ PASS test_19_audit_data_integrity\n   Audit data integrity verified for 3 entries\n\nLoaded 26 cached template matches from .aura_cache/template_cache.json\nLoaded ML model with 162 training samples\n✅ PASS test_20_compliance_validation\n   Compliance validation: GDPR=True, HIPAA=True, 3 entries\n\nResults: 5/5 tests passed\n",
+      "timestamp": "2025-10-30T05:28:08.616489"
+    }
+  },
+  "execution_time": {
+    "start": "2025-10-30T05:28:08.101976",
+    "end": "2025-10-30T05:28:08.616539",
+    "duration": 0.5145626068115234
+  }
+}

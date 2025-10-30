@@ -6,6 +6,27 @@ npm-debug.log
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
 .env
 .venv
 venv/
@@ -13,15 +34,26 @@ ENV/
 env/
 env.bak/
 venv.bak/
+test_venv/
 .pypirc
 
 # VS Code
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # IDE
 .idea/
@@ -29,24 +61,69 @@ venv.bak/
 *.swo
 *~
 
-# Test coverage
+# Test coverage and results
 .coverage
 htmlcov/
 .pytest_cache/
+test_results/
+test_results.json
+.coverage.*
+coverage.json
+*.cover
 
 # Build artifacts
 *.egg-info/
 dist/
 build/
+*.tgz
+*.tar.gz
 
 # Temporary files
 *.tmp
 *.bak
 .benchmarks/
+*.log
+aura_audit.log
+production_audit.log
+
+# Cache directories
+.aura_cache/
+.cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # Documentation temp files
 *.pdf.tmp
 
-# CSV data files (keep in repo but ignore large data files)
-# Document_Descriptions_List.csv
-# Document Description-Table 1.csv
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Performance and benchmark results
+*_results.json
+performance_baseline.json
+comprehensive_performance_results.json
+compression_report.json
+compression_report_optimization.json
+industry_integration_metrics.json
+complete_optimization_pipeline_results.json
+hardware_accelerated_test_results.json
+network_aware_test_results.json
+trace_analysis_results.json
+aura_performance_results.json
+
+# Training data (may contain sensitive information)
+training_data/
+
+# Docker volumes and temp files
+docker-volumes/
+*.dockerfile.tmp
+
+# Emergency configs (should not be committed)
+emergency_config.py

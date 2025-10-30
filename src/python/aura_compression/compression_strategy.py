@@ -376,12 +376,7 @@ class AuraHeavyStrategy(CompressionStrategy):
     """Strategy for AURA Heavy compression (hybrid semantic + traditional)"""
 
     def __init__(self, aura_heavy_compressor: Any = None):
-        super().__init__(CompressionMethod.BRIO)  # Use BRIO method enum for now
-        self.aura_heavy_compressor = aura_heavy_compressor
-    """Strategy for AURA Heavy compression (hybrid semantic + traditional)"""
-
-    def __init__(self, aura_heavy_compressor: Any = None):
-        super().__init__(CompressionMethod.BRIO)  # Use BRIO method enum for now
+        super().__init__(CompressionMethod.AURA_HEAVY)  # Use AURA_HEAVY method enum
         self.aura_heavy_compressor = aura_heavy_compressor
 
     def can_compress(self, context: CompressionContext) -> bool:

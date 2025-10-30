@@ -808,8 +808,8 @@ class ProductionHybridCompressor:
                 best_ratio = best_candidate[2]['ratio']
                 original_size = best_candidate[2]['original_size']
 
-                # If message is very short (< 100 bytes) and best ratio < 1.1, don't compress
-                if original_size < 100 and best_ratio < 1.1:
+                # If message is very short (<= 10 bytes) and best ratio < 0.96, don't compress
+                if original_size <= 10 and best_ratio < 0.96:
                     selected_payload, selected_method, selected_metadata = uncompressed_candidate
                     selected_metadata['reason'] = 'compression_not_worthwhile_for_short_message'
                 else:

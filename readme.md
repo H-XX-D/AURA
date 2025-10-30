@@ -35,12 +35,12 @@ AURA (AI-Optimized Hybrid Compression Protocol) is a revolutionary compression t
 AURA's ML algorithm automatically selects from multiple proprietary compression methods based on content analysis:
 
 #### Available Methods:
-- **Binary Semantic**: Template-based semantic compression (6-8:1 ratio)
-- **Auralite**: Lightweight semantic compression for short messages (4-6:1 ratio)
-- **Aura_Lite**: Optimized for real-time chat compression (5-7:1 ratio)
-- **Brio**: High-efficiency semantic compression (7-9:1 ratio)
-- **Brio TCP**: Network-optimized compression for TCP streams (6-8:1 ratio)
-- **Aura Heavy**: Maximum compression for large documents (8-12:1 ratio)
+- **Binary Semantic**: Template-based semantic compression using predefined patterns with slot substitution (6-8:1 ratio)
+- **AuraLite**: Lightweight encoder using template tokens + dictionary + literal runs for short messages (4-6:1 ratio)
+- **BRIO**: Multi-template compression with LZ77/rANS tokenization and dictionary compression (7-9:1 ratio)
+- **Aura Heavy**: Hybrid compression routing small files to AURA methods and large files to zlib/gzip (2.5-12:1 ratio)
+- **Aura_Lite**: Enhanced template+dictionary+literals compression (5-7:1 ratio)
+- **Uncompressed**: Raw text storage for cases where compression isn't beneficial (1:1 ratio)
 
 **QA Note:** These compression ratios are obtained after template discovery learns and populates on your data streams. Initial compression ratios may be lower as the ML algorithm adapts to your specific content patterns and builds optimized templates over time.
 

@@ -295,10 +295,10 @@ class AuraHeavyOptimized:
                 return self._compress_large(original_bytes, original_size)
 
             return AuraHeavyResult(
-                compressed_data=compressed_bytes,
+                compressed_data=bytes([method.value]) + compressed_bytes,
                 method=method,
                 original_size=original_size,
-                compressed_size=compressed_size,
+                compressed_size=compressed_size + 1,
                 ratio=ratio,
                 metadata={
                     'aura_method': metadata.get('method', 'unknown'),
@@ -414,7 +414,7 @@ class AuraHeavyOptimized:
                 raise ValueError("AURA compression disabled but received AURA-compressed data")
 
             # AURA decompressor returns (text, metadata)
-            decompressed_text, decompressed_metadata = self.aura_compressor.decompress(compressed_data)
+            decompressed_text, decompressed_metadata = self.aura_compressor.decompress(compressed_data[1:], return_metadata=True)
             return decompressed_text, decompressed_metadata
 
         elif method == AuraHeavyMethod.ZLIB:

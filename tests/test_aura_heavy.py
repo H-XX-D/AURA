@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AURA Heavy Test Suite
-Tests for AuraHeavy compression layer
+Tests for AuraHeavyOptimized compression layer
 """
 import unittest
 import sys
@@ -10,7 +10,7 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aura_compression.aura_heavy import AuraHeavy, AuraHeavyMethod, AuraHeavyResult
+from aura_compression.aura_heavy_optimized import AuraHeavyOptimized as AuraHeavy, AuraHeavyMethod, AuraHeavyResult
 
 
 class TestAuraHeavy(unittest.TestCase):

@@ -1,6 +1,6 @@
 {
   "name": "@aura-protocol/native",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AURA Protocol - Native Node.js bindings for high-performance compression",
   "main": "index.js",
   "types": "index.d.ts",

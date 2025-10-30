@@ -1,0 +1,47 @@
+{
+  "compression_25bytes_compression_time_ms": {
+    "value": 0.8378028869628906,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:51:42.568542"
+  },
+  "compression_25bytes_compression_ratio": {
+    "value": 0.9615384615384616,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:38:21.431951"
+  },
+  "compression_25bytes_compression_speed_mbps": {
+    "value": 0.028457598178713718,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:51:42.569406"
+  },
+  "compression_183bytes_compression_time_ms": {
+    "value": 4.308938980102539,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:51:42.569652"
+  },
+  "compression_183bytes_compression_ratio": {
+    "value": 1.2448979591836735,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:38:21.432253"
+  },
+  "compression_183bytes_compression_speed_mbps": {
+    "value": 0.04050240690532839,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:51:42.570045"
+  },
+  "compression_300bytes_compression_time_ms": {
+    "value": 0.08511543273925781,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:51:42.570242"
+  },
+  "compression_300bytes_compression_ratio": {
+    "value": 1.0135135135135136,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:38:21.432882"
+  },
+  "compression_300bytes_compression_speed_mbps": {
+    "value": 3.361344537815126,
+    "threshold": 0.1,
+    "updated": "2025-10-29T17:51:42.570667"
+  }
+}

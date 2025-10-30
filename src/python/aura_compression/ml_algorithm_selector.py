@@ -339,36 +339,6 @@ class MLAlgorithmSelector:
                 'compression_potential': 0.6,  # Highest compression potential
                 'pattern_score': 0.5,
                 'base_ratio': 3.0
-            },
-            CompressionMethod.GZIP: {
-                'length': 0.3,
-                'entropy': -0.3,
-                'has_numbers': 0.1,
-                'has_special_chars': 0.1,
-                'word_count': 0.4,
-                'compression_potential': 0.4,
-                'pattern_score': 0.3,
-                'base_ratio': 2.0
-            },
-            CompressionMethod.BZ2: {
-                'length': 0.4,
-                'entropy': -0.4,
-                'has_numbers': 0.1,
-                'has_special_chars': 0.1,
-                'word_count': 0.3,
-                'compression_potential': 0.5,
-                'pattern_score': 0.4,
-                'base_ratio': 2.5
-            },
-            CompressionMethod.LZMA: {
-                'length': 0.4,
-                'entropy': -0.5,
-                'has_numbers': 0.1,
-                'has_special_chars': 0.1,
-                'word_count': 0.2,
-                'compression_potential': 0.6,  # LZMA is very good at compression
-                'pattern_score': 0.4,
-                'base_ratio': 3.0
             }
         }
 

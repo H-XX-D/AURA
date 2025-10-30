@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, List, Tuple, Protocol
 
 from .templates import TemplateMatch
-from .compressor import CompressionMethod
+from .enums import CompressionMethod
 
 
 class CompressionResult:
@@ -189,8 +189,10 @@ class BrioStrategy(CompressionStrategy):
             if self.tcp_brio_encoder:
                 try:
                     tcp_compressed = self.tcp_brio_encoder.compress(context.text)
-                    tcp_payload = bytes([self.method.value]) + tcp_compressed.payload
-                    compressed_results.append(('tcp', tcp_compressed, tcp_payload))
+                    # Validate magic bytes
+                    if tcp_compressed.payload.startswith(b"BR"):
+                        tcp_payload = bytes([self.method.value]) + tcp_compressed.payload
+                        compressed_results.append(('tcp', tcp_compressed, tcp_payload))
                 except Exception:
                     pass
             
@@ -201,14 +203,16 @@ class BrioStrategy(CompressionStrategy):
                         context.text,
                         template_match=context.template_match,
                     )
-                    aura_payload = bytes([self.method.value]) + aura_compressed.payload
-                    compressed_results.append(('aura', aura_compressed, aura_payload))
+                    # Validate magic bytes
+                    if aura_compressed.payload.startswith(b"AURA"):
+                        aura_payload = bytes([self.method.value]) + aura_compressed.payload
+                        compressed_results.append(('aura', aura_compressed, aura_payload))
                 except Exception:
                     pass
             
             if not compressed_results:
-                uncompressed = UncompressedStrategy()
-                return uncompressed.compress(context)
+                # BRIO compression failed, don't return a candidate
+                raise ValueError("BRIO compression failed - no encoders available")
             
             # Choose the best compression (smallest payload)
             best_result = min(compressed_results, key=lambda x: len(x[2]))
@@ -368,124 +372,12 @@ class AuraliteStrategy(CompressionStrategy):
             return uncompressed.compress(context)
 
 
-class LzmaStrategy(CompressionStrategyInterface):
-    """LZMA/XZ compression strategy"""
-
-    def get_method(self) -> CompressionMethod:
-        return CompressionMethod.LZMA
-
-    def compress(self, context: CompressionContext) -> CompressionResult:
-        import lzma
-
-        try:
-            compressed = lzma.compress(context.text.encode('utf-8'))
-            compressed_size = len(compressed) + 1  # +1 for method byte
-
-            metadata = {
-                'original_size': context.original_size,
-                'compressed_size': compressed_size,
-                'ratio': context.original_size / compressed_size if compressed_size > 0 else 1.0,
-                'method': 'lzma',
-                'compression_level': 6,  # Default LZMA level
-            }
-
-            can_compress = compressed_size < context.original_size
-            payload = bytes([CompressionMethod.LZMA.value]) + compressed
-
-            return CompressionResult(payload, self.get_method(), metadata, True)  # Always include in competition
-
-        except Exception as e:
-            # Fallback to uncompressed
-            uncompressed_payload = bytes([CompressionMethod.UNCOMPRESSED.value]) + context.text.encode('utf-8')
-            metadata = {
-                'original_size': context.original_size,
-                'compressed_size': context.original_size + 1,
-                'ratio': 1.0,
-                'method': 'uncompressed',
-                'reason': f'lzma_failed: {str(e)}',
-            }
-            return CompressionResult(uncompressed_payload, CompressionMethod.UNCOMPRESSED, metadata, False)
-
-
-class Bz2Strategy(CompressionStrategyInterface):
-    """BZ2 compression strategy"""
-
-    def get_method(self) -> CompressionMethod:
-        return CompressionMethod.BZ2
-
-    def compress(self, context: CompressionContext) -> CompressionResult:
-        import bz2
-
-        try:
-            compressed = bz2.compress(context.text.encode('utf-8'))
-            compressed_size = len(compressed) + 1  # +1 for method byte
-
-            metadata = {
-                'original_size': context.original_size,
-                'compressed_size': compressed_size,
-                'ratio': context.original_size / compressed_size if compressed_size > 0 else 1.0,
-                'method': 'bz2',
-                'compression_level': 9,  # Default BZ2 level
-            }
-
-            can_compress = compressed_size < context.original_size
-            payload = bytes([CompressionMethod.BZ2.value]) + compressed
-
-            return CompressionResult(payload, self.get_method(), metadata, True)  # Always include in competition
-
-        except Exception as e:
-            # Fallback to uncompressed
-            uncompressed_payload = bytes([CompressionMethod.UNCOMPRESSED.value]) + context.text.encode('utf-8')
-            metadata = {
-                'original_size': context.original_size,
-                'compressed_size': context.original_size + 1,
-                'ratio': 1.0,
-                'method': 'uncompressed',
-                'reason': f'bz2_failed: {str(e)}',
-            }
-            return CompressionResult(uncompressed_payload, CompressionMethod.UNCOMPRESSED, metadata, False)
-
-
-class GzipStrategy(CompressionStrategyInterface):
-    """Gzip compression strategy"""
-
-    def get_method(self) -> CompressionMethod:
-        return CompressionMethod.GZIP
-
-    def compress(self, context: CompressionContext) -> CompressionResult:
-        import gzip
-
-        try:
-            compressed = gzip.compress(context.text.encode('utf-8'))
-            compressed_size = len(compressed) + 1  # +1 for method byte
-
-            metadata = {
-                'original_size': context.original_size,
-                'compressed_size': compressed_size,
-                'ratio': context.original_size / compressed_size if compressed_size > 0 else 1.0,
-                'method': 'gzip',
-                'compression_level': 6,  # Default gzip level
-            }
-
-            can_compress = compressed_size < context.original_size
-            payload = bytes([CompressionMethod.GZIP.value]) + compressed
-
-            return CompressionResult(payload, self.get_method(), metadata, True)  # Always include in competition
-
-        except Exception as e:
-            # Fallback to uncompressed
-            uncompressed_payload = bytes([CompressionMethod.UNCOMPRESSED.value]) + context.text.encode('utf-8')
-            metadata = {
-                'original_size': context.original_size,
-                'compressed_size': context.original_size + 1,
-                'ratio': 1.0,
-                'method': 'uncompressed',
-                'reason': f'gzip_failed: {str(e)}',
-            }
-            return CompressionResult(uncompressed_payload, CompressionMethod.UNCOMPRESSED, metadata, False)
-
-
 class AuraHeavyStrategy(CompressionStrategy):
+    """Strategy for AURA Heavy compression (hybrid semantic + traditional)"""
+
+    def __init__(self, aura_heavy_compressor: Any = None):
+        super().__init__(CompressionMethod.BRIO)  # Use BRIO method enum for now
+        self.aura_heavy_compressor = aura_heavy_compressor
     """Strategy for AURA Heavy compression (hybrid semantic + traditional)"""
 
     def __init__(self, aura_heavy_compressor: Any = None):
@@ -588,9 +480,9 @@ def create_compression_strategies(
     if aura_lite_encoder:
         strategies.append(AuraliteStrategy(aura_lite_encoder))
 
-    # Standard compression methods - now included for competitive comparison
-    strategies.append(GzipStrategy())
-    strategies.append(Bz2Strategy())
-    strategies.append(LzmaStrategy())
+    # AURA-only compression - no standard methods
+    # strategies.append(GzipStrategy())
+    # strategies.append(Bz2Strategy())
+    # strategies.append(LzmaStrategy())
 
     return strategies

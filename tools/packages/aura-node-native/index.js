@@ -3,18 +3,18 @@ const { platform, arch } = process
 let nativeBinding = null
 let loadError = null
 
-// Simple platform-specific binary loading without fallbacks
+// Simple platform-specific binary loading with fallbacks
 switch (platform) {
   case 'darwin':
-    if (arch === 'x64') {
+    if (arch === 'arm64') {
       try {
-        nativeBinding = require('./aura-native.darwin-x64.node')
+        nativeBinding = require('./aura-native.darwin-arm64.node')
       } catch (e) {
         loadError = e
       }
-    } else if (arch === 'arm64') {
+    } else if (arch === 'x64') {
       try {
-        nativeBinding = require('./aura-native.darwin-arm64.node')
+        nativeBinding = require('./aura-native.darwin-x64.node')
       } catch (e) {
         loadError = e
       }

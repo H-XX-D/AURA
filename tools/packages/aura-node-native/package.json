@@ -54,10 +54,10 @@
     "index.d.ts",
     "README.md",
     "LICENSE",
-    "aura-native.darwin-arm64.node",
-    "aura-native.darwin-x64.node",
     "aura-native.linux-x64-gnu.node",
     "aura-native.linux-arm64-gnu.node",
+    "aura-native.darwin-arm64.node",
+    "aura-native.darwin-x64.node",
     "aura-native.win32-x64-msvc.node"
   ],
   "engines": {

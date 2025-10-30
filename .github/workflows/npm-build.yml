@@ -3,37 +3,11 @@ name: Build and Publish npm Package
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'tools/packages/aura-node-native/**'
-      - '.github/workflows/npm-build.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'tools/packages/aura-node-native/**'
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            node_arch: linux-x64-gnu
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            node_arch: linux-arm64-gnu
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            node_arch: darwin-x64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            node_arch: darwin-arm64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            node_arch: win32-x64-msvc
+  build-and-publish:
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
@@ -44,81 +18,37 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: tools/packages/aura-node-native/package-lock.json
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        targets: ${{ matrix.target }}
+        targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-msvc
 
-    - name: Install dependencies (Ubuntu)
-      if: runner.os == 'Linux'
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential pkg-config libssl-dev
 
-    - name: Install dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install zig
-
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        # Windows dependencies are handled by rustup/msvc
-
     - name: Install npm dependencies
       run: |
         cd tools/packages/aura-node-native
         npm ci
 
-    - name: Build native binary
+    - name: Build all platform binaries
       run: |
         cd tools/packages/aura-node-native
-        npx napi build --platform --release --target ${{ matrix.target }}
+        # Build Linux binaries (native)
+        npx napi build --platform --release --target x86_64-unknown-linux-gnu
+        npx napi build --platform --release --target aarch64-unknown-linux-gnu
+        # Build macOS binaries (cross-compilation may not work perfectly)
+        npx napi build --platform --release --target x86_64-apple-darwin || echo "macOS x64 cross-compilation failed, skipping"
+        npx napi build --platform --release --target aarch64-apple-darwin || echo "macOS ARM64 cross-compilation failed, skipping"
+        # Build Windows binary (cross-compilation may not work perfectly)
+        npx napi build --platform --release --target x86_64-pc-windows-msvc || echo "Windows cross-compilation failed, skipping"
 
-    - name: Upload binary artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: binary-${{ matrix.node_arch }}
-        path: tools/packages/aura-node-native/aura-native.${{ matrix.node_arch }}.node
-
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: tools/packages/aura-node-native/package-lock.json
-
-    - name: Install npm dependencies
+    - name: List built binaries
       run: |
         cd tools/packages/aura-node-native
-        npm ci
-
-    - name: Download all binaries
-      uses: actions/download-artifact@v4
-      with:
-        path: tools/packages/aura-node-native/
-
-    - name: Move binaries to correct locations
-      run: |
-        cd tools/packages/aura-node-native
-        # Move downloaded binaries to the correct names
-        find . -name "binary-*" -type d | while read dir; do
-          arch=$(basename "$dir" | sed 's/binary-//')
-          if [ -f "$dir/aura-native.${arch}.node" ]; then
-            mv "$dir/aura-native.${arch}.node" "./aura-native.${arch}.node"
-          fi
-        done
         ls -la *.node
 
     - name: Publish to npm

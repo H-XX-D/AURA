@@ -78,8 +78,8 @@ class ProductionHybridCompressor:
     """
 
     def __init__(self,
-                 binary_advantage_threshold: float = 1.05,  # Reduced from 1.1 to 1.05 (5% better is enough)
-                 min_compression_size: int = 20,  # Reduced from 50 to allow compression of smaller messages that compress well
+                 binary_advantage_threshold: float = 1.01,  # Aggressive: Only 1% improvement needed for compression
+                 min_compression_size: int = 10,  # Aggressive: Compress even very small messages
                  enable_aura: Optional[bool] = None,
                  aura_preference_margin: float = 0.05,
                  enable_audit_logging: bool = False,
@@ -96,8 +96,8 @@ class ProductionHybridCompressor:
                  sidechain_config: Optional[Dict[str, Any]] = None):
         """
         Args:
-            binary_advantage_threshold: Use binary if >this times better than AuraLite (1.05 = 5% better, was 1.1)
-            min_compression_size: Don't compress messages smaller than this
+            binary_advantage_threshold: Use binary if >this times better than AuraLite (1.01 = 1% better - aggressive)
+            min_compression_size: Don't compress messages smaller than this (10 bytes - very aggressive)
             enable_audit_logging: Enable GDPR/HIPAA/SOC2 compliant audit logging (Claim 2)
             audit_log_directory: Directory for audit logs
             session_id: Optional session identifier for audit logs
@@ -1103,7 +1103,7 @@ class ProductionHybridCompressor:
                 return text, meta
             return text
         else:
-            raise ValueError(f"Unknown compression method: 0x{method_byte:02x}")
+            raise ValueError(f"Unknown compression method: 0x{int(method_byte):02x}")
 
     # -- Dynamic template handling -------------------------------------------------
 

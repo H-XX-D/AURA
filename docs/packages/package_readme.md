@@ -57,6 +57,27 @@ decompressed = compressor.decompress(compressed)
 assert decompressed == text
 ```
 
+### CLI Tools
+
+The Python package includes command-line tools:
+
+```bash
+# Compress a file
+aura-compress data.txt -o data.compressed
+
+# Compress from stdin
+echo "Hello World" | aura-compress > output.compressed
+
+# Decompress a file
+aura-decompress data.compressed -o data.txt
+
+# Decompress from stdin
+cat data.compressed | aura-decompress
+
+# Show help
+aura-compress --help
+```
+
 ### Client/Server SDKs
 
 ```python
@@ -103,30 +124,48 @@ python -m build
 
 ```bash
 # Install from npm
-npm install @aura-protocol/native
+npm install aura-compression-native
 
 # Or with yarn
-yarn add @aura-protocol/native
+yarn add aura-compression-native
 ```
 
 ### Quick Start
 
-```typescript
-import { Compressor, CompressionMethod } from '@aura-protocol/native';
+```javascript
+const { AuraCompressor } = require('aura-compression-native');
 
-// Initialize compressor
-const compressor = new Compressor({
-  enableAura: true,
-  enableAuditLogging: true,
-  sessionId: 'session_123'
-});
+// Create compressor with aggressive settings
+const compressor = AuraCompressor.withConfig(1.01, 10);
 
 // Compress message
 const text = "I cannot browse the internet.";
 const result = compressor.compress(text);
 
-console.log(`Compressed: ${result.metadata.originalSize}B → ${result.payload.length}B`);
-console.log(`Method: ${result.metadata.method}`);
+console.log(`Compressed: ${result.originalSize}B → ${result.compressedSize}B`);
+console.log(`Method: ${result.method}`);
+console.log(`Ratio: ${result.ratio.toFixed(2)}:1`);
+
+// Decompress
+const decompressed = compressor.decompress(result.data);
+console.log(decompressed.plaintext); // "I cannot browse the internet."
+```
+
+### CLI Tools
+
+```bash
+# Compress a file
+npx aura-compress data.txt -o data.compressed
+
+# Compress from stdin
+echo "Hello World" | npx aura-compress > output.compressed
+
+# Decompress a file
+npx aura-decompress data.compressed -o data.txt
+
+# Decompress from stdin
+cat data.compressed | npx aura-decompress
+```
 console.log(`Ratio: ${result.metadata.ratio.toFixed(2)}:1`);
 
 // Decompress

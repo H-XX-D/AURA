@@ -5,7 +5,6 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
 [![Node.js](https://img.shields.io/badge/node.js-18+-blue.svg)](https://nodejs.org/)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://docker.com/)
 [![PyPI](https://img.shields.io/pypi/v/aura-compression.svg)](https://pypi.org/project/aura-compression/)
 [![Tests](https://img.shields.io/badge/tests-310%20passed-brightgreen.svg)]()
 [![Coverage](https://img.shields.io/badge/coverage-95%2B%25-brightgreen.svg)]()
@@ -58,32 +57,52 @@ npm install aura-compression-native
 pip install aura-compression
 ```
 
-### Docker Deployment
-
-```bash
-# Build the container
-docker build -f config/dockerfile -t aura/compression .
-
-# Run the service
-docker run -p 8765:8765 aura/compression
-```
-
 ### Quick Start
+
+#### Node.js
 
 ```javascript
 const { AuraCompressor } = require('aura-compression-native');
 
-const compressor = new AuraCompressor();
-const compressed = compressor.compress(Buffer.from('Hello World'));
-const decompressed = compressor.decompress(compressed);
+// Create compressor with aggressive settings for maximum compression ratios
+const compressor = AuraCompressor.withConfig(1.01, 10); // 1% advantage threshold, compress >= 10 bytes
+
+// Compress
+const result = compressor.compress("Hello, world!");
+console.log(`Compressed: ${result.originalSize} → ${result.compressedSize} bytes`);
+console.log(`Ratio: ${result.ratio.toFixed(2)}:1`);
+
+// Decompress
+const decompressed = compressor.decompress(result.data);
+console.log(decompressed.plaintext); // "Hello, world!"
 ```
 
-```python
-from aura_compression import AuraCompressor
+#### Python
 
-compressor = AuraCompressor()
-compressed = compressor.compress(b'Hello World')
-decompressed = compressor.decompress(compressed)
+```python
+from aura_compression import ProductionHybridCompressor
+
+# Create compressor with aggressive default settings
+compressor = ProductionHybridCompressor()
+
+# Compress (returns tuple: bytes, method, metadata)
+compressed_bytes, method, metadata = compressor.compress("Hello, world!")
+print(f"Compressed: {metadata['original_size']} → {metadata['compressed_size']} bytes")
+print(f"Ratio: {metadata['ratio']:.2f}:1")
+
+# Decompress
+decompressed = compressor.decompress(compressed_bytes)
+print(decompressed)  # "Hello, world!"
+```
+
+#### CLI Tools
+
+```bash
+# Node.js CLI
+echo "Hello World" | npx aura-compress | npx aura-decompress
+
+# Python CLI
+echo "Hello World" | aura-compress | aura-decompress
 ```
 
 ## Economic & Environmental Impact

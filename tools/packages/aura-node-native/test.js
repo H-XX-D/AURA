@@ -1,109 +1,101 @@
 /**
- * AURA Native - Quick Test
+ * AURA Native - Jest Tests
  *
  * Tests basic functionality of the native bindings
  */
 
 const { AuraCompressor } = require('./index.js');
 
-console.log('=== AURA Native Node.js Bindings Test ===\n');
+describe('AURA Native Node.js Bindings', () => {
+  let compressor;
 
-try {
-  // Test 1: Basic compression
-  console.log('Test 1: Basic Compression');
-  const compressor = new AuraCompressor();
-  const message = "Hello, this is a test message for AURA compression!";
-  const result = compressor.compress(message);
-
-  console.log('  Original:', message);
-  console.log('  Original size:', result.originalSize, 'bytes');
-  console.log('  Compressed size:', result.compressedSize, 'bytes');
-  console.log('  Ratio:', result.ratio.toFixed(2) + ':1');
-  console.log('  Method:', result.method === 1 ? 'Binary Semantic' : result.method === 2 ? 'Brotli' : 'Uncompressed');
-  console.log('  ✓ PASS\n');
-
-  // Test 2: Round-trip
-  console.log('Test 2: Round-Trip Compression/Decompression');
-  const decompressed = compressor.decompress(result.data);
-  console.log('  Decompressed:', decompressed.plaintext);
-  console.log('  Match:', message === decompressed.plaintext ? '✓ YES' : '✗ NO');
-  if (message !== decompressed.plaintext) {
-    throw new Error('Round-trip failed!');
-  }
-  console.log('  ✓ PASS\n');
-
-  // Test 3: Template compression
-  console.log('Test 3: Template-Based Compression');
-  const slots = [
-    "real-time weather data",
-    "Please check a weather website"
-  ];
-  const templateResult = compressor.compressWithTemplate(0, slots);
-  console.log('  Template ID:', 0);
-  console.log('  Slots:', slots);
-  console.log('  Original size:', templateResult.originalSize, 'bytes');
-  console.log('  Compressed size:', templateResult.compressedSize, 'bytes');
-  console.log('  Ratio:', templateResult.ratio.toFixed(2) + ':1');
-  console.log('  Method:', templateResult.method === 1 ? 'Binary Semantic' : 'Other');
-
-  const templateDecompressed = compressor.decompress(templateResult.data);
-  console.log('  Decompressed:', templateDecompressed.plaintext);
-  console.log('  Template ID extracted:', templateDecompressed.templateId);
-  console.log('  ✓ PASS\n');
-
-  // Test 4: Custom template
-  console.log('Test 4: Custom Template');
-  compressor.addTemplate({
-    id: 200,
-    pattern: "Order #{0} has been {1}",
-    description: "Order status",
-    slots: 2
+  beforeAll(() => {
+    compressor = new AuraCompressor();
   });
 
-  const customSlots = ["12345", "shipped"];
-  const customResult = compressor.compressWithTemplate(200, customSlots);
-  const customDecompressed = compressor.decompress(customResult.data);
+  test('Basic Compression', () => {
+    const message = "Hello, this is a test message for AURA compression!";
+    const result = compressor.compress(message);
 
-  console.log('  Decompressed:', customDecompressed.plaintext);
-  console.log('  Expected: Order #12345 has been shipped');
-  console.log('  Match:', customDecompressed.plaintext === "Order #12345 has been shipped" ? '✓ YES' : '✗ NO');
-  console.log('  ✓ PASS\n');
+    expect(result).toHaveProperty('originalSize');
+    expect(result).toHaveProperty('compressedSize');
+    expect(result).toHaveProperty('ratio');
+    expect(result).toHaveProperty('method');
+    expect(result).toHaveProperty('data');
 
-  // Test 5: Performance comparison
-  console.log('Test 5: Performance Benchmark');
-  const iterations = 1000;
-  const testMessage = "I don't have access to real-time weather information. Please check a weather website or app for current conditions.";
+    expect(result.originalSize).toBeGreaterThan(0);
+    expect(result.compressedSize).toBeGreaterThan(0);
+    expect(result.ratio).toBeGreaterThan(1);
+    expect([1, 2]).toContain(result.method); // 1 = Binary Semantic, 2 = Brotli
+  });
 
-  const startCompress = Date.now();
-  for (let i = 0; i < iterations; i++) {
-    compressor.compress(testMessage);
-  }
-  const compressTime = Date.now() - startCompress;
+  test('Round-Trip Compression/Decompression', () => {
+    const message = "Hello, this is a test message for AURA compression!";
+    const result = compressor.compress(message);
+    const decompressed = compressor.decompress(result.data);
 
-  const compressed = compressor.compress(testMessage);
-  const startDecompress = Date.now();
-  for (let i = 0; i < iterations; i++) {
-    compressor.decompress(compressed.data);
-  }
-  const decompressTime = Date.now() - startDecompress;
+    expect(decompressed).toHaveProperty('plaintext');
+    expect(decompressed.plaintext).toBe(message);
+  });
 
-  console.log(`  Compression: ${iterations} iterations in ${compressTime}ms`);
-  console.log(`  Average: ${(compressTime / iterations).toFixed(3)}ms per operation`);
-  console.log(`  Decompression: ${iterations} iterations in ${decompressTime}ms`);
-  console.log(`  Average: ${(decompressTime / iterations).toFixed(3)}ms per operation`);
-  console.log('  ✓ PASS\n');
+  test('Template-Based Compression', () => {
+    const slots = [
+      "real-time weather data",
+      "Please check a weather website"
+    ];
+    const templateResult = compressor.compressWithTemplate(0, slots);
+    const templateDecompressed = compressor.decompress(templateResult.data);
 
-  // Summary
-  console.log('=== All Tests Passed ===');
-  console.log('Native bindings are working correctly!');
-  console.log('\nPerformance Notes:');
-  console.log('- Native Rust implementation provides 2-10x speedup vs pure JavaScript');
-  console.log('- Best for high-throughput scenarios (>1000 messages/sec)');
-  console.log('- Zero-copy design minimizes memory allocations');
+    expect(templateResult).toHaveProperty('originalSize');
+    expect(templateResult).toHaveProperty('compressedSize');
+    expect(templateResult).toHaveProperty('ratio');
+    expect(templateResult).toHaveProperty('method');
 
-} catch (error) {
-  console.error('\n❌ Test Failed:');
-  console.error(error.message);
-  console.error(error.stack);
-  process.exit(1);
-}
+    expect(templateDecompressed).toHaveProperty('plaintext');
+    expect(templateDecompressed).toHaveProperty('templateId');
+    expect(templateDecompressed.templateId).toBe(0);
+  });
+
+  test('Custom Template', () => {
+    compressor.addTemplate({
+      id: 200,
+      pattern: "Order #{0} has been {1}",
+      description: "Order status",
+      slots: 2
+    });
+
+    const customSlots = ["12345", "shipped"];
+    const customResult = compressor.compressWithTemplate(200, customSlots);
+    const customDecompressed = compressor.decompress(customResult.data);
+
+    expect(customDecompressed.plaintext).toBe("Order #12345 has been shipped");
+  });
+
+  test('Performance Benchmark', () => {
+    const iterations = 100;
+    const testMessage = "I don't have access to real-time weather information. Please check a weather website or app for current conditions.";
+
+    // Test compression performance
+    const startCompress = Date.now();
+    for (let i = 0; i < iterations; i++) {
+      compressor.compress(testMessage);
+    }
+    const compressTime = Date.now() - startCompress;
+
+    // Test decompression performance
+    const compressed = compressor.compress(testMessage);
+    const startDecompress = Date.now();
+    for (let i = 0; i < iterations; i++) {
+      compressor.decompress(compressed.data);
+    }
+    const decompressTime = Date.now() - startDecompress;
+
+    // Performance should be reasonable (less than 100ms total for 100 iterations)
+    expect(compressTime).toBeLessThan(100);
+    expect(decompressTime).toBeLessThan(100);
+
+    // Each operation should be fast (less than 1ms average)
+    expect(compressTime / iterations).toBeLessThan(1);
+    expect(decompressTime / iterations).toBeLessThan(1);
+  });
+});

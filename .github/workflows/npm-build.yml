@@ -24,15 +24,6 @@ jobs:
       with:
         targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu
 
-    - name: Install cross-compilation tools
-      run: |
-        # Install zig for cross-compilation
-        curl -L https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz | tar -xJ
-        sudo mv zig-linux-x86_64-0.11.0/zig /usr/local/bin/
-        sudo mv zig-linux-x86_64-0.11.0/lib /usr/local/lib/zig
-        # Install cargo-xwin for Windows cross-compilation
-        cargo install cargo-xwin
-
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -46,14 +37,11 @@ jobs:
     - name: Build all platform binaries
       run: |
         cd tools/packages/aura-node-native
-        # Build Linux binaries (native)
+        # Build Linux binaries (native - these work reliably)
         npx napi build --platform --release --target x86_64-unknown-linux-gnu
         npx napi build --platform --release --target aarch64-unknown-linux-gnu
-        # Build macOS binaries using zig
-        npx napi build --platform --release --target x86_64-apple-darwin --use-zig
-        npx napi build --platform --release --target aarch64-apple-darwin --use-zig
-        # Build Windows binary using cargo-xwin
-        npx napi build --platform --release --target x86_64-pc-windows-msvc --use-cross
+        # Skip cross-compilation for now - focus on Linux binaries
+        echo "Cross-compilation to macOS/Windows skipped - will add later"
 
     - name: Prepare package for publishing
       run: |

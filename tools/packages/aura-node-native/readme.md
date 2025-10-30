@@ -1,4 +1,4 @@
-# @aura-protocol/native
+# aura-compression-native
 
 **High-Performance Native Node.js Bindings for AURA Protocol**
 
@@ -15,16 +15,16 @@ Native Rust implementation with N-API bindings providing **2-10x faster** compre
 ## Installation
 
 ```bash
-npm install @aura-protocol/native
+npm install aura-compression-native
 ```
 
 ## Quick Start
 
 ```javascript
-const { AuraCompressor } = require('@aura-protocol/native');
+const { AuraCompressor } = require('aura-compression-native');
 
 // Create compressor with aggressive settings for maximum compression ratios
-const compressor = AuraCompressor.withConfig(3.0, 10); // High binary threshold, low min size
+const compressor = AuraCompressor.withConfig(1.01, 10); // Aggressive: 1% advantage threshold, compress files >= 10 bytes
 
 // Compress
 const result = compressor.compress("Hello, world!");
@@ -34,6 +34,10 @@ console.log(`Ratio: ${result.ratio.toFixed(2)}:1`);
 // Decompress
 const decompressed = compressor.decompress(result.data);
 console.log(decompressed.plaintext); // "Hello, world!"
+
+// Check current settings
+console.log(`Binary threshold: ${compressor.binaryAdvantageThreshold}`);
+console.log(`Min compression size: ${compressor.minCompressionSize}`);
 ```
 
 ## Performance Comparison
@@ -46,6 +50,36 @@ console.log(decompressed.plaintext); // "Hello, world!"
 | Template encode | 0.05ms | 0.01ms | **5x faster** |
 
 *Benchmarked on M1 MacBook Pro*
+
+## CLI Tools
+
+The package includes command-line tools for compression and decompression:
+
+### Compress
+
+```bash
+# Compress a file
+aura-compress data.txt -o data.compressed
+
+# Compress from stdin to stdout
+echo "Hello World" | aura-compress
+
+# Compress with verbose output
+aura-compress -v data.txt
+```
+
+### Decompress
+
+```bash
+# Decompress a file
+aura-decompress data.compressed -o data.txt
+
+# Decompress from stdin to stdout
+cat data.compressed | aura-decompress
+
+# Decompress with verbose output
+aura-decompress -v data.compressed
+```
 
 ## API Reference
 
@@ -175,13 +209,27 @@ const template = compressor.getTemplate(0);
 
 ## Compression Methods
 
+AURA's compression system uses multiple proprietary methods based on content analysis:
+
+### Actually Implemented Methods:
+- **BinarySemantic**: Template-based semantic compression using predefined patterns with slot substitution (6-8:1 ratio)
+- **AuraLite**: Lightweight encoder using template tokens + dictionary + literal runs for short messages (4-6:1 ratio)
+- **AuraLiteV2**: Enhanced version of AuraLite with improved metadata handling (4-6:1 ratio)
+- **BRIO**: Multi-template compression with LZ77/rANS tokenization and dictionary compression (7-9:1 ratio)
+- **Aura Heavy**: Hybrid compression routing small files to AURA methods and large files to zlib/gzip (2.5-12:1 ratio)
+- **Aura_Lite**: Enhanced template+dictionary+literals compression (5-7:1 ratio)
+- **Uncompressed**: Raw text storage for cases where compression isn't beneficial (1:1 ratio)
+
+**QA Note:** These compression ratios are obtained after template discovery learns and populates on your data streams. Initial compression ratios may be lower as the ML algorithm adapts to your specific content patterns and builds optimized templates over time.
+
 ```typescript
 enum CompressionMethod {
   BinarySemantic = 1,   // Template-based compression (6-8:1 ratio)
-  Brotli = 2,           // Brotli compression (1.2-1.5:1 ratio)
-  Uncompressed = 255    // No compression (for tiny messages)
+  Uncompressed = 255    // No compression (fallback for non-template content)
 }
 ```
+
+**Note:** All methods are proprietary AI-driven algorithms. The system automatically selects the optimal method based on content patterns and compression effectiveness.
 
 ## Default Templates
 

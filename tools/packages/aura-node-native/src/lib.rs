@@ -135,6 +135,18 @@ impl AuraCompressor {
     self.templates.get(&id).cloned()
   }
 
+  /// Get the binary advantage threshold
+  #[napi(getter)]
+  pub fn binary_advantage_threshold(&self) -> f64 {
+    self.binary_threshold
+  }
+
+  /// Get the minimum compression size
+  #[napi(getter)]
+  pub fn min_compression_size(&self) -> u32 {
+    self.min_size as u32
+  }
+
   /// Compress text using best method
   #[napi]
   pub fn compress(&self, text: String) -> Result<CompressionResult> {

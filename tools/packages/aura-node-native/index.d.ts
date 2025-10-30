@@ -39,6 +39,10 @@ export declare class AuraCompressor {
   addTemplate(template: Template): void
   /** Get template by ID */
   getTemplate(id: number): Template | null
+  /** Get the binary advantage threshold */
+  get binaryAdvantageThreshold(): number
+  /** Get the minimum compression size */
+  get minCompressionSize(): number
   /** Compress text using best method */
   compress(text: string): CompressionResult
   /** Compress with specific template */

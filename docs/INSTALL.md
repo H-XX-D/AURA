@@ -7,7 +7,6 @@ This guide covers all installation methods for AURA Compression across different
 - [Quick Start](#quick-start)
 - [Python Installation](#python-installation)
 - [Node.js Installation](#nodejs-installation)
-- [Docker Installation](#docker-installation)
 - [Development Setup](#development-setup)
 - [System Requirements](#system-requirements)
 - [Troubleshooting](#troubleshooting)
@@ -22,11 +21,6 @@ pip install aura-compression
 ### One-Line Install (Node.js)
 ```bash
 npm install @aura-protocol/native
-```
-
-### Docker (All-in-One)
-```bash
-docker run -p 8765:8765 aura/compression:latest
 ```
 
 ## Python Installation
@@ -144,95 +138,6 @@ pnpm add @aura-protocol/native
 pnpm add -g @aura-protocol/native
 ```
 
-## Docker Installation
-
-### Pre-built Images
-
-#### Production Server
-```bash
-# Pull latest image
-docker pull aura/compression:latest
-
-# Run WebSocket server
-docker run -p 8765:8765 -d \
-  --name aura-server \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/logs:/logs \
-  aura/compression:latest
-
-# Check server health
-curl http://localhost:8765/health
-```
-
-#### Development Environment
-```bash
-# Pull development image
-docker pull aura/compression:dev
-
-# Run with development tools
-docker run -it -p 8765:8765 \
-  -v $(pwd):/app \
-  -v $(pwd)/data:/data \
-  aura/compression:dev
-```
-
-### Docker Compose (Recommended)
-
-#### Production Setup
-```bash
-# Clone repository
-git clone https://github.com/hendrixx-cnc/AURA.git
-cd AURA
-
-# Start production services
-docker-compose -f config/docker-compose.yml up -d
-
-# View logs
-docker-compose logs -f aura-server
-
-# Scale services
-docker-compose up -d --scale aura-server=3
-```
-
-#### Development Setup
-```bash
-# Start development environment
-docker-compose -f config/docker-compose.dev.yml up -d
-
-# Run tests in container
-docker-compose exec aura-server npm test
-
-# Access development shell
-docker-compose exec aura-server bash
-```
-
-### Custom Docker Build
-```bash
-# Build from source
-docker build -f config/dockerfile -t aura-custom .
-
-# Build with specific Python version
-docker build --build-arg PYTHON_VERSION=3.11 -f config/dockerfile -t aura-python311 .
-
-# Build with GPU support
-docker build --build-arg ENABLE_GPU=true -f config/dockerfile -t aura-gpu .
-```
-
-### Kubernetes Deployment
-```bash
-# Apply Kubernetes manifests
-kubectl apply -f k8s/
-
-# Check deployment status
-kubectl get pods -l app=aura-compression
-
-# Scale deployment
-kubectl scale deployment aura-compression --replicas=5
-
-# View logs
-kubectl logs -f deployment/aura-compression
-```
-
 ## Development Setup
 
 ### Full Development Environment
@@ -313,7 +218,7 @@ python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
 ### Platform Support
 - **Operating Systems**: Linux, macOS, Windows
 - **Architectures**: x64, ARM64
-- **Containers**: Docker, Podman, Kubernetes
+- **Containers**: Podman, Kubernetes
 
 ### Optional Dependencies
 - **CUDA**: 11.8+ (for GPU acceleration)
@@ -381,35 +286,6 @@ pip --version
 npm config set python /usr/bin/python3
 ```
 
-### Docker Issues
-
-#### Port Already in Use
-```bash
-# Find process using port 8765
-lsof -i :8765
-
-# Kill process or use different port
-docker run -p 8766:8765 aura/compression:latest
-```
-
-#### Permission Denied
-```bash
-# Add user to docker group (Linux)
-sudo usermod -aG docker $USER
-
-# Restart session or run:
-newgrp docker
-```
-
-#### Build Failures
-```bash
-# Clear Docker cache
-docker system prune -a
-
-# Build with no cache
-docker build --no-cache -f config/dockerfile -t aura-custom .
-```
-
 ### Performance Issues
 
 #### High Memory Usage
@@ -437,8 +313,7 @@ compressor = ProductionHybridCompressor(level='fast')
 # Check if server is running
 curl http://localhost:8765/health
 
-# Start server
-docker-compose up -d aura-server
+# Start server (see development setup above)
 ```
 
 #### WebSocket Connection Issues

@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
 [![Node.js](https://img.shields.io/badge/node.js-18+-blue.svg)](https://nodejs.org/)
 [![PyPI](https://img.shields.io/pypi/v/aura-compression.svg)](https://pypi.org/project/aura-compression/)
-[![Tests](https://img.shields.io/badge/tests-310%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-43%20passed-brightgreen.svg)]()
 [![Coverage](https://img.shields.io/badge/coverage-95%2B%25-brightgreen.svg)]()
 
 ## Summary

@@ -145,8 +145,9 @@ impl AuraCompressor {
       return self.compress_uncompressed(&text);
     }
 
-    // Try Brotli compression
-    self.compress_brotli(&text)
+    // For now, only template-based compression is available
+    // Automatic compression without templates falls back to uncompressed
+    self.compress_uncompressed(&text)
   }
 
   /// Compress with specific template
@@ -175,6 +176,11 @@ impl AuraCompressor {
 
     let compressed_size = data.len();
     let ratio = original_size as f64 / compressed_size as f64;
+
+    // Always fallback to uncompressed if compression doesn't provide benefit
+    if ratio <= self.binary_threshold {
+      return self.compress_uncompressed(&plaintext);
+    }
 
     Ok(CompressionResult {
       data: data.into(),

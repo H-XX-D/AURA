@@ -35,7 +35,7 @@ AURA (AI-Optimized Hybrid Compression Protocol) is a revolutionary compression t
 ### Node.js Installation
 
 ```bash
-npm install @aura-protocol/native
+npm install aura-compression-native
 ```
 
 ### Python Installation
@@ -57,7 +57,7 @@ docker run -p 8765:8765 aura/compression
 ### Quick Start
 
 ```javascript
-const { AuraCompressor } = require('@aura-protocol/native');
+const { AuraCompressor } = require('aura-compression-native');
 
 const compressor = new AuraCompressor();
 const compressed = compressor.compress(Buffer.from('Hello World'));

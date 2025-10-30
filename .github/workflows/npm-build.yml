@@ -49,31 +49,15 @@ jobs:
     - name: Prepare package for publishing
       run: |
         cd tools/packages/aura-node-native
-
-        # Copy package files
-        mkdir -p ../publish-package
-        cp package.json ../publish-package/
-        cp index.js ../publish-package/
-        cp index.d.ts ../publish-package/
-
-        # Copy all built binaries (whatever was successfully built)
-        echo "Binaries to copy:"
-        ls -la *.node 2>/dev/null || echo "No .node files found"
-        cp *.node ../publish-package/ 2>/dev/null || echo "No binaries copied"
-
-        cd ../publish-package
-        echo "Files to be published:"
-        ls -la
-
-    - name: Publish to npm
-      run: |
-        cd tools/packages/aura-node-native/../publish-package
-        echo "Skipping npm publish for now - testing build process"
         echo "Package contents:"
         ls -la
         echo "Package.json contents:"
         cat package.json
-        # Set npm token (commented out for testing)
+
+    - name: Publish to npm
+      run: |
+        cd tools/packages/aura-node-native
+        echo "Skipping npm publish for now - testing build process"
         # echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
         # npm publish --ignore-scripts
       # env:

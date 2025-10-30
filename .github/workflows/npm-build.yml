@@ -68,8 +68,13 @@ jobs:
     - name: Publish to npm
       run: |
         cd tools/packages/aura-node-native/../publish-package
-        # Set npm token
-        echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-        npm publish --ignore-scripts
-      env:
-        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        echo "Skipping npm publish for now - testing build process"
+        echo "Package contents:"
+        ls -la
+        echo "Package.json contents:"
+        cat package.json
+        # Set npm token (commented out for testing)
+        # echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        # npm publish --ignore-scripts
+      # env:
+      #   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

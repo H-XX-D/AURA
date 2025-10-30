@@ -17,7 +17,8 @@ __author__ = "Todd Hendricks"
 __license__ = "Apache 2.0"
 __patent__ = "US Patent Application No. 19/366,538"
 
-from .compressor import ProductionHybridCompressor, CompressionMethod
+from .compressor import ProductionHybridCompressor
+from .enums import CompressionMethod
 from .templates import TemplateLibrary
 from .audit import AuditLogger, AuditLogType, get_audit_logger, reset_audit_logger
 from .metadata import MetadataExtractor, FastPathClassifier, SecurityScreener, MetadataRouter

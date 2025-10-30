@@ -1,0 +1,24 @@
+# Include documentation
+include README.md
+include LICENSE
+include requirements.txt
+include pyproject.toml
+
+# Include documentation directories
+recursive-include docs *.md
+recursive-include docs *.pdf
+
+# Exclude examples from distribution (they require running servers)
+# recursive-include examples *.py
+# recursive-include examples *.md
+
+# Exclude archive and tests from distribution
+recursive-exclude archive *
+recursive-exclude tests *
+recursive-exclude .github *
+
+# Exclude build artifacts
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.so
+global-exclude .DS_Store

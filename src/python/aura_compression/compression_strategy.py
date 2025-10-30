@@ -398,10 +398,25 @@ class AuraHeavyStrategy(CompressionStrategy):
             # AURA Heavy has different API - returns AuraHeavyResult
             result = self.aura_heavy_compressor.compress(context.text)
 
-            payload = bytes([self.method.value]) + result.compressed_data
+            # Determine the correct method based on AuraHeavy result
+            if result.method == 0x00:
+                compression_method = CompressionMethod.BINARY_SEMANTIC
+            elif result.method == 0x01:
+                compression_method = CompressionMethod.AURALITE
+            elif result.method == 0x02:
+                compression_method = CompressionMethod.BRIO
+            elif result.method == 0x03:
+                compression_method = CompressionMethod.AURA_LITE
+            elif result.method == 0xFF:
+                compression_method = CompressionMethod.UNCOMPRESSED
+            else:
+                # Unknown method, use uncompressed
+                compression_method = CompressionMethod.UNCOMPRESSED
+
+            payload = bytes([compression_method.value]) + result.compressed_data
             compressed_size = len(payload)
 
-            # Map AURA Heavy method to our method enum
+            # Map AURA Heavy method to our method name
             method_name = 'aura_heavy'
             if hasattr(result, 'method'):
                 if result.method == 0x00:
@@ -412,10 +427,8 @@ class AuraHeavyStrategy(CompressionStrategy):
                     method_name = 'brio'
                 elif result.method == 0x03:
                     method_name = 'aura_lite'
-                elif result.method == 0x10:
-                    method_name = 'zlib'
-                elif result.method == 0x11:
-                    method_name = 'gzip'
+                elif result.method == 0xFF:
+                    method_name = 'uncompressed'
 
             metadata = {
                 'original_size': context.original_size,
@@ -426,7 +439,7 @@ class AuraHeavyStrategy(CompressionStrategy):
             }
 
             can_compress = len(payload) < context.original_size
-            return CompressionResult(payload, self.method, metadata, can_compress)
+            return CompressionResult(payload, compression_method, metadata, can_compress)
 
         except Exception as e:
             # Fallback to uncompressed

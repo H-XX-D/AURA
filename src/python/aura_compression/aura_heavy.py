@@ -182,57 +182,22 @@ class AuraHeavy:
 
     def _compress_large(self, data: bytes, original_size: int) -> AuraHeavyResult:
         """
-        Compress large data using built-in zlib/gzip (NO external dependencies).
-
-        Uses Python standard library only:
-        - zlib: Faster, slightly better compression
-        - gzip: Browser/curl compatible format
+        For large files, use uncompressed since we removed standard compression methods.
+        Pure AURA compression only.
         """
-        # Adjust compression level for very large files
-        level = self.compression_level
-        if original_size >= self.VERY_LARGE_THRESHOLD and not self.prefer_speed:
-            # Very large files: use faster compression to save time
-            level = max(1, level - 2)
-
-        # Compress using zlib or gzip
-        if self.use_gzip:
-            method = AuraHeavyMethod.GZIP
-            compressed_bytes = gzip.compress(data, compresslevel=level)
-        else:
-            method = AuraHeavyMethod.ZLIB
-            compressed_bytes = zlib.compress(data, level=level)
-
-        # Add method header (1 byte)
-        compressed_with_header = struct.pack('B', method) + compressed_bytes
-        compressed_size = len(compressed_with_header)
-        ratio = original_size / compressed_size if compressed_size > 0 else 1.0
-
-        # If compression expanded data, store uncompressed
-        if ratio < 1.0:
-            uncompressed_with_header = struct.pack('B', AuraHeavyMethod.UNCOMPRESSED) + data
-            return AuraHeavyResult(
-                compressed_data=uncompressed_with_header,
-                method=AuraHeavyMethod.UNCOMPRESSED,
-                original_size=original_size,
-                compressed_size=len(uncompressed_with_header),
-                ratio=1.0,
-                metadata={
-                    'compression_layer': 'None',
-                    'reason': 'expansion_detected'
-                }
-            )
-
+        # Use uncompressed for large files (no standard compression)
+        uncompressed_with_header = struct.pack('B', AuraHeavyMethod.UNCOMPRESSED) + data
         return AuraHeavyResult(
-            compressed_data=compressed_with_header,
-            method=method,
+            compressed_data=uncompressed_with_header,
+            method=AuraHeavyMethod.UNCOMPRESSED,
             original_size=original_size,
-            compressed_size=compressed_size,
-            ratio=ratio,
+            compressed_size=len(uncompressed_with_header),
+            ratio=1.0,
             metadata={
-                'compression_layer': 'Standard Library',
-                'algorithm': method.name,
-                'level': level,
-                'threshold': 'very_large' if original_size >= self.VERY_LARGE_THRESHOLD else 'large'
+                'compression_layer': 'None',
+                'reason': 'large_file_uncompressed_pure_aura_only',
+                'compression_level': 0,
+                'method': 'uncompressed',
             }
         )
 
@@ -472,8 +437,8 @@ def generate_npm_package_json() -> str:
         ],
         "license": "Proprietary",
         "browser": {
-            "zlib": false,
-            "gzip": false
+            "zlib": False,
+            "gzip": False
         }
     }, indent=2)
 

@@ -16,6 +16,14 @@ from enum import Enum
 from datetime import datetime
 from collections import Counter
 
+from aura_compression.enums import (
+    CompressionMethod, 
+    TEMPLATE_METADATA_KIND,
+    _SEMANTIC_PREVIEW_LIMIT,
+    _SEMANTIC_TOKEN_LIMIT,
+    _SEMANTIC_TOKEN_PATTERN,
+)
+
 from aura_compression.brio_full import (
     BrioEncoder,
     BrioDecoder,
@@ -50,6 +58,7 @@ from aura_compression.sidechain import (
     SidechainConfig,
     SidechainService,
 )
+from aura_compression import compression_strategy
 
 # GPU Acceleration (optional - graceful fallback if not available)
 try:
@@ -58,23 +67,6 @@ try:
 except ImportError:
     GPU_AVAILABLE = False
     TorchGPUTemplateMatch = None
-
-class CompressionMethod(Enum):
-    BINARY_SEMANTIC = 0x00
-    AURALITE = 0x01  # AuraLite fallback (replaces Brotli)
-    BRIO = 0x02
-    AURA_LITE = 0x03  # Deprecated: use AURALITE instead
-    GZIP = 0x04       # Standard gzip compression fallback
-    BZ2 = 0x05        # Standard bz2 compression fallback
-    LZMA = 0x06       # Standard LZMA compression fallback
-    UNCOMPRESSED = 0xFF
-
-
-TEMPLATE_METADATA_KIND = 0x01
-
-_SEMANTIC_PREVIEW_LIMIT = 160
-_SEMANTIC_TOKEN_LIMIT = 5
-_SEMANTIC_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
 
 class ProductionHybridCompressor:
     """
@@ -478,6 +470,10 @@ class ProductionHybridCompressor:
         # Compress with TCP-BRIO encoder
         compressed = self._tcp_brio_encoder.compress_tokens(tokens, metadata)
 
+        # Validate magic bytes
+        if not compressed.payload.startswith(b"BR"):
+            raise ValueError("BRIO container produced invalid payload - missing BR magic")
+
         original_size = len(text.encode('utf-8'))
         compressed_size = len(compressed.payload) + 1  # +1 for method byte
 
@@ -751,8 +747,8 @@ class ProductionHybridCompressor:
                         ml_override = True
 
         if not ml_override:
-            # COMPETITIVE MODE: Try all methods (AURA + standards) and pick the best compression ratio
-            all_candidates = [c for c in valid_candidates if c[1] != CompressionMethod.UNCOMPRESSED]
+            # COMPETITIVE MODE: Try all methods (AURA only) and pick the best compression ratio
+            all_candidates = valid_candidates
 
             if all_candidates:
                 # Sort ALL methods by compression ratio (best first - highest ratio)
@@ -969,13 +965,20 @@ class ProductionHybridCompressor:
         elif method_byte == CompressionMethod.BRIO.value:
             if not self.enable_aura or self._aura_decoder is None:
                 raise ValueError("AURA payload encountered but experimental encoder disabled")
-            # Auto-detect TCP-BRIO (BR magic) vs full BRIO (AURA magic)
-            if payload[:2] == b"BR":
-                # TCP-optimized BRIO
-                result: BrioDecompressed = self._tcp_brio_decoder.decompress(payload)
-            else:
-                # Full BRIO with rANS
-                result: BrioDecompressed = self._aura_decoder.decompress(payload)
+            # Try TCP BRIO decoder first (payload already has "BR" magic)
+            result = None
+            try:
+                result = self._tcp_brio_decoder.decompress(payload)
+            except Exception:
+                pass
+            if result is None:
+                # Try full BRIO decoder (payload should have "AURA" magic)
+                try:
+                    result = self._aura_decoder.decompress(payload)
+                except Exception:
+                    pass
+            if result is None:
+                raise ValueError("BRIO payload has invalid format - neither TCP nor full BRIO decoder could process it")
             if return_metadata:
                 aura_entries = [
                     {
@@ -1005,6 +1008,43 @@ class ProductionHybridCompressor:
                 metadata['semantic_sketch'] = self._generate_semantic_sketch(result.text, metadata)
                 return result.text, metadata
             return result.text
+        elif method_byte == CompressionMethod.AURA_HEAVY.value:
+            if not self.enable_aura or self._aura_decoder is None:
+                raise ValueError("AURA Heavy payload encountered but experimental encoder disabled")
+            # AURA Heavy uses full BRIO with rANS
+            try:
+                result = self._aura_decoder.decompress(payload)
+            except Exception as e:
+                raise ValueError(f"AURA Heavy payload has invalid format: {e}")
+            if return_metadata:
+                aura_entries = [
+                    {
+                        'token_index': entry.token_index,
+                        'kind': entry.kind,
+                        'value': entry.value,
+                        'flags': entry.flags,
+                    }
+                    for entry in result.metadata
+                ]
+                template_ids = [
+                    entry.value
+                    for entry in result.metadata
+                    if entry.kind == TEMPLATE_METADATA_KIND and entry.flags
+                ]
+                metadata = {
+                    'method': 'aura_heavy',
+                    'metadata_entries': aura_entries,
+                    'token_count': len(result.tokens),
+                    'template_ids': template_ids,
+                    'template_id': template_ids[0] if template_ids else None,
+                    'fast_path_candidate': any(
+                        entry['kind'] == TEMPLATE_METADATA_KIND and entry.get('flags')
+                        for entry in aura_entries
+                    ),
+                }
+                metadata['semantic_sketch'] = self._generate_semantic_sketch(result.text, metadata)
+                return result.text, metadata
+            return result.text
         elif method_byte == CompressionMethod.UNCOMPRESSED.value:
             text = payload.decode('utf-8')
             if return_metadata:
@@ -1012,26 +1052,59 @@ class ProductionHybridCompressor:
                 meta['semantic_sketch'] = self._generate_semantic_sketch(text, meta)
                 return text, meta
             return text
-        elif method_byte == CompressionMethod.BZ2.value:
-            import bz2
-            text = bz2.decompress(payload).decode('utf-8')
-            if return_metadata:
-                meta = {'method': 'bz2', 'fast_path_candidate': False}
-                meta['semantic_sketch'] = self._generate_semantic_sketch(text, meta)
-                return text, meta
-            return text
-        elif method_byte == CompressionMethod.LZMA.value:
-            import lzma
-            text = lzma.decompress(payload).decode('utf-8')
-            if return_metadata:
-                meta = {'method': 'lzma', 'fast_path_candidate': False}
-                meta['semantic_sketch'] = self._generate_semantic_sketch(text, meta)
-                return text, meta
-            return text
         else:
             raise ValueError(f"Unknown compression method: 0x{method_byte:02x}")
 
     # -- Dynamic template handling -------------------------------------------------
+
+    def _compress_with_strategies(self, text: str, template_match: Optional[TemplateMatch], 
+                                  template_spans: List[TemplateMatch], original_size: int) -> List[Tuple[bytes, CompressionMethod, dict]]:
+        """
+        Generate compression candidates using strategy pattern
+        
+        Args:
+            text: Text to compress
+            template_match: Single template match (if any)
+            template_spans: Multiple template spans (if any)
+            original_size: Original text size in bytes
+            
+        Returns:
+            List of (payload, method, metadata) tuples
+        """
+        candidates = []
+        
+        # Create compression context
+        context = compression_strategy.CompressionContext(
+            text=text,
+            original_size=original_size,
+            template_match=template_match,
+            template_spans=template_spans,
+            enable_aura=self.enable_aura,
+            tcp_brio_threshold=self.tcp_brio_threshold,
+        )
+        
+        # Create strategies
+        strategies = compression_strategy.create_compression_strategies(
+            template_service=self._template_service,
+            aura_lite_encoder=self._aura_lite_encoder,
+            aura_encoder=self._aura_encoder,  # Fixed: use encoder, not decoder
+            tcp_brio_encoder=self._tcp_brio_encoder,
+            aura_heavy_compressor=getattr(self, '_aura_heavy_compressor', None),
+            enable_aura=self.enable_aura,
+        )
+        
+        # Generate candidates from strategies
+        for strategy in strategies:
+            try:
+                if strategy.can_compress(context):
+                    result = strategy.compress(context)
+                    if result.can_compress:
+                        candidates.append((result.payload, result.method, result.metadata))
+            except Exception:
+                # Skip strategies that fail
+                continue
+                
+        return candidates
 
     def _sanitize_aura_lite_payload(self, data: bytes) -> Tuple[bytes, List[int]]:
         if len(data) <= 1 or data[0] != CompressionMethod.AURA_LITE.value:

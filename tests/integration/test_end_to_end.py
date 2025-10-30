@@ -18,7 +18,7 @@ project_root = Path(__file__).parent.parent
 src_path = project_root / 'src' / 'python'
 sys.path.insert(0, str(src_path))
 
-from aura_compression import ProductionHybridCompressor
+from aura_compression import ProductionHybridCompressor, CompressionMethod
 
 
 class TestEndToEndCompression(unittest.TestCase):
@@ -47,9 +47,11 @@ class TestEndToEndCompression(unittest.TestCase):
                 self.assertIn('method', metadata)
                 self.assertGreater(metadata['original_size'], 0)
 
+                # All methods should be round-trippable
+                self.assertEqual(compressed[0], method.value, f"{method.name} method should have correct method byte")
+                
                 # Decompress
                 decompressed = self.compressor.decompress(compressed)
-
                 # Verify round-trip integrity
                 self.assertEqual(decompressed, response)
 
@@ -69,9 +71,11 @@ class TestEndToEndCompression(unittest.TestCase):
                 # Simulate network transmission (compressed data)
                 transmitted_data = compressed
 
+                # All methods should be round-trippable
+                self.assertEqual(transmitted_data[0], method.value, f"{method.name} method should have correct method byte")
+                
                 # Decompress at receiver
                 received_message = self.compressor.decompress(transmitted_data)
-
                 # Verify message integrity
                 self.assertEqual(received_message, message)
 
@@ -97,6 +101,11 @@ class TestEndToEndCompression(unittest.TestCase):
 
         # Decompress and verify each
         for i, compressed in enumerate(compressed_batch):
+            method_name = metadata_batch[i]['method']
+            # All methods should be round-trippable
+            method_value = getattr(CompressionMethod, method_name.upper(), None)
+            if method_value:
+                self.assertEqual(compressed[0], method_value.value, f"{method_name} method should have correct method byte")
             decompressed = self.compressor.decompress(compressed)
             self.assertEqual(decompressed, messages[i])
 
@@ -120,6 +129,9 @@ class TestPerformanceRegression(unittest.TestCase):
         # Should complete within reasonable time (adjust based on system)
         self.assertLess(compression_time, 1000, "Compression took too long")
 
+        # All methods should be round-trippable
+        self.assertEqual(compressed[0], method.value, f"{method.name} method should have correct method byte")
+        
         # Measure decompression time
         start_time = time.time()
         decompressed = self.compressor.decompress(compressed)
@@ -134,8 +146,10 @@ class TestPerformanceRegression(unittest.TestCase):
 
         try:
             compressed, method, metadata = self.compressor.compress(large_message)
+            
+            # All methods should be round-trippable
+            self.assertEqual(compressed[0], method.value, f"{method.name} method should have correct method byte")
             decompressed = self.compressor.decompress(compressed)
-
             # Verify integrity
             self.assertEqual(decompressed, large_message)
 
@@ -160,6 +174,9 @@ class TestErrorHandling(unittest.TestCase):
     def test_empty_input(self):
         """Test handling of empty input."""
         compressed, method, metadata = self.compressor.compress("")
+        
+        # All methods should be round-trippable
+        self.assertEqual(compressed[0], method.value, f"{method.name} method should have correct method byte")
         decompressed = self.compressor.decompress(compressed)
         self.assertEqual(decompressed, "")
 
@@ -175,6 +192,9 @@ class TestErrorHandling(unittest.TestCase):
 
         try:
             compressed, method, metadata = self.compressor.compress(large_input)
+            
+            # All methods should be round-trippable
+            self.assertEqual(compressed[0], method.value, f"{method.name} method should have correct method byte")
             decompressed = self.compressor.decompress(compressed)
             self.assertEqual(decompressed, large_input)
         except MemoryError:
@@ -200,6 +220,9 @@ class TestConfigurationScenarios(unittest.TestCase):
             with self.subTest(config=config):
                 compressor = ProductionHybridCompressor(**config)
                 compressed, method, metadata = compressor.compress(test_message)
+                
+                # All methods should be round-trippable
+                self.assertEqual(compressed[0], method.value, f"{method.name} method should have correct method byte")
                 decompressed = compressor.decompress(compressed)
                 self.assertEqual(decompressed, test_message)
 

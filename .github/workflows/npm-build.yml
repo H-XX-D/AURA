@@ -5,13 +5,11 @@ on:
     branches: [ main ]
     paths:
       - 'tools/packages/aura-node-native/**'
-      - 'package.json'
       - '.github/workflows/npm-build.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'tools/packages/aura-node-native/**'
-      - 'package.json'
   workflow_dispatch:
 
 jobs:
@@ -99,9 +97,12 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
+        cache-dependency-path: tools/packages/aura-node-native/package-lock.json
 
     - name: Install npm dependencies
-      run: npm ci
+      run: |
+        cd tools/packages/aura-node-native
+        npm ci
 
     - name: Download all binaries
       uses: actions/download-artifact@v4
@@ -122,6 +123,7 @@ jobs:
 
     - name: Publish to npm
       run: |
+        cd tools/packages/aura-node-native
         npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
         npm publish --ignore-scripts
       env:

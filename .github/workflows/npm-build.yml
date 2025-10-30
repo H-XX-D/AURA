@@ -37,25 +37,30 @@ jobs:
     - name: Build all platform binaries
       run: |
         cd tools/packages/aura-node-native
+        # Clean any existing binaries first
+        rm -f *.node
         # Build Linux binaries (native - these work reliably)
         npx napi build --platform --release --target x86_64-unknown-linux-gnu
         npx napi build --platform --release --target aarch64-unknown-linux-gnu
-        # Skip cross-compilation for now - focus on Linux binaries
-        echo "Cross-compilation to macOS/Windows skipped - will add later"
+        # Verify binaries were created
+        echo "Built binaries:"
+        ls -la *.node
 
     - name: Prepare package for publishing
       run: |
         cd tools/packages/aura-node-native
-        
+
         # Copy package files
         mkdir -p ../publish-package
         cp package.json ../publish-package/
         cp index.js ../publish-package/
         cp index.d.ts ../publish-package/
-        
+
         # Copy all built binaries (whatever was successfully built)
-        cp *.node ../publish-package/ 2>/dev/null || echo "No binaries found"
-        
+        echo "Binaries to copy:"
+        ls -la *.node 2>/dev/null || echo "No .node files found"
+        cp *.node ../publish-package/ 2>/dev/null || echo "No binaries copied"
+
         cd ../publish-package
         echo "Files to be published:"
         ls -la

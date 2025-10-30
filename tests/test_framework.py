@@ -17,6 +17,7 @@ Usage:
     python test_framework.py --profile      # Run with profiling
 """
 
+import pytest
 import sys
 import os
 import time
@@ -257,6 +258,105 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         sys.exit(1)
+
+
+# ============================================================================
+# Pytest Test Functions
+# ============================================================================
+
+def test_data_generator_api_response():
+    """Test API response data generator."""
+    small = TestDataGenerator.generate_api_response('small')
+    medium = TestDataGenerator.generate_api_response('medium')
+    large = TestDataGenerator.generate_api_response('large')
+
+    # Should be valid JSON
+    import json
+    json.loads(small)
+    json.loads(medium)
+    json.loads(large)
+
+    # Should have increasing sizes
+    assert len(small) < len(medium) < len(large)
+
+
+def test_data_generator_text_message():
+    """Test text message data generator."""
+    small = TestDataGenerator.generate_text_message('small')
+    medium = TestDataGenerator.generate_text_message('medium')
+    large = TestDataGenerator.generate_text_message('large')
+
+    # Should have increasing sizes
+    assert len(small) < len(medium) < len(large)
+
+    # Should be strings
+    assert isinstance(small, str)
+    assert isinstance(medium, str)
+    assert isinstance(large, str)
+
+
+def test_compressor_benchmark_setup():
+    """Test compressor benchmark setup."""
+    benchmark = CompressorBenchmark()
+    benchmark.setup()
+
+    assert benchmark.compressor is not None
+    assert len(benchmark.test_data) > 0
+
+    # Test data should be strings
+    for data in benchmark.test_data:
+        assert isinstance(data, str)
+        assert len(data) > 0
+
+
+def test_compressor_benchmark_run():
+    """Test compressor benchmark execution."""
+    benchmark = CompressorBenchmark()
+    benchmark.setup()
+
+    results = benchmark.run(iterations=2)
+
+    assert isinstance(results, list)
+    assert len(results) > 0
+
+    for result in results:
+        assert isinstance(result, BenchmarkResult)
+        assert result.component == "compressor"
+        assert isinstance(result.value, (int, float))
+        assert result.iterations == 2
+
+
+def test_benchmark_result_serialization():
+    """Test benchmark result serialization."""
+    result = BenchmarkResult(
+        component="test",
+        test_name="test_benchmark",
+        metric_name="test_metric",
+        value=123.45,
+        unit="ms",
+        iterations=10,
+        timestamp=time.time()
+    )
+
+    # Should convert to dict
+    result_dict = result.to_dict()
+    assert isinstance(result_dict, dict)
+    assert result_dict["component"] == "test"
+    assert result_dict["value"] == 123.45
+
+
+def test_test_runner_benchmarks():
+    """Test the main test runner."""
+    runner = TestRunner()
+
+    results = runner.run_benchmarks(iterations=2)
+
+    assert isinstance(results, list)
+    # Should have some results
+    assert len(results) > 0
+
+    for result in results:
+        assert isinstance(result, BenchmarkResult)
 
 
 if __name__ == '__main__':

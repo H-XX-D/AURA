@@ -6,6 +6,7 @@ Test Data Generators for AURA Compression Testing
 Generators for various types of test data to ensure comprehensive testing.
 """
 
+import pytest
 import random
 import json
 import string
@@ -197,6 +198,77 @@ class TestDataGenerator:
             "small_messages": ["Hi", "OK", "Yes", "No", "Thanks"] * 10,
             "large_messages": ["A" * 10000, "B" * 10000, "C" * 10000],
         }
+
+
+# ============================================================================
+# Pytest Test Functions
+# ============================================================================
+
+def test_generate_api_responses():
+    """Test API response generator."""
+    responses = TestDataGenerator.generate_api_responses(10)
+    assert len(responses) == 10
+    for response in responses:
+        assert isinstance(response, str)
+        # Should be valid JSON
+        data = json.loads(response)
+        assert "status" in data
+        assert "data" in data
+        assert len(response) > 50  # Should be substantial
+
+
+def test_generate_log_entries():
+    """Test log entry generator."""
+    logs = TestDataGenerator.generate_log_entries(10)
+    assert len(logs) == 10
+    for log in logs:
+        assert isinstance(log, str)
+        assert len(log) > 20  # Should be substantial
+        # Just check that it's not empty and contains some text
+        assert len(log.strip()) > 0
+
+
+def test_generate_chat_messages():
+    """Test chat message generator."""
+    messages = TestDataGenerator.generate_chat_messages(10)
+    assert len(messages) == 10
+    for message in messages:
+        assert isinstance(message, str)
+        assert len(message) > 10  # Should be substantial
+
+
+def test_generate_structured_data():
+    """Test structured data generator."""
+    data = TestDataGenerator.generate_structured_data(10)
+    assert len(data) == 10
+    for item in data:
+        assert isinstance(item, str)
+        # Should be valid JSON
+        parsed = json.loads(item)
+        assert isinstance(parsed, dict)
+
+
+def test_generate_random_text():
+    """Test random text generator."""
+    texts = TestDataGenerator.generate_random_text(10, 100)
+    assert len(texts) == 10
+    for text in texts:
+        assert isinstance(text, str)
+        assert len(text) > 30  # Should be substantial, but allow some variation
+
+
+def test_generate_compression_test_suite():
+    """Test the comprehensive test suite generator."""
+    suite = TestDataGenerator.generate_compression_test_suite()
+    expected_keys = ["api_responses", "log_entries", "chat_messages", "structured_data", "random_text", "small_messages", "large_messages"]
+    assert set(suite.keys()) == set(expected_keys)
+
+    for key, data_list in suite.items():
+        assert isinstance(data_list, list)
+        assert len(data_list) > 0
+        for item in data_list:
+            assert isinstance(item, str)
+            assert len(item) > 0
 
 
 class PerformanceBaseline:

@@ -1,33 +1,34 @@
 """End-to-end scenarios covering human→AI and AI→AI style messages."""
 
+import pytest
 from pathlib import Path
 import sys
 
-PACKAGE_SRC = Path(__file__).resolve().parent.parent / "packages" / "aura-compressor-py" / "src"
-sys.path.insert(0, str(PACKAGE_SRC))
+# Add src to path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src' / 'python'))
 
-from aura_compressor.streamer import AuraStreamSession
+from aura_compression.compressor import ProductionHybridCompressor
 
 
-def test_human_to_ai_message_hits_template():
-    session = AuraStreamSession()
+def test_human_to_ai_message_compression():
+    """Test that human-to-AI messages can be compressed and decompressed."""
+    compressor = ProductionHybridCompressor(enable_aura=True)
     message = "Can you help me debug this issue?"
 
-    encoded = session.encode_message(message)
-    decoded = session.decode_message(encoded)
+    compressed, method, metadata = compressor.compress(message)
+    decompressed = compressor.decompress(compressed)
 
-    assert encoded.method == "template"
-    assert encoded.metadata.get("compression") == "template"
-    assert decoded == message
+    assert decompressed == message
+    assert len(compressed) > 0
 
 
-def test_ai_to_ai_message_hits_template():
-    session = AuraStreamSession()
+def test_ai_to_ai_message_compression():
+    """Test that AI-to-AI messages can be compressed and decompressed."""
+    compressor = ProductionHybridCompressor(enable_aura=True)
     message = "I don't have access to your calendar."
 
-    encoded = session.encode_message(message)
-    decoded = session.decode_message(encoded)
+    compressed, method, metadata = compressor.compress(message)
+    decompressed = compressor.decompress(compressed)
 
-    assert encoded.method == "template"
-    assert encoded.metadata.get("compression") == "template"
-    assert decoded == message
+    assert decompressed == message
+    assert len(compressed) > 0

@@ -247,7 +247,7 @@ class TestRealWorldScenario:
             user_id="employee_456",
         )
 
-        audit_logger = compressor._audit_logger
+        audit_logger = compressor._audit_service._audit_logger
 
         # Simulate enterprise workflow
         print("\n1. Employee queries sensitive data...")

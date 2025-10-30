@@ -175,6 +175,16 @@ class AuraHybridClient {
             case 0x00: // BINARY_SEMANTIC
             case 0x01: // AURALITE
             case 0x02: // BRIO
+                // BRIO payloads are sanitized (metadata stripped) for client delivery
+                // They cannot be decompressed client-side for security reasons
+                return {
+                    data: null, // Cannot provide decompressed data
+                    method: method,
+                    sanitized: true,
+                    note: 'BRIO payload sanitized for client delivery - requires server-side decompression',
+                    compressedSize: bytes.length
+                };
+
             case 0x03: // AURA_LITE
                 throw new Error(`${method} requires server-side decompression. Send to /api/decompress endpoint.`);
 
@@ -316,8 +326,20 @@ class AuraHybridClient {
             if (event.data instanceof ArrayBuffer) {
                 try {
                     const result = await this.decompress(new Uint8Array(event.data));
-                    // Emit custom event with decompressed data
-                    ws.dispatchEvent(new CustomEvent('decompressed', { detail: result }));
+                    // Handle sanitized BRIO payloads
+                    if (result.sanitized) {
+                        // Emit custom event for sanitized payload
+                        ws.dispatchEvent(new CustomEvent('sanitized', { 
+                            detail: {
+                                method: result.method,
+                                compressedSize: result.compressedSize,
+                                note: result.note
+                            }
+                        }));
+                    } else {
+                        // Emit custom event with decompressed data
+                        ws.dispatchEvent(new CustomEvent('decompressed', { detail: result }));
+                    }
                 } catch (error) {
                     console.error('Decompression error:', error);
                 }
@@ -375,7 +397,18 @@ const ws = aura.createWebSocket();
 ws.addEventListener('open', () => {
     ws.sendCompressed('Hello from client with compression!');
 });
+
+// Handle decompressed messages
 ws.addEventListener('decompressed', (event) => {
-    console.log('Received:', event.detail.data);
+    console.log('Received decompressed:', event.detail.data);
+});
+
+// Handle sanitized BRIO payloads (cannot be decompressed client-side)
+ws.addEventListener('sanitized', (event) => {
+    console.log('Received sanitized BRIO payload:', event.detail);
+    console.log('Method:', event.detail.method);
+    console.log('Compressed size:', event.detail.compressedSize);
+    console.log('Note:', event.detail.note);
+    // Send to server for decompression if needed
 });
 */

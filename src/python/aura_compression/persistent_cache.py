@@ -93,6 +93,9 @@ class PersistentTemplateCache:
             self._cache[cache_key] = match_data.copy()
             self._access_order.append(cache_key)
 
+        # Save immediately for testing/debugging
+        self._save_cache_sync()
+
     def clear(self) -> None:
         """Clear all cached entries."""
         with self._lock:

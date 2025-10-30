@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-PACKAGE_SRC = Path(__file__).resolve().parent.parent / 'packages' / 'aura-compressor-py' / 'src'
+PACKAGE_SRC = Path(__file__).resolve().parent.parent / 'tools' / 'packages' / 'aura-compressor-py' / 'src'
 sys.path.insert(0, str(PACKAGE_SRC))
 
 from aura_compressor.lib.template_discovery import TemplateDiscovery

@@ -1,0 +1,109 @@
+{
+  "unit_tests": {
+    "tests/unit/test_compressor.py": {
+      "error": "No module named 'tests'"
+    },
+    "tests/test_template_service.py": {
+      "error": "No module named 'tests'"
+    },
+    "tests/test_core_functionality.py": {
+      "error": "No module named 'tests'"
+    }
+  },
+  "integration_tests": {
+    "tests/integration/test_end_to_end.py": {
+      "error": "No module named 'tests'"
+    }
+  },
+  "benchmarks": {
+    "metrics_collected": 9,
+    "iterations": 10,
+    "timestamp": 1761788638.547384
+  },
+  "performance_checks": {
+    "regressions": [
+      {
+        "test": "compression_25bytes",
+        "metric": "compression_speed_mbps",
+        "message": "Performance slower by 149.8%",
+        "baseline": 0.028457598178713718,
+        "current": 0.0710782571611344
+      },
+      {
+        "test": "compression_183bytes",
+        "metric": "compression_speed_mbps",
+        "message": "Performance slower by 76.1%",
+        "baseline": 0.04050240690532839,
+        "current": 0.07131166705634791
+      },
+      {
+        "test": "compression_300bytes",
+        "metric": "compression_speed_mbps",
+        "message": "Performance slower by 127.0%",
+        "baseline": 3.361344537815126,
+        "current": 7.628734901462174
+      }
+    ],
+    "improvements": [
+      {
+        "test": "compression_25bytes",
+        "metric": "compression_time_ms",
+        "message": "Performance faster by 60.0%"
+      },
+      {
+        "test": "compression_183bytes",
+        "metric": "compression_time_ms",
+        "message": "Performance faster by 43.2%"
+      },
+      {
+        "test": "compression_300bytes",
+        "metric": "compression_time_ms",
+        "message": "Performance faster by 55.9%"
+      }
+    ],
+    "total_checks": 9
+  },
+  "summary": {},
+  "comprehensive_data_tests": {
+    "api_responses": {
+      "total": 50,
+      "passed": 0,
+      "success_rate": 0.0
+    },
+    "log_entries": {
+      "total": 50,
+      "passed": 50,
+      "success_rate": 1.0
+    },
+    "chat_messages": {
+      "total": 50,
+      "passed": 0,
+      "success_rate": 0.0
+    },
+    "structured_data": {
+      "total": 50,
+      "passed": 0,
+      "success_rate": 0.0
+    },
+    "random_text": {
+      "total": 50,
+      "passed": 0,
+      "success_rate": 0.0
+    },
+    "small_messages": {
+      "total": 50,
+      "passed": 50,
+      "success_rate": 1.0
+    },
+    "large_messages": {
+      "total": 3,
+      "passed": 0,
+      "success_rate": 0.0
+    },
+    "overall": {
+      "total_tests": 303,
+      "total_passed": 100,
+      "success_rate": 0.33003300330033003
+    }
+  }
+}

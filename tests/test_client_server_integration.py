@@ -9,12 +9,41 @@ Tests full client-server communication with real data:
 Uses production_hybrid_compression.py for both client and server operations.
 """
 
-from production_hybrid_compression import ProductionHybridCompressor, AuditLogger, CompressionMethod
+import pytest
+import sys
+import os
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src' / 'python'))
+
+from aura_compression import ProductionHybridCompressor, AuditLogger, CompressionMethod
 from datetime import datetime
 
 # ============================================================================
-# Test Data - Real AI Response Templates (AI-to-AI)
+# Pytest Fixtures
 # ============================================================================
+
+@pytest.fixture
+def client_compressor():
+    """Client compressor instance."""
+    return ProductionHybridCompressor(
+        binary_advantage_threshold=1.1,
+        min_compression_size=50
+    )
+
+@pytest.fixture
+def server_compressor():
+    """Server compressor instance."""
+    return ProductionHybridCompressor(
+        binary_advantage_threshold=1.1,
+        min_compression_size=50
+    )
+
+@pytest.fixture
+def audit_logger():
+    """Audit logger instance."""
+    return AuditLogger("audit/integration_test.log")
 
 AI_TO_AI_TEST_CASES = [
     {
@@ -158,10 +187,158 @@ HUMAN_AI_CONVERSATIONS = [
 ]
 
 # ============================================================================
-# Test Runner
+# ============================================================================
+# Test Functions
 # ============================================================================
 
-class IntegrationTestRunner:
+def test_ai_to_ai_communication(client_compressor, server_compressor, audit_logger):
+    """Test AI-to-AI communication with template-based messages."""
+    results = {
+        "passed": 0,
+        "failed": 0,
+        "total_original": 0,
+        "total_compressed": 0,
+        "ratios": []
+    }
+
+    for i, test_case in enumerate(AI_TO_AI_TEST_CASES, 1):
+        message = test_case["message"]
+        expected_template_id = test_case["template_id"]
+        expected_slots = test_case["slots"]
+        category = test_case["category"]
+
+        # Client compresses message
+        client_compressed, client_method, client_metadata = client_compressor.compress(message)
+
+        # Server decompresses message
+        server_decompressed = server_compressor.decompress(client_compressed)
+
+        # Verify round-trip integrity
+        assert server_decompressed == message, f"Round-trip failed for: {test_case['name']}"
+
+        # Track compression stats
+        original_size = len(message.encode('utf-8'))
+        compressed_size = len(client_compressed)
+        ratio = original_size / compressed_size if compressed_size > 0 else 1.0
+
+        results["total_original"] += original_size
+        results["total_compressed"] += compressed_size
+        results["ratios"].append(ratio)
+
+        # Log the compression event
+        audit_logger.log_compression(
+            plaintext=message,
+            compressed_payload=client_compressed,
+            metadata=client_metadata,
+            session_id=f"test-session-{i}",
+            user_id="test-user"
+        )
+
+        results["passed"] += 1
+
+    # Verify we had some reasonable compression on average
+    avg_ratio = sum(results["ratios"]) / len(results["ratios"]) if results["ratios"] else 1.0
+    assert avg_ratio > 0.8, f"Average compression ratio {avg_ratio:.2f} is too low"
+
+
+def test_human_to_ai_conversations(client_compressor, server_compressor, audit_logger):
+    """Test human-to-AI conversations with realistic message patterns."""
+    results = {
+        "passed": 0,
+        "failed": 0,
+        "user_original": 0,
+        "user_compressed": 0,
+        "ai_original": 0,
+        "ai_compressed": 0,
+        "user_ratios": [],
+        "ai_ratios": []
+    }
+
+    for conversation in HUMAN_AI_CONVERSATIONS:
+        for turn in conversation["turns"]:
+            user_message = turn["user"]
+            ai_message = turn["ai"]
+
+            # User message compression (client -> server)
+            user_compressed, user_method, user_metadata = client_compressor.compress(user_message)
+            user_decompressed = server_compressor.decompress(user_compressed)
+            assert user_decompressed == user_message, f"User message round-trip failed: {user_message}"
+
+            # AI message compression (server -> client)
+            ai_compressed, ai_method, ai_metadata = server_compressor.compress(ai_message)
+            ai_decompressed = client_compressor.decompress(ai_compressed)
+            assert ai_decompressed == ai_message, f"AI message round-trip failed: {ai_message}"
+
+            # Track stats
+            user_original_size = len(user_message.encode('utf-8'))
+            user_compressed_size = len(user_compressed)
+            ai_original_size = len(ai_message.encode('utf-8'))
+            ai_compressed_size = len(ai_compressed)
+
+            results["user_original"] += user_original_size
+            results["user_compressed"] += user_compressed_size
+            results["ai_original"] += ai_original_size
+            results["ai_compressed"] += ai_compressed_size
+
+            if user_compressed_size > 0:
+                user_ratio = user_original_size / user_compressed_size
+                results["user_ratios"].append(user_ratio)
+
+            if ai_compressed_size > 0:
+                ai_ratio = ai_original_size / ai_compressed_size
+                results["ai_ratios"].append(ai_ratio)
+
+            # Log events
+            audit_logger.log_compression(
+                plaintext=user_message,
+                compressed_payload=user_compressed,
+                metadata=user_metadata,
+                session_id=f"test-session-{conversation['name']}",
+                user_id="test-user"
+            )
+
+            audit_logger.log_compression(
+                plaintext=ai_message,
+                compressed_payload=ai_compressed,
+                metadata=ai_metadata,
+                session_id=f"test-session-{conversation['name']}",
+                user_id="test-ai"
+            )
+
+            results["passed"] += 2  # One for user, one for AI
+
+    # Verify compression was attempted (ratios should be reasonable)
+    if results["user_ratios"]:
+        avg_user_ratio = sum(results["user_ratios"]) / len(results["user_ratios"])
+        assert avg_user_ratio > 0.5  # Allow for some overhead but not extreme expansion
+
+    if results["ai_ratios"]:
+        avg_ai_ratio = sum(results["ai_ratios"]) / len(results["ai_ratios"])
+        assert avg_ai_ratio > 0.5  # Allow for some overhead but not extreme expansion
+
+
+def test_audit_logging_integration(audit_logger):
+    """Test that audit logging works correctly."""
+    test_message = "Test audit logging message"
+    test_compressed = b'\x00' + test_message.encode('utf-8')  # Mock compressed data
+
+    # This should not raise an exception
+    audit_logger.log_compression(
+        plaintext=test_message,
+        compressed_payload=test_compressed,
+        metadata={"test": True},
+        session_id="test-session",
+        user_id="test-user"
+    )
+
+# ============================================================================
+# Main
+# ============================================================================
+
+if __name__ == "__main__":
+    print("\nInitializing integration test runner...")
+    print("This test file is now designed to run with pytest.")
+    print("Run: pytest test_client_server_integration.py")
     def __init__(self):
         # Client and server use same compressor (simulates client-server architecture)
         self.client_compressor = ProductionHybridCompressor(
@@ -486,5 +663,5 @@ class IntegrationTestRunner:
 
 if __name__ == "__main__":
     print("\nInitializing integration test runner...")
-    runner = IntegrationTestRunner()
-    runner.run_all_tests()
+    print("This test file is now designed to run with pytest.")
+    print("Run: pytest test_client_server_integration.py")

@@ -25,7 +25,7 @@ AURA (AI-Optimized Hybrid Compression Protocol) is a revolutionary compression t
 
 ### Performance Benefits
 
-- **Compression Ratio**: 2-10x better than gzip, brotli, and zstd
+- **Compression Ratio**: 2-10x better than traditional compression algorithms through proprietary AI-driven optimization
 - **Speed**: 5-15x faster than JavaScript implementations
 - **Memory Efficiency**: Zero-copy operations with minimal memory allocation
 - **Scalability**: Handles data streams from KB to TB without performance degradation

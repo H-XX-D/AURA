@@ -22,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Native Rust implementation via N-API
 - `AuraCompressor` class matching JavaScript SDK API
 - Binary semantic compression with template system
-- Brotli fallback compression
 - Cross-platform pre-built binaries for:
   - macOS x64 (Intel)
   - macOS ARM64 (Apple Silicon)
@@ -36,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 - **2-10x faster** than pure JavaScript implementation
 - Zero-copy design for minimal memory allocations
-- Optimized Brotli compression (quality 11, window 22)
+- Proprietary AI-driven compression optimization
 - Sub-millisecond compression for typical messages
 
 ### Features
@@ -50,7 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 - Built with NAPI-RS 2.13
 - Rust 2021 edition
-- Brotli 3.4
 - Release optimizations: LTO + codegen-units=1
 - Node.js 16+ required
 

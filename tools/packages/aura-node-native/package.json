@@ -1,7 +1,7 @@
 {
   "name": "aura-compression-native",
   "version": "1.1.4",
-  "description": "AURA Protocol - Native Node.js bindings for high-performance compression",
+  "description": "AURA Protocol - Proprietary AI-driven compression technology with native performance",
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
@@ -24,13 +24,14 @@
   "keywords": [
     "compression",
     "ai",
-    "audit",
+    "proprietary",
     "native",
     "napi",
     "rust",
     "performance",
     "template",
-    "semantic"
+    "semantic",
+    "aura-protocol"
   ],
   "author": "Todd Hendricks <todd@auraprotocol.org>",
   "license": "SEE LICENSE IN LICENSE",
@@ -47,15 +48,5 @@
   },
   "engines": {
     "node": ">= 16"
-  },
-  "optionalDependencies": {
-    "@aura-protocol/native-win32-x64-msvc": "1.0.1",
-    "@aura-protocol/native-darwin-x64": "1.0.1",
-    "@aura-protocol/native-linux-x64-gnu": "1.0.1",
-    "@aura-protocol/native-darwin-arm64": "1.0.1",
-    "@aura-protocol/native-linux-arm64-gnu": "1.0.1",
-    "@aura-protocol/native-linux-arm64-musl": "1.0.1",
-    "@aura-protocol/native-win32-arm64-msvc": "1.0.1",
-    "@aura-protocol/native-linux-x64-musl": "1.0.1"
   }
 }

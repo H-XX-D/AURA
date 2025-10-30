@@ -30,6 +30,20 @@ AURA (AI-Optimized Hybrid Compression Protocol) is a revolutionary compression t
 - **Memory Efficiency**: Zero-copy operations with minimal memory allocation
 - **Scalability**: Handles data streams from KB to TB without performance degradation
 
+### Proprietary Compression Methods
+
+AURA's ML algorithm automatically selects from multiple proprietary compression methods based on content analysis:
+
+#### Available Methods:
+- **Binary Semantic**: Template-based semantic compression (6-8:1 ratio)
+- **Auralite**: Lightweight semantic compression for short messages (4-6:1 ratio)
+- **Aura_Lite**: Optimized for real-time chat compression (5-7:1 ratio)
+- **Brio**: High-efficiency semantic compression (7-9:1 ratio)
+- **Brio TCP**: Network-optimized compression for TCP streams (6-8:1 ratio)
+- **Aura Heavy**: Maximum compression for large documents (8-12:1 ratio)
+
+**QA Note:** These compression ratios are obtained after template discovery learns and populates on your data streams. Initial compression ratios may be lower as the ML algorithm adapts to your specific content patterns and builds optimized templates over time.
+
 ## Deployment
 
 ### Node.js Installation

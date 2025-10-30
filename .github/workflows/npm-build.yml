@@ -57,8 +57,7 @@ jobs:
     - name: Publish to npm
       run: |
         cd tools/packages/aura-node-native
-        echo "Skipping npm publish for now - testing build process"
-        # echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-        # npm publish --ignore-scripts
-      # env:
-      #   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        npm publish --ignore-scripts
+      env:
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

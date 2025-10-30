@@ -11,7 +11,7 @@ build.rs
 node_modules/
 
 # Build artifacts (only publish pre-built binaries)
-*.node
+# *.node  # Commented out - we want to include .node binaries
 
 # CI/CD
 .github/

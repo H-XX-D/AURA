@@ -49,10 +49,6 @@
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4"
   },
-  "files": [
-    "index.js",
-    "index.d.ts"
-  ],
   "engines": {
     "node": ">= 16"
   }

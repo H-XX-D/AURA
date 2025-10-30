@@ -1,9 +1,0 @@
-[
-  {
-    "template_id": 200,
-    "pattern": "Test pattern with {0} slot",
-    "category": "test",
-    "confidence": 0.9,
-    "description": ""
-  }
-]

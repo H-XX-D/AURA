@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aura-compression"
-version = "1.1.4"
+version = "2.0.1"
 description = "AI-Optimized Hybrid Compression Protocol for Real-Time Communication"
 readme = "README.md"
 authors = [{name = "Todd Hendricks", email = "todd@auraprotocol.org"}]
@@ -29,7 +29,7 @@ dependencies = [
 requires-python = ">=3.8"
 
 [tool.setuptools]
-package-dir = {"" = "src/python"}
+package-dir = {"" = "src"}
 
 [project.scripts]
 aura-compress = "aura_compression.cli.compress:main"

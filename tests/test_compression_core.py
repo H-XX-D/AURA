@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 # Add source path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src' / 'python'))
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from aura_compression.compressor import ProductionHybridCompressor
 from aura_compression.enums import CompressionMethod
@@ -32,7 +32,7 @@ def compressor():
 def test_1_compression_initialization(compressor):
     """Test 1: Compressor initialization with optimized settings"""
     # Verify compressor has all required strategies
-    strategies = compressor._compression_strategies
+    strategies = compressor._strategy_manager.get_available_strategies()
     expected_methods = [
         CompressionMethod.BINARY_SEMANTIC,
         CompressionMethod.AURALITE,
@@ -40,7 +40,7 @@ def test_1_compression_initialization(compressor):
         CompressionMethod.UNCOMPRESSED
     ]
 
-    found_methods = [s.get_method() for s in strategies]
+    found_methods = strategies
     for method in expected_methods:
         assert method in found_methods, f"Missing method: {method}"
 

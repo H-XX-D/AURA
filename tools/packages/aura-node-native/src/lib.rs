@@ -9,7 +9,6 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
-use std::io::{Read, Write};
 
 // ============================================================================
 // Error Types
@@ -18,7 +17,7 @@ use std::io::{Read, Write};
 #[napi]
 pub enum CompressionMethod {
   BinarySemantic = 1,
-  Brotli = 2,
+  Brio = 2,
   Uncompressed = 255,
 }
 
@@ -26,7 +25,7 @@ impl From<u8> for CompressionMethod {
   fn from(value: u8) -> Self {
     match value {
       1 => CompressionMethod::BinarySemantic,
-      2 => CompressionMethod::Brotli,
+      2 => CompressionMethod::Brio,
       _ => CompressionMethod::Uncompressed,
     }
   }
@@ -157,8 +156,13 @@ impl AuraCompressor {
       return self.compress_uncompressed(&text);
     }
 
-    // For now, only template-based compression is available
-    // Automatic compression without templates falls back to uncompressed
+    // Try BRIO compression first
+    let brio_result = self.compress_brio(&text)?;
+    if brio_result.ratio > self.binary_threshold {
+      return Ok(brio_result);
+    }
+
+    // Fall back to uncompressed if BRIO doesn't provide benefit
     self.compress_uncompressed(&text)
   }
 
@@ -221,7 +225,7 @@ impl AuraCompressor {
         let (text, tid) = self.decompress_binary_semantic(compressed_data)?;
         (text, Some(tid))
       }
-      CompressionMethod::Brotli => (self.decompress_brotli(compressed_data)?, None),
+      CompressionMethod::Brio => (self.decompress_brio(compressed_data)?, None),
       CompressionMethod::Uncompressed => {
         (String::from_utf8(compressed_data.to_vec())
           .map_err(|e| Error::new(Status::InvalidArg, e.to_string()))?, None)
@@ -260,26 +264,21 @@ impl AuraCompressor {
     }
   }
 
-  fn compress_brotli(&self, text: &str) -> Result<CompressionResult> {
+  fn compress_brio(&self, text: &str) -> Result<CompressionResult> {
     let original_bytes = text.as_bytes();
     let original_size = original_bytes.len();
 
-    let mut compressed = Vec::new();
-    let mut compressor = brotli::CompressorWriter::new(&mut compressed, 4096, 11, 22);
-    compressor
-      .write_all(original_bytes)
-      .map_err(|e| Error::new(Status::GenericFailure, e.to_string()))?;
-    drop(compressor);
-
-    let mut data = vec![CompressionMethod::Brotli as u8];
-    data.extend_from_slice(&compressed);
+    // Simple BRIO implementation: just add method byte for now
+    // TODO: Implement full BRIO compression with rANS entropy coding
+    let mut data = vec![CompressionMethod::Brio as u8];
+    data.extend_from_slice(original_bytes);
 
     let compressed_size = data.len();
-    let ratio = original_size as f64 / compressed_size as f64;
+    let ratio = if compressed_size > 0 { original_size as f64 / compressed_size as f64 } else { 1.0 };
 
     Ok(CompressionResult {
       data: data.into(),
-      method: CompressionMethod::Brotli,
+      method: CompressionMethod::Brio,
       original_size: original_size as u32,
       compressed_size: compressed_size as u32,
       ratio,
@@ -351,13 +350,9 @@ impl AuraCompressor {
     Ok((plaintext, template_id))
   }
 
-  fn decompress_brotli(&self, data: &[u8]) -> Result<String> {
-    let mut decompressed = Vec::new();
-    let mut decompressor = brotli::Decompressor::new(data, 4096);
-    decompressor
-      .read_to_end(&mut decompressed)
-      .map_err(|e| Error::new(Status::GenericFailure, e.to_string()))?;
-
-    String::from_utf8(decompressed).map_err(|e| Error::new(Status::InvalidArg, e.to_string()))
+  fn decompress_brio(&self, data: &[u8]) -> Result<String> {
+    // Simple BRIO decompression: just return the data after method byte
+    // TODO: Implement full BRIO decompression with rANS entropy decoding
+    String::from_utf8(data.to_vec()).map_err(|e| Error::new(Status::InvalidArg, e.to_string()))
   }
 }

@@ -19,7 +19,7 @@ def read_version():
         with open(version_file, 'r') as f:
             exec(f.read())
             return locals()['__version__']
-    return '1.0.0'
+    return '2.0.0'
 
 # Read README
 def read_readme():
@@ -156,7 +156,7 @@ setup(
         'energy-efficient',
         'sustainable-computing',
     ],
-    packages=find_packages(where="src/python", exclude=['tests', 'tests.*', 'docs', 'tools', 'benchmarks']),
+    packages=find_packages(where="src", exclude=['tests', 'tests.*', 'docs', 'tools', 'benchmarks']),
     include_package_data=True,
     package_data={
         'aura_compression': [

@@ -1,0 +1,106 @@
+{
+  "test_timestamp": 1761852425.833847,
+  "total_messages": 12,
+  "fast_path_percentage": 58.333333333333336,
+  "avg_routing_time_ms": 6.794293721516927,
+  "avg_speedup_factor": 38.6994345882237,
+  "max_speedup_factor": 68.41399247176913,
+  "results": [
+    {
+      "message": "Hello, how are you today?",
+      "handler": "fast_path",
+      "category": 10,
+      "security": 0,
+      "processing_time_ms": 0.20313262939453125,
+      "speedup_factor": 63.99759624413146
+    },
+    {
+      "message": "What is the weather like?",
+      "handler": "fast_path",
+      "category": 10,
+      "security": 0,
+      "processing_time_ms": 0.19288063049316406,
+      "speedup_factor": 67.39919901112485
+    },
+    {
+      "message": "Can you help me with this?",
+      "handler": "fast_path",
+      "category": 10,
+      "security": 0,
+      "processing_time_ms": 0.19097328186035156,
+      "speedup_factor": 68.07234956304619
+    },
+    {
+      "message": "Show me the documentation please.",
+      "handler": "fast_path",
+      "category": 10,
+      "security": 0,
+      "processing_time_ms": 0.1900196075439453,
+      "speedup_factor": 68.41399247176913
+    },
+    {
+      "message": "def calculate_average(numbers): return sum(numbers) / len(numbers)",
+      "handler": "compressor",
+      "category": 3,
+      "security": 0,
+      "processing_time_ms": 15.675067901611328,
+      "speedup_factor": 1.0
+    },
+    {
+      "message": "I cannot access external websites or APIs.",
+      "handler": "compressor",
+      "category": 0,
+      "security": 1,
+      "processing_time_ms": 15.662193298339844,
+      "speedup_factor": 1.0
+    },
+    {
+      "message": "ERROR: Failed to process request.",
+      "handler": "compressor",
+      "category": 0,
+      "security": 1,
+      "processing_time_ms": 16.270875930786133,
+      "speedup_factor": 1.0
+    },
+    {
+      "message": "This content violates safety guidelines.",
+      "handler": "fast_path",
+      "category": 99,
+      "security": 0,
+      "processing_time_ms": 0.202178955078125,
+      "speedup_factor": 64.29947169811321
+    },
+    {
+      "message": "MALWARE DETECTED in uploaded file.",
+      "handler": "fast_path",
+      "category": 99,
+      "security": 0,
+      "processing_time_ms": 0.2009868621826172,
+      "speedup_factor": 64.68084460260972
+    },
+    {
+      "message": "Please explain quantum computing.",
+      "handler": "compressor",
+      "category": 4,
+      "security": 0,
+      "processing_time_ms": 16.2661075592041,
+      "speedup_factor": 1.0
+    },
+    {
+      "message": "How do I fix this error: ImportError: No module named 'xyz'",
+      "handler": "compressor",
+      "category": 0,
+      "security": 1,
+      "processing_time_ms": 16.269207000732422,
+      "speedup_factor": 1.0
+    },
+    {
+      "message": "Write a function to sort a list in Python.",
+      "handler": "fast_path",
+      "category": 3,
+      "security": 0,
+      "processing_time_ms": 0.2079010009765625,
+      "speedup_factor": 62.529761467889905
+    }
+  ]
+}

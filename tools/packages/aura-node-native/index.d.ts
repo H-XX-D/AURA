@@ -5,7 +5,7 @@
 
 export const enum CompressionMethod {
   BinarySemantic = 1,
-  Brotli = 2,
+  Brio = 2,
   Uncompressed = 255
 }
 export interface Template {

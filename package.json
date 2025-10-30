@@ -9,6 +9,13 @@
     "aura-decompress": "./tools/packages/aura-node-native/bin/decompress.js"
   },
   "files": [
+    "tools/packages/aura-node-native/index.js",
+    "tools/packages/aura-node-native/index.d.ts",
+    "tools/packages/aura-node-native/aura-native.darwin-arm64.node",
+    "tools/packages/aura-node-native/aura-native.darwin-x64.node",
+    "tools/packages/aura-node-native/aura-native.linux-x64-gnu.node",
+    "tools/packages/aura-node-native/aura-native.linux-arm64-gnu.node",
+    "tools/packages/aura-node-native/aura-native.win32-x64-msvc.node",
     "lib/**/*",
     "native/**/*",
     "bin/**/*",

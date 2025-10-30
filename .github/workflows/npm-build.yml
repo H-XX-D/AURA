@@ -5,11 +5,13 @@ on:
     branches: [ main ]
     paths:
       - 'tools/packages/aura-node-native/**'
+      - 'package.json'
       - '.github/workflows/npm-build.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'tools/packages/aura-node-native/**'
+      - 'package.json'
   workflow_dispatch:
 
 jobs:
@@ -97,12 +99,9 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: tools/packages/aura-node-native/package-lock.json
 
     - name: Install npm dependencies
-      run: |
-        cd tools/packages/aura-node-native
-        npm ci
+      run: npm ci
 
     - name: Download all binaries
       uses: actions/download-artifact@v4
@@ -121,19 +120,8 @@ jobs:
         done
         ls -la *.node
 
-    - name: Update package files
-      run: |
-        cd tools/packages/aura-node-native
-        # Update files array in package.json to include all binaries
-        binaries=$(ls *.node 2>/dev/null | tr '\n' ' ' | sed 's/\.node/.node/g')
-        if [ -n "$binaries" ]; then
-          # This would need to be updated to include all binaries
-          echo "Binaries found: $binaries"
-        fi
-
     - name: Publish to npm
       run: |
-        cd tools/packages/aura-node-native
         npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
         npm publish --ignore-scripts
       env:

@@ -1,0 +1,88 @@
+{
+  "fuzzy_matching_config": {
+    "enabled": true,
+    "min_similarity": 0.8,
+    "max_distance": 50,
+    "cache_enabled": true,
+    "gpu_accelerated": true
+  },
+  "performance_projections": {
+    "match_rate": 0.16,
+    "avg_similarity": 1.0,
+    "avg_time_ms": 12.434744834899902,
+    "compression_improvement": 0.088
+  },
+  "benchmark_results": {
+    "exact_matches": 0,
+    "fuzzy_matches": 17,
+    "no_matches": 33,
+    "exact_time": 2.3126602172851562e-05,
+    "fuzzy_time": 4.560578107833862,
+    "compression_ratios": {
+      "exact": [],
+      "fuzzy": [
+        0.75,
+        0.55,
+        1.025,
+        0.625,
+        0.875,
+        0.775,
+        0.65,
+        0.65,
+        0.275,
+        0.9,
+        0.95,
+        0.975,
+        0.75,
+        0.75,
+        0.825,
+        0.7,
+        0.825
+      ],
+      "none": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "avg_ratio_exact": 1.0,
+    "avg_ratio_fuzzy": 0.7558823529411764,
+    "avg_ratio_none": 1.0,
+    "avg_time_exact_ms": 0.00023126602172851562,
+    "avg_time_fuzzy_ms": 45.60578107833862
+  },
+  "recommendations": [
+    "Slow fuzzy matching - consider GPU acceleration or caching"
+  ],
+  "generated_at": 1761800557.733331
+}

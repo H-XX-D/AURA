@@ -1,0 +1,74 @@
+{
+  "test_timestamp": 1761800253.312423,
+  "categories_tested": [
+    "logs",
+    "api",
+    "metrics",
+    "events",
+    "messages"
+  ],
+  "category_results": {
+    "logs": {
+      "message_count": 500,
+      "compressed_count": 500,
+      "compression_rate": 1.0,
+      "original_size_bytes": 15151,
+      "compressed_size_bytes": 11581,
+      "compression_ratio": 1.3082635351005958,
+      "processing_time_seconds": 0.11341381072998047,
+      "throughput_messages_per_second": 4408.634158236842,
+      "throughput_mbps": 0.12740176416672974
+    },
+    "api": {
+      "message_count": 500,
+      "compressed_count": 500,
+      "compression_rate": 1.0,
+      "original_size_bytes": 16009,
+      "compressed_size_bytes": 8911,
+      "compression_ratio": 1.7965435978004713,
+      "processing_time_seconds": 0.050688982009887695,
+      "throughput_messages_per_second": 9864.076573928176,
+      "throughput_mbps": 0.3011970555725406
+    },
+    "metrics": {
+      "message_count": 500,
+      "compressed_count": 500,
+      "compression_rate": 1.0,
+      "original_size_bytes": 16004,
+      "compressed_size_bytes": 16504,
+      "compression_ratio": 0.9697043141056714,
+      "processing_time_seconds": 0.04202699661254883,
+      "throughput_messages_per_second": 11897.114719130444,
+      "throughput_mbps": 0.3631618956851266
+    },
+    "events": {
+      "message_count": 500,
+      "compressed_count": 500,
+      "compression_rate": 1.0,
+      "original_size_bytes": 14729,
+      "compressed_size_bytes": 14958,
+      "compression_ratio": 0.9846904666399251,
+      "processing_time_seconds": 0.04651284217834473,
+      "throughput_messages_per_second": 10749.719358856726,
+      "throughput_mbps": 0.3019954994899764
+    },
+    "messages": {
+      "message_count": 500,
+      "compressed_count": 500,
+      "compression_rate": 1.0,
+      "original_size_bytes": 13865,
+      "compressed_size_bytes": 14304,
+      "compression_ratio": 0.9693092841163311,
+      "processing_time_seconds": 0.0483090877532959,
+      "throughput_messages_per_second": 10350.019494331838,
+      "throughput_mbps": 0.2737102895525187
+    }
+  },
+  "overall_stats": {
+    "total_messages": 2500,
+    "total_original_size_bytes": 75758,
+    "total_compressed_size_bytes": 66258,
+    "overall_compression_ratio": 1.143378912735066,
+    "average_ratio_per_category": 1.205702239552599
+  }
+}

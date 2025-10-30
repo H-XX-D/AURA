@@ -61,6 +61,9 @@ target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
 minversion = "7.0"
 addopts = "-ra -q --strict-markers --cov=aura_compression --cov-report=html --cov-report=term"
 testpaths = ["tests"]
+markers = [
+    "asyncio: marks tests as async (using pytest-asyncio)",
+]
 
 [tool.mypy]
 python_version = "3.8"

@@ -526,7 +526,7 @@ def test_simulated_websocket_compression():
     compressed, method, metadata = client_compressor.compress(test_message)
     
     assert compressed is not None
-    assert str(method).lower() in ['aura', 'gzip', 'brotli', 'uncompressed', 'compressionmethod.brio']
+    assert str(method).lower() in ['compressionmethod.binary_semantic', 'compressionmethod.auralite', 'compressionmethod.brio', 'compressionmethod.aura_lite', 'compressionmethod.aura_heavy', 'compressionmethod.uncompressed']
     assert metadata["original_size"] == len(test_message)
     assert metadata["compressed_size"] > 0
     assert metadata["ratio"] > 0

@@ -21,14 +21,14 @@
       "base_ratio": 1.8
     },
     "aura_lite": {
-      "length": 0.3,
-      "entropy": -0.2,
+      "length": 1.0,
+      "entropy": 1.0,
       "has_numbers": 0.2,
       "has_special_chars": 0.2,
       "word_count": 0.4,
-      "compression_potential": 0.4,
-      "pattern_score": 0.3,
-      "base_ratio": 1.5
+      "compression_potential": 1.0,
+      "pattern_score": 1.0,
+      "base_ratio": 1.0
     },
     "brio": {
       "length": 0.4,
@@ -59,3656 +59,1556 @@
       "compression_potential": 0.6,
       "pattern_score": 0.5,
       "base_ratio": 3.0
-    },
-    "zlib": {
-      "length": 1.0,
-      "entropy": 1.0,
-      "has_numbers": 0.0,
-      "has_special_chars": 0.0,
-      "word_count": 0.0,
-      "compression_potential": 1.0,
-      "pattern_score": 1.0,
-      "base_ratio": 1.0
     }
   },
   "method_stats": {
-    "zlib": {
-      "total_compressions": 191,
-      "avg_ratio": 2.167934876390933,
+    "aura_lite": {
+      "total_compressions": 81,
+      "avg_ratio": 1.7164646394222483,
       "avg_time": 0.0010000000000000005,
       "success_rate": 1.0
     }
   },
   "performance_history": [
     {
-      "timestamp": 1761788640.575201,
+      "timestamp": 1761801188.5660338,
       "features": {
-        "length": 1635,
-        "entropy": 4.677528999744547,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 255,
-        "avg_word_length": 5.415686274509804,
-        "compression_potential": 0.4153088750319316,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1635,
-      "compressed_size": 368,
-      "compression_time": 0.001,
-      "ratio": 4.442934782608695,
-      "message_hash": "6a7ec0c2"
-    },
-    {
-      "timestamp": 1761788644.5658398,
-      "features": {
-        "length": 1284,
-        "entropy": 4.659029472727599,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 199,
-        "avg_word_length": 5.457286432160804,
-        "compression_potential": 0.41762131590905016,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1284,
-      "compressed_size": 328,
-      "compression_time": 0.001,
-      "ratio": 3.9146341463414633,
-      "message_hash": "7fddcf23"
-    },
-    {
-      "timestamp": 1761788650.919744,
-      "features": {
-        "length": 1757,
-        "entropy": 4.635550781593899,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 283,
-        "avg_word_length": 5.212014134275618,
-        "compression_potential": 0.4205561523007626,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1757,
-      "compressed_size": 374,
-      "compression_time": 0.001,
-      "ratio": 4.697860962566845,
-      "message_hash": "9b73c4c0"
-    },
-    {
-      "timestamp": 1761788651.093654,
-      "features": {
-        "length": 986,
-        "entropy": 4.7112123237013055,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 143,
-        "avg_word_length": 5.9020979020979025,
-        "compression_potential": 0.4110984595373368,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 986,
-      "compressed_size": 303,
-      "compression_time": 0.001,
-      "ratio": 3.254125412541254,
-      "message_hash": "9c9c311c"
-    },
-    {
-      "timestamp": 1761788651.123064,
-      "features": {
-        "length": 717,
-        "entropy": 4.788262576397985,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 94,
-        "avg_word_length": 6.638297872340425,
-        "compression_potential": 0.4014671779502519,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 717,
-      "compressed_size": 273,
-      "compression_time": 0.001,
-      "ratio": 2.6263736263736264,
-      "message_hash": "2dba7d94"
-    },
-    {
-      "timestamp": 1761788651.145312,
-      "features": {
-        "length": 636,
-        "entropy": 4.7828425376210655,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 87,
-        "avg_word_length": 6.32183908045977,
-        "compression_potential": 0.4021446827973668,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 636,
-      "compressed_size": 260,
-      "compression_time": 0.001,
-      "ratio": 2.4461538461538463,
-      "message_hash": "5fec390e"
-    },
-    {
-      "timestamp": 1761788651.1764321,
-      "features": {
-        "length": 667,
-        "entropy": 4.73640437448827,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 94,
-        "avg_word_length": 6.1063829787234045,
-        "compression_potential": 0.40794945318896625,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 667,
-      "compressed_size": 263,
-      "compression_time": 0.001,
-      "ratio": 2.536121673003802,
-      "message_hash": "76969c78"
-    },
-    {
-      "timestamp": 1761788653.021565,
-      "features": {
-        "length": 1635,
-        "entropy": 4.670702870556957,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 255,
-        "avg_word_length": 5.415686274509804,
-        "compression_potential": 0.4161621411803804,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1635,
-      "compressed_size": 372,
-      "compression_time": 0.001,
-      "ratio": 4.395161290322581,
-      "message_hash": "3eacec1d"
-    },
-    {
-      "timestamp": 1761788653.20067,
-      "features": {
-        "length": 1023,
-        "entropy": 4.691828384579686,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 150,
-        "avg_word_length": 5.826666666666667,
-        "compression_potential": 0.4135214519275392,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1023,
-      "compressed_size": 305,
-      "compression_time": 0.001,
-      "ratio": 3.3540983606557377,
-      "message_hash": "42f79217"
-    },
-    {
-      "timestamp": 1761788653.232466,
-      "features": {
-        "length": 672,
-        "entropy": 4.72270660632067,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 94,
-        "avg_word_length": 6.159574468085107,
-        "compression_potential": 0.4096616742099163,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 672,
-      "compressed_size": 264,
-      "compression_time": 0.001,
-      "ratio": 2.5454545454545454,
-      "message_hash": "61804fcb"
-    },
-    {
-      "timestamp": 1761788653.3163168,
-      "features": {
-        "length": 848,
-        "entropy": 4.7104190657091936,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 122,
-        "avg_word_length": 5.959016393442623,
-        "compression_potential": 0.4111976167863508,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 848,
-      "compressed_size": 282,
-      "compression_time": 0.001,
-      "ratio": 3.00709219858156,
-      "message_hash": "8948b29f"
-    },
-    {
-      "timestamp": 1761788658.34999,
-      "features": {
-        "length": 1291,
-        "entropy": 4.6680716513636105,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 199,
-        "avg_word_length": 5.492462311557789,
-        "compression_potential": 0.4164910435795487,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1291,
-      "compressed_size": 329,
-      "compression_time": 0.001,
-      "ratio": 3.9240121580547114,
-      "message_hash": "e5e8f276"
-    },
-    {
-      "timestamp": 1761788660.343169,
-      "features": {
-        "length": 1593,
-        "entropy": 4.621054367731548,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 255,
-        "avg_word_length": 5.250980392156863,
-        "compression_potential": 0.42236820403355646,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1593,
-      "compressed_size": 356,
-      "compression_time": 0.001,
-      "ratio": 4.474719101123595,
-      "message_hash": "b1c1c11c"
-    },
-    {
-      "timestamp": 1761788678.311091,
-      "features": {
-        "length": 1105,
-        "entropy": 4.723019517334672,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 157,
-        "avg_word_length": 6.044585987261146,
-        "compression_potential": 0.409622560333166,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1105,
-      "compressed_size": 318,
-      "compression_time": 0.001,
-      "ratio": 3.4748427672955975,
-      "message_hash": "508f34be"
-    },
-    {
-      "timestamp": 1761788681.758616,
-      "features": {
-        "length": 1829,
-        "entropy": 4.618211413221128,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 297,
-        "avg_word_length": 5.161616161616162,
-        "compression_potential": 0.422723573347359,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1829,
-      "compressed_size": 374,
-      "compression_time": 0.001,
-      "ratio": 4.890374331550802,
-      "message_hash": "93e00d82"
-    },
-    {
-      "timestamp": 1761788681.8115,
-      "features": {
-        "length": 734,
-        "entropy": 4.714134354692884,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 108,
-        "avg_word_length": 5.805555555555555,
-        "compression_potential": 0.41073320566338944,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 734,
-      "compressed_size": 262,
-      "compression_time": 0.001,
-      "ratio": 2.801526717557252,
-      "message_hash": "afeb5156"
-    },
-    {
-      "timestamp": 1761788682.492922,
-      "features": {
-        "length": 1323,
-        "entropy": 4.666063587136455,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 206,
-        "avg_word_length": 5.427184466019417,
-        "compression_potential": 0.4167420516079431,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1323,
-      "compressed_size": 330,
-      "compression_time": 0.001,
-      "ratio": 4.009090909090909,
-      "message_hash": "1bddb7ef"
-    },
-    {
-      "timestamp": 1761788684.904095,
-      "features": {
-        "length": 1736,
-        "entropy": 4.6519626645777015,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 276,
-        "avg_word_length": 5.293478260869565,
-        "compression_potential": 0.4185046669277873,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1736,
-      "compressed_size": 367,
-      "compression_time": 0.001,
-      "ratio": 4.730245231607629,
-      "message_hash": "3e63b6b0"
-    },
-    {
-      "timestamp": 1761788685.140928,
-      "features": {
-        "length": 1105,
-        "entropy": 4.705224096049422,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 157,
-        "avg_word_length": 6.044585987261146,
-        "compression_potential": 0.41184698799382224,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1105,
-      "compressed_size": 319,
-      "compression_time": 0.001,
-      "ratio": 3.4639498432601883,
-      "message_hash": "e1b65ae8"
-    },
-    {
-      "timestamp": 1761788690.122187,
-      "features": {
-        "length": 1293,
-        "entropy": 4.67745189824677,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 199,
-        "avg_word_length": 5.50251256281407,
-        "compression_potential": 0.41531851271915377,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1293,
-      "compressed_size": 327,
-      "compression_time": 0.001,
-      "ratio": 3.9541284403669725,
-      "message_hash": "13859365"
-    },
-    {
-      "timestamp": 1761788690.142665,
-      "features": {
-        "length": 724,
-        "entropy": 4.789268795458649,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 94,
-        "avg_word_length": 6.712765957446808,
-        "compression_potential": 0.40134140056766887,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 724,
-      "compressed_size": 281,
-      "compression_time": 0.001,
-      "ratio": 2.5765124555160144,
-      "message_hash": "fa49da64"
-    },
-    {
-      "timestamp": 1761788693.228547,
-      "features": {
-        "length": 1230,
-        "entropy": 4.6892142761830895,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 185,
-        "avg_word_length": 5.654054054054054,
-        "compression_potential": 0.4138482154771138,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1230,
-      "compressed_size": 319,
-      "compression_time": 0.001,
-      "ratio": 3.8557993730407523,
-      "message_hash": "b32bcebe"
-    },
-    {
-      "timestamp": 1761788694.486551,
-      "features": {
-        "length": 1696,
-        "entropy": 4.699451051030457,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 255,
-        "avg_word_length": 5.654901960784314,
-        "compression_potential": 0.4125686186211929,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1696,
-      "compressed_size": 381,
-      "compression_time": 0.001,
-      "ratio": 4.451443569553806,
-      "message_hash": "1ceb4625"
-    },
-    {
-      "timestamp": 1761788697.952868,
-      "features": {
-        "length": 1489,
-        "entropy": 4.713584535344258,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 220,
-        "avg_word_length": 5.7727272727272725,
-        "compression_potential": 0.4108019330819678,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1489,
-      "compressed_size": 360,
-      "compression_time": 0.001,
-      "ratio": 4.136111111111111,
-      "message_hash": "254e220b"
-    },
-    {
-      "timestamp": 1761788698.351616,
-      "features": {
-        "length": 1200,
-        "entropy": 4.710958064547382,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 178,
-        "avg_word_length": 5.747191011235955,
-        "compression_potential": 0.4111302419315772,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1200,
-      "compressed_size": 327,
-      "compression_time": 0.001,
-      "ratio": 3.669724770642202,
-      "message_hash": "77b6b856"
-    },
-    {
-      "timestamp": 1761788699.4474828,
-      "features": {
-        "length": 1500,
-        "entropy": 4.669937937331958,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 234,
-        "avg_word_length": 5.414529914529915,
-        "compression_potential": 0.41625775783350527,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1500,
-      "compressed_size": 345,
-      "compression_time": 0.001,
-      "ratio": 4.3478260869565215,
-      "message_hash": "bda7a3e6"
-    },
-    {
-      "timestamp": 1761788703.1686609,
-      "features": {
-        "length": 1911,
-        "entropy": 4.663749283951786,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 304,
-        "avg_word_length": 5.2894736842105265,
-        "compression_potential": 0.4170313395060268,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1911,
-      "compressed_size": 393,
-      "compression_time": 0.001,
-      "ratio": 4.862595419847328,
-      "message_hash": "d2e957d7"
-    },
-    {
-      "timestamp": 1761788708.469619,
-      "features": {
-        "length": 2038,
-        "entropy": 4.634054715563255,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 332,
-        "avg_word_length": 5.141566265060241,
-        "compression_potential": 0.42074316055459315,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 2038,
-      "compressed_size": 399,
-      "compression_time": 0.001,
-      "ratio": 5.1077694235588975,
-      "message_hash": "f1091570"
-    },
-    {
-      "timestamp": 1761788708.607296,
-      "features": {
-        "length": 939,
-        "entropy": 4.697755928745101,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 143,
-        "avg_word_length": 5.573426573426573,
-        "compression_potential": 0.41278050890686235,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 939,
-      "compressed_size": 287,
-      "compression_time": 0.001,
-      "ratio": 3.2717770034843205,
-      "message_hash": "51feced5"
-    },
-    {
-      "timestamp": 1761788708.726628,
-      "features": {
-        "length": 879,
-        "entropy": 4.739514216263132,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 129,
-        "avg_word_length": 5.821705426356589,
-        "compression_potential": 0.40756072296710855,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 879,
-      "compressed_size": 285,
-      "compression_time": 0.001,
-      "ratio": 3.0842105263157893,
-      "message_hash": "46076691"
-    },
-    {
-      "timestamp": 1761788712.742274,
-      "features": {
-        "length": 1945,
-        "entropy": 4.656790418686453,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 311,
-        "avg_word_length": 5.257234726688103,
-        "compression_potential": 0.4179011976641934,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1945,
-      "compressed_size": 398,
-      "compression_time": 0.001,
-      "ratio": 4.886934673366834,
-      "message_hash": "8811dbe9"
-    },
-    {
-      "timestamp": 1761788715.080009,
-      "features": {
-        "length": 1706,
-        "entropy": 4.659652113992141,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 269,
-        "avg_word_length": 5.345724907063197,
-        "compression_potential": 0.4175434857509823,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1706,
-      "compressed_size": 374,
-      "compression_time": 0.001,
-      "ratio": 4.561497326203209,
-      "message_hash": "c7bb7fdb"
-    },
-    {
-      "timestamp": 1761788718.244043,
-      "features": {
-        "length": 1903,
-        "entropy": 4.686363039744495,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 290,
-        "avg_word_length": 5.56551724137931,
-        "compression_potential": 0.41420462003193814,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1903,
-      "compressed_size": 400,
-      "compression_time": 0.001,
-      "ratio": 4.7575,
-      "message_hash": "b1324c84"
-    },
-    {
-      "timestamp": 1761788718.395369,
-      "features": {
-        "length": 1076,
-        "entropy": 4.7412117569182906,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 150,
-        "avg_word_length": 6.18,
-        "compression_potential": 0.4073485303852137,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1076,
-      "compressed_size": 321,
-      "compression_time": 0.001,
-      "ratio": 3.35202492211838,
-      "message_hash": "6fcb828a"
-    },
-    {
-      "timestamp": 1761788722.511489,
-      "features": {
-        "length": 1551,
-        "entropy": 4.688715724217479,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 234,
-        "avg_word_length": 5.632478632478633,
-        "compression_potential": 0.4139105344728151,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1551,
-      "compressed_size": 367,
-      "compression_time": 0.001,
-      "ratio": 4.226158038147139,
-      "message_hash": "4d9556cc"
-    },
-    {
-      "timestamp": 1761788723.101286,
-      "features": {
-        "length": 1343,
-        "entropy": 4.716221790942831,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 199,
-        "avg_word_length": 5.7537688442211055,
-        "compression_potential": 0.4104722761321461,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1343,
-      "compressed_size": 344,
-      "compression_time": 0.001,
-      "ratio": 3.9040697674418605,
-      "message_hash": "ebca9434"
-    },
-    {
-      "timestamp": 1761788723.952733,
-      "features": {
-        "length": 1386,
-        "entropy": 4.671190323884231,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 220,
-        "avg_word_length": 5.304545454545455,
-        "compression_potential": 0.41610120951447116,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1386,
-      "compressed_size": 336,
-      "compression_time": 0.001,
-      "ratio": 4.125,
-      "message_hash": "f40bdc72"
-    },
-    {
-      "timestamp": 1761788727.027785,
-      "features": {
-        "length": 2015,
-        "entropy": 4.697011062170414,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 304,
-        "avg_word_length": 5.631578947368421,
-        "compression_potential": 0.4128736172286982,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 2015,
-      "compressed_size": 417,
-      "compression_time": 0.001,
-      "ratio": 4.832134292565947,
-      "message_hash": "2eec117e"
-    },
-    {
-      "timestamp": 1761788727.7374332,
-      "features": {
-        "length": 1406,
-        "entropy": 4.681849858843088,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 213,
-        "avg_word_length": 5.605633802816901,
-        "compression_potential": 0.414768767644614,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 1406,
-      "compressed_size": 355,
-      "compression_time": 0.001,
-      "ratio": 3.96056338028169,
-      "message_hash": "69508b8a"
-    },
-    {
-      "timestamp": 1761788727.769983,
-      "features": {
-        "length": 158,
-        "entropy": 4.688260545127479,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 8.9375,
-        "compression_potential": 0.41396743185906515,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 158,
-      "compressed_size": 134,
-      "compression_time": 0.001,
-      "ratio": 1.1791044776119404,
-      "message_hash": "ad566016"
-    },
-    {
-      "timestamp": 1761788727.7721112,
-      "features": {
-        "length": 163,
-        "entropy": 4.781012798199733,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 17,
-        "avg_word_length": 8.647058823529411,
-        "compression_potential": 0.40237340022503343,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 163,
-      "compressed_size": 139,
-      "compression_time": 0.001,
-      "ratio": 1.1726618705035972,
-      "message_hash": "20f84546"
-    },
-    {
-      "timestamp": 1761788727.774593,
-      "features": {
-        "length": 156,
-        "entropy": 4.635202004528865,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.466666666666667,
-        "compression_potential": 0.4205997494338919,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 156,
-      "compressed_size": 128,
-      "compression_time": 0.001,
-      "ratio": 1.21875,
-      "message_hash": "7ed63bfa"
-    },
-    {
-      "timestamp": 1761788727.776729,
-      "features": {
-        "length": 153,
-        "entropy": 4.591462845778652,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.266666666666667,
-        "compression_potential": 0.42606714427766845,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 153,
-      "compressed_size": 129,
-      "compression_time": 0.001,
-      "ratio": 1.186046511627907,
-      "message_hash": "ce1bcda3"
-    },
-    {
-      "timestamp": 1761788727.778715,
-      "features": {
-        "length": 146,
-        "entropy": 4.771823644758918,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 14,
-        "avg_word_length": 9.5,
-        "compression_potential": 0.4035220444051353,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 146,
-      "compressed_size": 127,
-      "compression_time": 0.001,
-      "ratio": 1.1496062992125984,
-      "message_hash": "bb661a63"
-    },
-    {
-      "timestamp": 1761788727.7807722,
-      "features": {
-        "length": 152,
-        "entropy": 4.691856525507839,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.2,
-        "compression_potential": 0.4135179343115202,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 152,
-      "compressed_size": 131,
-      "compression_time": 0.001,
-      "ratio": 1.1603053435114503,
-      "message_hash": "5d47ca9f"
-    },
-    {
-      "timestamp": 1761788727.782563,
-      "features": {
-        "length": 136,
-        "entropy": 4.72735931019319,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 11,
-        "avg_word_length": 11.454545454545455,
-        "compression_potential": 0.40908008622585124,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 136,
-      "compressed_size": 119,
-      "compression_time": 0.001,
-      "ratio": 1.1428571428571428,
-      "message_hash": "9d49decf"
-    },
-    {
-      "timestamp": 1761788727.7856169,
-      "features": {
-        "length": 170,
-        "entropy": 4.753095648352844,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 9.6875,
-        "compression_potential": 0.40586304395589445,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 170,
-      "compressed_size": 138,
-      "compression_time": 0.001,
-      "ratio": 1.2318840579710144,
-      "message_hash": "ab614cca"
-    },
-    {
-      "timestamp": 1761788727.787468,
-      "features": {
-        "length": 140,
-        "entropy": 4.704443204889324,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 13,
-        "avg_word_length": 9.846153846153847,
-        "compression_potential": 0.41194459938883454,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 140,
-      "compressed_size": 122,
-      "compression_time": 0.001,
-      "ratio": 1.1475409836065573,
-      "message_hash": "c2e94508"
-    },
-    {
-      "timestamp": 1761788727.789973,
-      "features": {
-        "length": 184,
-        "entropy": 4.9283486267712355,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 11.333333333333334,
-        "compression_potential": 0.38395642165359556,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 184,
-      "compressed_size": 153,
-      "compression_time": 0.001,
-      "ratio": 1.2026143790849673,
-      "message_hash": "812a8ec1"
-    },
-    {
-      "timestamp": 1761788727.792653,
-      "features": {
-        "length": 148,
-        "entropy": 4.709924474772555,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 14,
-        "avg_word_length": 9.642857142857142,
-        "compression_potential": 0.4112594406534307,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 148,
-      "compressed_size": 130,
-      "compression_time": 0.001,
-      "ratio": 1.1384615384615384,
-      "message_hash": "1b6b2ea6"
-    },
-    {
-      "timestamp": 1761788727.794826,
-      "features": {
-        "length": 141,
-        "entropy": 4.7045452230533025,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 13,
-        "avg_word_length": 9.923076923076923,
-        "compression_potential": 0.4119318471183372,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 141,
-      "compressed_size": 123,
-      "compression_time": 0.001,
-      "ratio": 1.146341463414634,
-      "message_hash": "2c10c949"
-    },
-    {
-      "timestamp": 1761788727.797302,
-      "features": {
-        "length": 153,
-        "entropy": 4.766916478685404,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 14,
-        "avg_word_length": 10,
-        "compression_potential": 0.40413544016432446,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 153,
-      "compressed_size": 132,
-      "compression_time": 0.001,
-      "ratio": 1.1590909090909092,
-      "message_hash": "1626a922"
-    },
-    {
-      "timestamp": 1761788727.799546,
-      "features": {
-        "length": 156,
-        "entropy": 4.8565048991479305,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 12,
-        "avg_word_length": 12.083333333333334,
-        "compression_potential": 0.3929368876065087,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 156,
-      "compressed_size": 136,
-      "compression_time": 0.001,
-      "ratio": 1.1470588235294117,
-      "message_hash": "0c6b45ba"
-    },
-    {
-      "timestamp": 1761788727.8016498,
-      "features": {
-        "length": 151,
-        "entropy": 4.72800956045919,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.133333333333333,
-        "compression_potential": 0.4089988049426012,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 151,
-      "compressed_size": 131,
-      "compression_time": 0.001,
-      "ratio": 1.1526717557251909,
-      "message_hash": "73b6f8c3"
-    },
-    {
-      "timestamp": 1761788727.8044832,
-      "features": {
-        "length": 157,
-        "entropy": 4.728236977893711,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 8.875,
-        "compression_potential": 0.40897037776328615,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 157,
-      "compressed_size": 135,
-      "compression_time": 0.001,
-      "ratio": 1.162962962962963,
-      "message_hash": "151ce447"
-    },
-    {
-      "timestamp": 1761788727.806713,
-      "features": {
-        "length": 170,
-        "entropy": 4.946493401128697,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 9.6875,
-        "compression_potential": 0.3816883248589129,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 170,
-      "compressed_size": 146,
-      "compression_time": 0.001,
-      "ratio": 1.1643835616438356,
-      "message_hash": "aeaf67f6"
-    },
-    {
-      "timestamp": 1761788727.8089669,
-      "features": {
-        "length": 166,
-        "entropy": 4.779062009371833,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 17,
-        "avg_word_length": 8.823529411764707,
-        "compression_potential": 0.4026172488285209,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 166,
-      "compressed_size": 141,
-      "compression_time": 0.001,
-      "ratio": 1.177304964539007,
-      "message_hash": "02bab3f7"
-    },
-    {
-      "timestamp": 1761788727.811268,
-      "features": {
-        "length": 158,
-        "entropy": 4.727910307826786,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 8.9375,
-        "compression_potential": 0.40901121152165176,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 158,
-      "compressed_size": 136,
-      "compression_time": 0.001,
-      "ratio": 1.161764705882353,
-      "message_hash": "8c9f51bf"
-    },
-    {
-      "timestamp": 1761788727.812702,
-      "features": {
-        "length": 135,
-        "entropy": 4.720686091335779,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 11,
-        "avg_word_length": 11.363636363636363,
-        "compression_potential": 0.40991423858302767,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 135,
-      "compressed_size": 119,
-      "compression_time": 0.001,
-      "ratio": 1.134453781512605,
-      "message_hash": "5f4ff1f2"
-    },
-    {
-      "timestamp": 1761788727.8150961,
-      "features": {
-        "length": 163,
-        "entropy": 4.686260397313468,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 17,
-        "avg_word_length": 8.647058823529411,
-        "compression_potential": 0.4142174503358165,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 163,
-      "compressed_size": 138,
-      "compression_time": 0.001,
-      "ratio": 1.181159420289855,
-      "message_hash": "75488743"
-    },
-    {
-      "timestamp": 1761788727.817129,
-      "features": {
-        "length": 152,
-        "entropy": 4.698839380696128,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.2,
-        "compression_potential": 0.41264507741298395,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 152,
-      "compressed_size": 131,
-      "compression_time": 0.001,
-      "ratio": 1.1603053435114503,
-      "message_hash": "b64d5ebc"
-    },
-    {
-      "timestamp": 1761788727.8191,
-      "features": {
-        "length": 151,
-        "entropy": 4.6714967550357445,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.133333333333333,
-        "compression_potential": 0.41606290562053194,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 151,
-      "compressed_size": 131,
-      "compression_time": 0.001,
-      "ratio": 1.1526717557251909,
-      "message_hash": "1ff7416a"
-    },
-    {
-      "timestamp": 1761788727.8209631,
-      "features": {
-        "length": 140,
-        "entropy": 4.7000633616601295,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 13,
-        "avg_word_length": 9.846153846153847,
-        "compression_potential": 0.4124920797924838,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 140,
-      "compressed_size": 123,
-      "compression_time": 0.001,
-      "ratio": 1.1382113821138211,
-      "message_hash": "bd317c32"
-    },
-    {
-      "timestamp": 1761788727.8228211,
-      "features": {
-        "length": 141,
-        "entropy": 4.698186379420396,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 13,
-        "avg_word_length": 9.923076923076923,
-        "compression_potential": 0.4127267025724505,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 141,
-      "compressed_size": 123,
-      "compression_time": 0.001,
-      "ratio": 1.146341463414634,
-      "message_hash": "7d7a7084"
-    },
-    {
-      "timestamp": 1761788727.824585,
-      "features": {
-        "length": 140,
-        "entropy": 4.694671308073247,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 13,
-        "avg_word_length": 9.846153846153847,
-        "compression_potential": 0.4131660864908441,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 140,
-      "compressed_size": 122,
-      "compression_time": 0.001,
-      "ratio": 1.1475409836065573,
-      "message_hash": "bb05b919"
-    },
-    {
-      "timestamp": 1761788727.827261,
-      "features": {
-        "length": 176,
-        "entropy": 4.816496446776666,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 18,
-        "avg_word_length": 8.833333333333334,
-        "compression_potential": 0.3979379441529167,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 176,
-      "compressed_size": 149,
-      "compression_time": 0.001,
-      "ratio": 1.1812080536912752,
-      "message_hash": "4fd72eb1"
-    },
-    {
-      "timestamp": 1761788727.829952,
-      "features": {
-        "length": 149,
-        "entropy": 4.771897920670595,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 14,
-        "avg_word_length": 9.714285714285714,
-        "compression_potential": 0.40351275991617563,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 149,
-      "compressed_size": 131,
-      "compression_time": 0.001,
-      "ratio": 1.1374045801526718,
-      "message_hash": "c24a21e4"
-    },
-    {
-      "timestamp": 1761788727.832593,
-      "features": {
-        "length": 154,
-        "entropy": 4.8013706112218,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 14,
-        "avg_word_length": 10.071428571428571,
-        "compression_potential": 0.39982867359727503,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 154,
-      "compressed_size": 133,
-      "compression_time": 0.001,
-      "ratio": 1.1578947368421053,
-      "message_hash": "6a76116e"
-    },
-    {
-      "timestamp": 1761788727.8353631,
-      "features": {
-        "length": 149,
-        "entropy": 4.763541460953571,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 14,
-        "avg_word_length": 9.714285714285714,
-        "compression_potential": 0.4045573173808036,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 149,
-      "compressed_size": 131,
-      "compression_time": 0.001,
-      "ratio": 1.1374045801526718,
-      "message_hash": "c2553d6c"
-    },
-    {
-      "timestamp": 1761788727.836874,
-      "features": {
-        "length": 135,
-        "entropy": 4.7140446324303,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 11,
-        "avg_word_length": 11.363636363636363,
-        "compression_potential": 0.41074442094621255,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 135,
-      "compressed_size": 119,
-      "compression_time": 0.001,
-      "ratio": 1.134453781512605,
-      "message_hash": "f525964d"
-    },
-    {
-      "timestamp": 1761788727.8391302,
-      "features": {
-        "length": 153,
-        "entropy": 4.590490397377494,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.266666666666667,
-        "compression_potential": 0.4261887003278132,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 153,
-      "compressed_size": 130,
-      "compression_time": 0.001,
-      "ratio": 1.176923076923077,
-      "message_hash": "161c28e0"
-    },
-    {
-      "timestamp": 1761788727.841227,
-      "features": {
-        "length": 151,
-        "entropy": 4.698925294440223,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.133333333333333,
-        "compression_potential": 0.4126343381949721,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 151,
-      "compressed_size": 131,
-      "compression_time": 0.001,
-      "ratio": 1.1526717557251909,
-      "message_hash": "24ac83f7"
-    },
-    {
-      "timestamp": 1761788727.842742,
-      "features": {
-        "length": 135,
-        "entropy": 4.693948013747358,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 11,
-        "avg_word_length": 11.363636363636363,
-        "compression_potential": 0.4132564982815803,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 135,
-      "compressed_size": 119,
-      "compression_time": 0.001,
-      "ratio": 1.134453781512605,
-      "message_hash": "997e6232"
-    },
-    {
-      "timestamp": 1761788727.84527,
-      "features": {
-        "length": 164,
-        "entropy": 4.729581372831843,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 9.3125,
-        "compression_potential": 0.4088023283960196,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 164,
-      "compressed_size": 139,
-      "compression_time": 0.001,
-      "ratio": 1.1798561151079137,
-      "message_hash": "d0c7a8bd"
-    },
-    {
-      "timestamp": 1761788727.847872,
-      "features": {
-        "length": 157,
-        "entropy": 4.672989981551572,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.533333333333333,
-        "compression_potential": 0.4158762523060535,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 157,
-      "compressed_size": 130,
-      "compression_time": 0.001,
-      "ratio": 1.2076923076923076,
-      "message_hash": "b4a0d816"
-    },
-    {
-      "timestamp": 1761788727.850179,
-      "features": {
-        "length": 168,
-        "entropy": 4.851387068845747,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 9.5625,
-        "compression_potential": 0.39357661639428165,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 168,
-      "compressed_size": 143,
-      "compression_time": 0.001,
-      "ratio": 1.1748251748251748,
-      "message_hash": "1f90006a"
-    },
-    {
-      "timestamp": 1761788727.8525162,
-      "features": {
-        "length": 162,
-        "entropy": 4.781172728040012,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 14,
-        "avg_word_length": 10.642857142857142,
-        "compression_potential": 0.4023534089949985,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 162,
-      "compressed_size": 137,
-      "compression_time": 0.001,
-      "ratio": 1.1824817518248176,
-      "message_hash": "99f96931"
-    },
-    {
-      "timestamp": 1761788727.8550122,
-      "features": {
-        "length": 153,
-        "entropy": 4.789856184596038,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 14,
-        "avg_word_length": 10,
-        "compression_potential": 0.4012679769254952,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 153,
-      "compressed_size": 132,
-      "compression_time": 0.001,
-      "ratio": 1.1590909090909092,
-      "message_hash": "384041f6"
-    },
-    {
-      "timestamp": 1761788727.8569899,
-      "features": {
-        "length": 151,
-        "entropy": 4.716231109354708,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.133333333333333,
-        "compression_potential": 0.4104711113306615,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 151,
-      "compressed_size": 132,
-      "compression_time": 0.001,
-      "ratio": 1.143939393939394,
-      "message_hash": "8b3ea2a2"
-    },
-    {
-      "timestamp": 1761788727.859113,
-      "features": {
-        "length": 150,
-        "entropy": 4.698978397393776,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.066666666666666,
-        "compression_potential": 0.412627700325778,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 150,
-      "compressed_size": 130,
-      "compression_time": 0.001,
-      "ratio": 1.1538461538461537,
-      "message_hash": "11e1f750"
-    },
-    {
-      "timestamp": 1761788727.86138,
-      "features": {
-        "length": 162,
-        "entropy": 4.71094642938178,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 17,
-        "avg_word_length": 8.588235294117647,
-        "compression_potential": 0.41113169632727753,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 162,
-      "compressed_size": 138,
-      "compression_time": 0.001,
-      "ratio": 1.173913043478261,
-      "message_hash": "9900621d"
-    },
-    {
-      "timestamp": 1761788727.863461,
-      "features": {
-        "length": 153,
-        "entropy": 4.800612093627189,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.266666666666667,
-        "compression_potential": 0.3999234882966014,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 153,
-      "compressed_size": 134,
-      "compression_time": 0.001,
-      "ratio": 1.1417910447761195,
-      "message_hash": "d2ded0e2"
-    },
-    {
-      "timestamp": 1761788727.865613,
-      "features": {
-        "length": 153,
-        "entropy": 4.854780019021215,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 12,
-        "avg_word_length": 11.833333333333334,
-        "compression_potential": 0.39315249762234816,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 153,
-      "compressed_size": 134,
-      "compression_time": 0.001,
-      "ratio": 1.1417910447761195,
-      "message_hash": "eebdb978"
-    },
-    {
-      "timestamp": 1761788727.867838,
-      "features": {
-        "length": 159,
-        "entropy": 4.7443456023939925,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 9,
-        "compression_potential": 0.40695679970075094,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 159,
-      "compressed_size": 137,
-      "compression_time": 0.001,
-      "ratio": 1.1605839416058394,
-      "message_hash": "10e69119"
-    },
-    {
-      "timestamp": 1761788727.869798,
-      "features": {
-        "length": 152,
-        "entropy": 4.711721986091087,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.2,
-        "compression_potential": 0.41103475173861415,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 152,
-      "compressed_size": 132,
-      "compression_time": 0.001,
-      "ratio": 1.1515151515151516,
-      "message_hash": "15d36a4a"
-    },
-    {
-      "timestamp": 1761788727.872441,
-      "features": {
-        "length": 156,
-        "entropy": 4.689626523731897,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 15,
-        "avg_word_length": 9.466666666666667,
-        "compression_potential": 0.4137966845335129,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 156,
-      "compressed_size": 130,
-      "compression_time": 0.001,
-      "ratio": 1.2,
-      "message_hash": "80d42e0a"
-    },
-    {
-      "timestamp": 1761788727.8750029,
-      "features": {
-        "length": 174,
-        "entropy": 4.85126295108851,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 17,
-        "avg_word_length": 9.294117647058824,
-        "compression_potential": 0.3935921311139362,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 174,
-      "compressed_size": 148,
-      "compression_time": 0.001,
-      "ratio": 1.1756756756756757,
-      "message_hash": "4672445a"
-    },
-    {
-      "timestamp": 1761788727.8771,
-      "features": {
-        "length": 140,
-        "entropy": 4.73052523670649,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 13,
-        "avg_word_length": 9.846153846153847,
-        "compression_potential": 0.40868434541168874,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 140,
-      "compressed_size": 123,
-      "compression_time": 0.001,
-      "ratio": 1.1382113821138211,
-      "message_hash": "1ccd7ded"
-    },
-    {
-      "timestamp": 1761788727.879354,
-      "features": {
-        "length": 164,
-        "entropy": 4.86398185393424,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 16,
-        "avg_word_length": 9.3125,
-        "compression_potential": 0.39200226825822004,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 164,
-      "compressed_size": 141,
-      "compression_time": 0.001,
-      "ratio": 1.1631205673758864,
-      "message_hash": "676439af"
-    },
-    {
-      "timestamp": 1761788727.885789,
-      "features": {
-        "length": 440,
-        "entropy": 4.8069070975497645,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 35,
-        "avg_word_length": 11.6,
-        "compression_potential": 0.39913661280627943,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 440,
-      "compressed_size": 246,
-      "compression_time": 0.001,
-      "ratio": 1.7886178861788617,
-      "message_hash": "83d45460"
-    },
-    {
-      "timestamp": 1761788727.892215,
-      "features": {
-        "length": 444,
-        "entropy": 4.785564838278438,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 36,
-        "avg_word_length": 11.36111111111111,
-        "compression_potential": 0.4018043952151953,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 444,
-      "compressed_size": 248,
-      "compression_time": 0.001,
-      "ratio": 1.7903225806451613,
-      "message_hash": "4abf5aa4"
-    },
-    {
-      "timestamp": 1761788727.898458,
-      "features": {
-        "length": 447,
-        "entropy": 4.79752308149546,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 37,
-        "avg_word_length": 11.108108108108109,
-        "compression_potential": 0.4003096148130675,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 447,
-      "compressed_size": 251,
-      "compression_time": 0.001,
-      "ratio": 1.7808764940239044,
-      "message_hash": "737c1115"
-    },
-    {
-      "timestamp": 1761788727.9048262,
-      "features": {
-        "length": 450,
-        "entropy": 4.78368703245695,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 38,
-        "avg_word_length": 10.868421052631579,
-        "compression_potential": 0.4020391209428813,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 450,
-      "compressed_size": 251,
-      "compression_time": 0.001,
-      "ratio": 1.792828685258964,
-      "message_hash": "37dd89dd"
-    },
-    {
-      "timestamp": 1761788727.911767,
-      "features": {
-        "length": 453,
-        "entropy": 4.780788240081698,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 39,
-        "avg_word_length": 10.64102564102564,
-        "compression_potential": 0.40240146998978776,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 453,
-      "compressed_size": 254,
-      "compression_time": 0.001,
-      "ratio": 1.7834645669291338,
-      "message_hash": "82c46823"
-    },
-    {
-      "timestamp": 1761788727.918893,
-      "features": {
-        "length": 456,
-        "entropy": 4.785623263197365,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 40,
-        "avg_word_length": 10.425,
-        "compression_potential": 0.4017970921003293,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 456,
-      "compressed_size": 256,
-      "compression_time": 0.001,
-      "ratio": 1.78125,
-      "message_hash": "1c7472e3"
-    },
-    {
-      "timestamp": 1761788727.925811,
-      "features": {
-        "length": 459,
-        "entropy": 4.803386153580542,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 41,
-        "avg_word_length": 10.21951219512195,
-        "compression_potential": 0.3995767308024323,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 459,
-      "compressed_size": 256,
-      "compression_time": 0.001,
-      "ratio": 1.79296875,
-      "message_hash": "7359c8c2"
-    },
-    {
-      "timestamp": 1761788727.9332569,
-      "features": {
-        "length": 462,
-        "entropy": 4.8176081085890665,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 42,
-        "avg_word_length": 10.023809523809524,
-        "compression_potential": 0.3977989864263667,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 462,
-      "compressed_size": 261,
-      "compression_time": 0.001,
-      "ratio": 1.7701149425287357,
-      "message_hash": "560cb49c"
-    },
-    {
-      "timestamp": 1761788727.940489,
-      "features": {
-        "length": 465,
-        "entropy": 4.8054624249505515,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 43,
-        "avg_word_length": 9.837209302325581,
-        "compression_potential": 0.39931719688118106,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 465,
-      "compressed_size": 263,
-      "compression_time": 0.001,
-      "ratio": 1.768060836501901,
-      "message_hash": "b98d1b73"
-    },
-    {
-      "timestamp": 1761788727.9479969,
-      "features": {
-        "length": 468,
-        "entropy": 4.804201496950972,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 44,
-        "avg_word_length": 9.659090909090908,
-        "compression_potential": 0.3994748128811285,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 468,
-      "compressed_size": 263,
-      "compression_time": 0.001,
-      "ratio": 1.779467680608365,
-      "message_hash": "db798222"
-    },
-    {
-      "timestamp": 1761788727.954314,
-      "features": {
-        "length": 446,
-        "entropy": 4.775556943080701,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 35,
-        "avg_word_length": 11.771428571428572,
-        "compression_potential": 0.40305538211491243,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 446,
-      "compressed_size": 248,
-      "compression_time": 0.001,
-      "ratio": 1.7983870967741935,
-      "message_hash": "a7a94e14"
-    },
-    {
-      "timestamp": 1761788727.960595,
-      "features": {
-        "length": 449,
-        "entropy": 4.783944267229378,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 36,
-        "avg_word_length": 11.5,
-        "compression_potential": 0.40200696659632773,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 449,
-      "compressed_size": 251,
-      "compression_time": 0.001,
-      "ratio": 1.7888446215139442,
-      "message_hash": "7c78a549"
-    },
-    {
-      "timestamp": 1761788727.967183,
-      "features": {
-        "length": 452,
-        "entropy": 4.795138126352562,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 37,
-        "avg_word_length": 11.243243243243244,
-        "compression_potential": 0.40060773420592977,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 452,
-      "compressed_size": 249,
-      "compression_time": 0.001,
-      "ratio": 1.8152610441767068,
-      "message_hash": "ea33ac1f"
-    },
-    {
-      "timestamp": 1761788727.9738722,
-      "features": {
-        "length": 455,
-        "entropy": 4.804825776646847,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 38,
-        "avg_word_length": 11,
-        "compression_potential": 0.3993967779191441,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 455,
-      "compressed_size": 251,
-      "compression_time": 0.001,
-      "ratio": 1.8127490039840637,
-      "message_hash": "c98b5e04"
-    },
-    {
-      "timestamp": 1761788727.980866,
-      "features": {
-        "length": 458,
-        "entropy": 4.811004739671286,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 39,
-        "avg_word_length": 10.76923076923077,
-        "compression_potential": 0.3986244075410893,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 458,
-      "compressed_size": 256,
-      "compression_time": 0.001,
-      "ratio": 1.7890625,
-      "message_hash": "9f50233c"
-    },
-    {
-      "timestamp": 1761788727.9879858,
-      "features": {
-        "length": 461,
-        "entropy": 4.769753802319075,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 40,
-        "avg_word_length": 10.55,
-        "compression_potential": 0.40378077471011564,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 461,
-      "compressed_size": 255,
-      "compression_time": 0.001,
-      "ratio": 1.807843137254902,
-      "message_hash": "8cd36978"
-    },
-    {
-      "timestamp": 1761788727.995324,
-      "features": {
-        "length": 464,
-        "entropy": 4.8149860387075005,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 41,
-        "avg_word_length": 10.341463414634147,
-        "compression_potential": 0.39812674516156243,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 464,
-      "compressed_size": 260,
-      "compression_time": 0.001,
-      "ratio": 1.7846153846153847,
-      "message_hash": "d277fcf0"
-    },
-    {
-      "timestamp": 1761788728.002665,
-      "features": {
-        "length": 467,
-        "entropy": 4.827321450888412,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 42,
-        "avg_word_length": 10.142857142857142,
-        "compression_potential": 0.39658481863894846,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 467,
-      "compressed_size": 261,
-      "compression_time": 0.001,
-      "ratio": 1.789272030651341,
-      "message_hash": "0c4c60f2"
-    },
-    {
-      "timestamp": 1761788728.010145,
-      "features": {
-        "length": 470,
-        "entropy": 4.7875687684166355,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 43,
-        "avg_word_length": 9.953488372093023,
-        "compression_potential": 0.40155390394792057,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 470,
-      "compressed_size": 261,
-      "compression_time": 0.001,
-      "ratio": 1.8007662835249043,
-      "message_hash": "8769eb50"
-    },
-    {
-      "timestamp": 1761788728.017503,
-      "features": {
-        "length": 473,
-        "entropy": 4.79211229389056,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 44,
-        "avg_word_length": 9.772727272727273,
-        "compression_potential": 0.40098596326367997,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 473,
-      "compressed_size": 265,
-      "compression_time": 0.001,
-      "ratio": 1.7849056603773585,
-      "message_hash": "1981ba65"
-    },
-    {
-      "timestamp": 1761788728.023663,
-      "features": {
-        "length": 446,
-        "entropy": 4.782294822598984,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 35,
-        "avg_word_length": 11.771428571428572,
-        "compression_potential": 0.402213147175127,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 446,
-      "compressed_size": 247,
-      "compression_time": 0.001,
-      "ratio": 1.805668016194332,
-      "message_hash": "38c19161"
-    },
-    {
-      "timestamp": 1761788728.029898,
-      "features": {
-        "length": 449,
-        "entropy": 4.765858449212352,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 36,
-        "avg_word_length": 11.5,
-        "compression_potential": 0.40426769384845596,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 449,
-      "compressed_size": 250,
-      "compression_time": 0.001,
-      "ratio": 1.796,
-      "message_hash": "160cf954"
-    },
-    {
-      "timestamp": 1761788728.03647,
-      "features": {
-        "length": 452,
-        "entropy": 4.765543625522793,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 37,
-        "avg_word_length": 11.243243243243244,
-        "compression_potential": 0.4043070468096509,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 452,
-      "compressed_size": 248,
-      "compression_time": 0.001,
-      "ratio": 1.8225806451612903,
-      "message_hash": "072827a7"
-    },
-    {
-      "timestamp": 1761788728.043106,
-      "features": {
-        "length": 455,
-        "entropy": 4.7960417487198415,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 38,
-        "avg_word_length": 11,
-        "compression_potential": 0.4004947814100198,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 455,
-      "compressed_size": 253,
-      "compression_time": 0.001,
-      "ratio": 1.7984189723320159,
-      "message_hash": "0ad550d1"
-    },
-    {
-      "timestamp": 1761788728.0499918,
-      "features": {
-        "length": 458,
-        "entropy": 4.783137299592142,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 39,
-        "avg_word_length": 10.76923076923077,
-        "compression_potential": 0.40210783755098223,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 458,
-      "compressed_size": 254,
-      "compression_time": 0.001,
-      "ratio": 1.8031496062992125,
-      "message_hash": "cfd99778"
-    },
-    {
-      "timestamp": 1761788728.0571399,
-      "features": {
-        "length": 461,
-        "entropy": 4.744694537522285,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 40,
-        "avg_word_length": 10.55,
-        "compression_potential": 0.40691318280971434,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 461,
-      "compressed_size": 254,
-      "compression_time": 0.001,
-      "ratio": 1.81496062992126,
-      "message_hash": "0b0c354e"
-    },
-    {
-      "timestamp": 1761788728.064307,
-      "features": {
-        "length": 464,
-        "entropy": 4.794704509401465,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 41,
-        "avg_word_length": 10.341463414634147,
-        "compression_potential": 0.40066193632481684,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 464,
-      "compressed_size": 257,
-      "compression_time": 0.001,
-      "ratio": 1.8054474708171206,
-      "message_hash": "722ab009"
-    },
-    {
-      "timestamp": 1761788728.071682,
-      "features": {
-        "length": 467,
-        "entropy": 4.819846159446964,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 42,
-        "avg_word_length": 10.142857142857142,
-        "compression_potential": 0.3975192300691295,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 467,
-      "compressed_size": 261,
-      "compression_time": 0.001,
-      "ratio": 1.789272030651341,
-      "message_hash": "18bc7d1e"
-    },
-    {
-      "timestamp": 1761788728.079168,
-      "features": {
-        "length": 470,
-        "entropy": 4.79473523615166,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 43,
-        "avg_word_length": 9.953488372093023,
-        "compression_potential": 0.4006580954810425,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 470,
-      "compressed_size": 262,
-      "compression_time": 0.001,
-      "ratio": 1.7938931297709924,
-      "message_hash": "9b143f53"
-    },
-    {
-      "timestamp": 1761788728.086636,
-      "features": {
-        "length": 473,
-        "entropy": 4.811756291493803,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 44,
-        "avg_word_length": 9.772727272727273,
-        "compression_potential": 0.3985304635632746,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 473,
-      "compressed_size": 264,
-      "compression_time": 0.001,
-      "ratio": 1.7916666666666667,
-      "message_hash": "9d217523"
-    },
-    {
-      "timestamp": 1761788728.093146,
-      "features": {
-        "length": 446,
-        "entropy": 4.79438766750515,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 35,
-        "avg_word_length": 11.771428571428572,
-        "compression_potential": 0.4007015415618562,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 446,
-      "compressed_size": 249,
-      "compression_time": 0.001,
-      "ratio": 1.7911646586345382,
-      "message_hash": "f052b5f6"
-    },
-    {
-      "timestamp": 1761788728.0995631,
-      "features": {
-        "length": 449,
-        "entropy": 4.7855771152362845,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 36,
-        "avg_word_length": 11.5,
-        "compression_potential": 0.40180286059546444,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 449,
-      "compressed_size": 245,
-      "compression_time": 0.001,
-      "ratio": 1.8326530612244898,
-      "message_hash": "2654ff2f"
-    },
-    {
-      "timestamp": 1761788728.106281,
-      "features": {
-        "length": 452,
-        "entropy": 4.800519107559487,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 37,
-        "avg_word_length": 11.243243243243244,
-        "compression_potential": 0.3999351115550641,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 452,
-      "compressed_size": 252,
-      "compression_time": 0.001,
-      "ratio": 1.7936507936507937,
-      "message_hash": "20d59d9e"
-    },
-    {
-      "timestamp": 1761788728.113054,
-      "features": {
-        "length": 455,
-        "entropy": 4.807453588035901,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 38,
-        "avg_word_length": 11,
-        "compression_potential": 0.3990683014955124,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 455,
-      "compressed_size": 252,
-      "compression_time": 0.001,
-      "ratio": 1.8055555555555556,
-      "message_hash": "2acdb15c"
-    },
-    {
-      "timestamp": 1761788728.1201012,
-      "features": {
-        "length": 458,
-        "entropy": 4.809095201295,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 39,
-        "avg_word_length": 10.76923076923077,
-        "compression_potential": 0.39886309983812496,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 458,
-      "compressed_size": 255,
-      "compression_time": 0.001,
-      "ratio": 1.796078431372549,
-      "message_hash": "3120b8ba"
-    },
-    {
-      "timestamp": 1761788728.1271412,
-      "features": {
-        "length": 461,
-        "entropy": 4.801924877756537,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 40,
-        "avg_word_length": 10.55,
-        "compression_potential": 0.39975939028043284,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 461,
-      "compressed_size": 256,
-      "compression_time": 0.001,
-      "ratio": 1.80078125,
-      "message_hash": "d6b6b06c"
-    },
-    {
-      "timestamp": 1761788728.1345541,
-      "features": {
-        "length": 464,
-        "entropy": 4.811366374728677,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 41,
-        "avg_word_length": 10.341463414634147,
-        "compression_potential": 0.3985792031589154,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 464,
-      "compressed_size": 260,
-      "compression_time": 0.001,
-      "ratio": 1.7846153846153847,
-      "message_hash": "877b8d46"
-    },
-    {
-      "timestamp": 1761788728.1419609,
-      "features": {
-        "length": 467,
-        "entropy": 4.829507996382095,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 42,
-        "avg_word_length": 10.142857142857142,
-        "compression_potential": 0.3963115004522382,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 467,
-      "compressed_size": 261,
-      "compression_time": 0.001,
-      "ratio": 1.789272030651341,
-      "message_hash": "2be80ad6"
-    },
-    {
-      "timestamp": 1761788728.149386,
-      "features": {
-        "length": 470,
-        "entropy": 4.813461589067963,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 43,
-        "avg_word_length": 9.953488372093023,
-        "compression_potential": 0.3983173013665047,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 470,
-      "compressed_size": 261,
-      "compression_time": 0.001,
-      "ratio": 1.8007662835249043,
-      "message_hash": "7c83faea"
-    },
-    {
-      "timestamp": 1761788728.156984,
-      "features": {
-        "length": 473,
-        "entropy": 4.826169623149892,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 44,
-        "avg_word_length": 9.772727272727273,
-        "compression_potential": 0.3967287971062635,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 473,
-      "compressed_size": 265,
-      "compression_time": 0.001,
-      "ratio": 1.7849056603773585,
-      "message_hash": "8c5fa500"
-    },
-    {
-      "timestamp": 1761788728.163442,
-      "features": {
-        "length": 446,
-        "entropy": 4.801905261297098,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 35,
-        "avg_word_length": 11.771428571428572,
-        "compression_potential": 0.3997618423378627,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 446,
-      "compressed_size": 249,
-      "compression_time": 0.001,
-      "ratio": 1.7911646586345382,
-      "message_hash": "b811c024"
-    },
-    {
-      "timestamp": 1761788728.169766,
-      "features": {
-        "length": 449,
-        "entropy": 4.814483799316696,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 36,
-        "avg_word_length": 11.5,
-        "compression_potential": 0.39818952508541305,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 449,
-      "compressed_size": 252,
-      "compression_time": 0.001,
-      "ratio": 1.7817460317460319,
-      "message_hash": "08138946"
-    },
-    {
-      "timestamp": 1761788728.1764429,
-      "features": {
-        "length": 452,
-        "entropy": 4.811060493887192,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 37,
-        "avg_word_length": 11.243243243243244,
-        "compression_potential": 0.398617438264101,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 452,
-      "compressed_size": 251,
-      "compression_time": 0.001,
-      "ratio": 1.800796812749004,
-      "message_hash": "081669ea"
-    },
-    {
-      "timestamp": 1761788728.1830301,
-      "features": {
-        "length": 455,
-        "entropy": 4.8377301085417805,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 38,
-        "avg_word_length": 11,
-        "compression_potential": 0.39528373643227743,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 455,
-      "compressed_size": 253,
-      "compression_time": 0.001,
-      "ratio": 1.7984189723320159,
-      "message_hash": "bab80821"
-    },
-    {
-      "timestamp": 1761788728.189909,
-      "features": {
-        "length": 458,
-        "entropy": 4.828971266728597,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 39,
-        "avg_word_length": 10.76923076923077,
-        "compression_potential": 0.3963785916589254,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 458,
-      "compressed_size": 255,
-      "compression_time": 0.001,
-      "ratio": 1.796078431372549,
-      "message_hash": "97aefcf6"
-    },
-    {
-      "timestamp": 1761788728.196765,
-      "features": {
-        "length": 461,
-        "entropy": 4.794941621902147,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 40,
-        "avg_word_length": 10.55,
-        "compression_potential": 0.4006322972622316,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 461,
-      "compressed_size": 256,
-      "compression_time": 0.001,
-      "ratio": 1.80078125,
-      "message_hash": "523c46e9"
-    },
-    {
-      "timestamp": 1761788728.204161,
-      "features": {
-        "length": 464,
-        "entropy": 4.828972040715883,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 41,
-        "avg_word_length": 10.341463414634147,
-        "compression_potential": 0.3963784949105146,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 464,
-      "compressed_size": 261,
-      "compression_time": 0.001,
-      "ratio": 1.7777777777777777,
-      "message_hash": "68d49901"
-    },
-    {
-      "timestamp": 1761788728.211437,
-      "features": {
-        "length": 467,
-        "entropy": 4.842231252511006,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 42,
-        "avg_word_length": 10.142857142857142,
-        "compression_potential": 0.39472109343612427,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 467,
-      "compressed_size": 263,
-      "compression_time": 0.001,
-      "ratio": 1.7756653992395437,
-      "message_hash": "3a45acb3"
-    },
-    {
-      "timestamp": 1761788728.2192261,
-      "features": {
-        "length": 470,
-        "entropy": 4.811756870547637,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 43,
-        "avg_word_length": 9.953488372093023,
-        "compression_potential": 0.39853039118154543,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 470,
-      "compressed_size": 262,
-      "compression_time": 0.001,
-      "ratio": 1.7938931297709924,
-      "message_hash": "1e4bfdab"
-    },
-    {
-      "timestamp": 1761788728.22719,
-      "features": {
-        "length": 473,
-        "entropy": 4.835503263224243,
-        "has_numbers": true,
-        "has_special_chars": true,
-        "word_count": 44,
-        "avg_word_length": 9.772727272727273,
-        "compression_potential": 0.3955620920969696,
-        "pattern_score": 0.8999999999999999
-      },
-      "method": "zlib",
-      "original_size": 473,
-      "compressed_size": 266,
-      "compression_time": 0.001,
-      "ratio": 1.7781954887218046,
-      "message_hash": "f91f6214"
-    },
-    {
-      "timestamp": 1761788728.231283,
-      "features": {
-        "length": 231,
-        "entropy": 4.603304351461137,
+        "length": 30,
+        "entropy": 3.777747162910945,
         "has_numbers": false,
         "has_special_chars": false,
-        "word_count": 29,
-        "avg_word_length": 7,
-        "compression_potential": 0.42458695606735786,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 231,
-      "compressed_size": 168,
-      "compression_time": 0.001,
-      "ratio": 1.375,
-      "message_hash": "1d9af3a2"
-    },
-    {
-      "timestamp": 1761788728.237219,
-      "features": {
-        "length": 302,
-        "entropy": 4.581700860655122,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 42,
-        "avg_word_length": 6.214285714285714,
-        "compression_potential": 0.42728739241810976,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 302,
-      "compressed_size": 208,
-      "compression_time": 0.001,
-      "ratio": 1.4519230769230769,
-      "message_hash": "752357f6"
-    },
-    {
-      "timestamp": 1761788728.243497,
-      "features": {
-        "length": 308,
-        "entropy": 4.612003471404788,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 41,
-        "avg_word_length": 6.536585365853658,
-        "compression_potential": 0.42349956607440153,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 308,
-      "compressed_size": 211,
-      "compression_time": 0.001,
-      "ratio": 1.4597156398104265,
-      "message_hash": "1de5ff10"
-    },
-    {
-      "timestamp": 1761788728.2490969,
-      "features": {
-        "length": 295,
-        "entropy": 4.619436736758981,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 39,
-        "avg_word_length": 6.589743589743589,
-        "compression_potential": 0.42257040790512734,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 295,
-      "compressed_size": 205,
-      "compression_time": 0.001,
-      "ratio": 1.4390243902439024,
-      "message_hash": "9af1aeb2"
-    },
-    {
-      "timestamp": 1761788728.253233,
-      "features": {
-        "length": 228,
-        "entropy": 4.524277548365003,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 34,
-        "avg_word_length": 5.735294117647059,
-        "compression_potential": 0.43446530645437464,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 228,
-      "compressed_size": 164,
-      "compression_time": 0.001,
-      "ratio": 1.3902439024390243,
-      "message_hash": "20fdf11e"
-    },
-    {
-      "timestamp": 1761788728.260118,
-      "features": {
-        "length": 335,
-        "entropy": 4.585136888009009,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 47,
-        "avg_word_length": 6.148936170212766,
-        "compression_potential": 0.4268578889988739,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 335,
-      "compressed_size": 228,
-      "compression_time": 0.001,
-      "ratio": 1.469298245614035,
-      "message_hash": "f15d23b2"
-    },
-    {
-      "timestamp": 1761788728.267575,
-      "features": {
-        "length": 352,
-        "entropy": 4.611449397900011,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 47,
-        "avg_word_length": 6.51063829787234,
-        "compression_potential": 0.4235688252624986,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 352,
-      "compressed_size": 237,
-      "compression_time": 0.001,
-      "ratio": 1.4852320675105486,
-      "message_hash": "c5fcc4f0"
-    },
-    {
-      "timestamp": 1761788728.274107,
-      "features": {
-        "length": 321,
-        "entropy": 4.5688104877947575,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 44,
-        "avg_word_length": 6.318181818181818,
-        "compression_potential": 0.4288986890256553,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 321,
-      "compressed_size": 219,
-      "compression_time": 0.001,
-      "ratio": 1.4657534246575343,
-      "message_hash": "68545d2e"
-    },
-    {
-      "timestamp": 1761788728.2785332,
-      "features": {
-        "length": 257,
-        "entropy": 4.5444751271000055,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 35,
-        "avg_word_length": 6.371428571428571,
-        "compression_potential": 0.4319406091124993,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 257,
-      "compressed_size": 182,
-      "compression_time": 0.001,
-      "ratio": 1.4120879120879122,
-      "message_hash": "20d30a89"
-    },
-    {
-      "timestamp": 1761788728.285747,
-      "features": {
-        "length": 334,
-        "entropy": 4.5933024853984366,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 47,
-        "avg_word_length": 6.127659574468085,
-        "compression_potential": 0.42583718932519543,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 334,
-      "compressed_size": 227,
-      "compression_time": 0.001,
-      "ratio": 1.47136563876652,
-      "message_hash": "69424a6e"
-    },
-    {
-      "timestamp": 1761788728.290714,
-      "features": {
-        "length": 268,
-        "entropy": 4.584515994348603,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 36,
-        "avg_word_length": 6.472222222222222,
-        "compression_potential": 0.4269355007064246,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 268,
-      "compressed_size": 189,
-      "compression_time": 0.001,
-      "ratio": 1.417989417989418,
-      "message_hash": "6372c577"
-    },
-    {
-      "timestamp": 1761788728.300956,
-      "features": {
-        "length": 423,
-        "entropy": 4.610537900826541,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 59,
-        "avg_word_length": 6.186440677966102,
-        "compression_potential": 0.42368276239668234,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 423,
-      "compressed_size": 278,
-      "compression_time": 0.001,
-      "ratio": 1.5215827338129497,
-      "message_hash": "e9a8f93a"
-    },
-    {
-      "timestamp": 1761788728.305401,
-      "features": {
-        "length": 266,
-        "entropy": 4.574874109304185,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 36,
-        "avg_word_length": 6.416666666666667,
-        "compression_potential": 0.4281407363369769,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 266,
-      "compressed_size": 187,
-      "compression_time": 0.001,
-      "ratio": 1.4224598930481283,
-      "message_hash": "d3a174cf"
-    },
-    {
-      "timestamp": 1761788728.311777,
-      "features": {
-        "length": 307,
-        "entropy": 4.59876125266916,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 41,
-        "avg_word_length": 6.512195121951219,
-        "compression_potential": 0.425154843416355,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 307,
-      "compressed_size": 208,
-      "compression_time": 0.001,
-      "ratio": 1.4759615384615385,
-      "message_hash": "7c916655"
-    },
-    {
-      "timestamp": 1761788728.319123,
-      "features": {
-        "length": 337,
-        "entropy": 4.588021854650894,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 44,
-        "avg_word_length": 6.681818181818182,
-        "compression_potential": 0.4264972681686382,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 337,
-      "compressed_size": 229,
-      "compression_time": 0.001,
-      "ratio": 1.4716157205240175,
-      "message_hash": "b1725a8f"
-    },
-    {
-      "timestamp": 1761788728.326371,
-      "features": {
-        "length": 342,
-        "entropy": 4.578611740951836,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 44,
-        "avg_word_length": 6.795454545454546,
-        "compression_potential": 0.42767353238102046,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 342,
-      "compressed_size": 229,
-      "compression_time": 0.001,
-      "ratio": 1.4934497816593886,
-      "message_hash": "ace5da27"
-    },
-    {
-      "timestamp": 1761788728.329587,
-      "features": {
-        "length": 191,
-        "entropy": 4.58364159728394,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 25,
-        "avg_word_length": 6.68,
-        "compression_potential": 0.42704480033950754,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 191,
-      "compressed_size": 143,
-      "compression_time": 0.001,
-      "ratio": 1.3356643356643356,
-      "message_hash": "c4595426"
-    },
-    {
-      "timestamp": 1761788728.33458,
-      "features": {
-        "length": 284,
-        "entropy": 4.5775424384847945,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 39,
-        "avg_word_length": 6.3076923076923075,
-        "compression_potential": 0.4278071951894007,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 284,
-      "compressed_size": 199,
-      "compression_time": 0.001,
-      "ratio": 1.4271356783919598,
-      "message_hash": "131efcc4"
-    },
-    {
-      "timestamp": 1761788728.337787,
-      "features": {
-        "length": 216,
-        "entropy": 4.583286105785009,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 27,
-        "avg_word_length": 7.037037037037037,
-        "compression_potential": 0.4270892367768738,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 216,
-      "compressed_size": 157,
-      "compression_time": 0.001,
-      "ratio": 1.375796178343949,
-      "message_hash": "de028e3b"
-    },
-    {
-      "timestamp": 1761788728.344183,
-      "features": {
-        "length": 303,
-        "entropy": 4.5996280368701585,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 39,
-        "avg_word_length": 6.794871794871795,
-        "compression_potential": 0.4250464953912302,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 303,
-      "compressed_size": 207,
-      "compression_time": 0.001,
-      "ratio": 1.463768115942029,
-      "message_hash": "253d419d"
-    },
-    {
-      "timestamp": 1761788728.350191,
-      "features": {
-        "length": 307,
-        "entropy": 4.601438500717613,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 41,
-        "avg_word_length": 6.512195121951219,
-        "compression_potential": 0.42482018741029837,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 307,
-      "compressed_size": 210,
-      "compression_time": 0.001,
-      "ratio": 1.4619047619047618,
-      "message_hash": "b954a28e"
-    },
-    {
-      "timestamp": 1761788728.35628,
-      "features": {
-        "length": 310,
-        "entropy": 4.593627768044249,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 42,
-        "avg_word_length": 6.404761904761905,
-        "compression_potential": 0.42579652899446885,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 310,
-      "compressed_size": 213,
-      "compression_time": 0.001,
-      "ratio": 1.4553990610328638,
-      "message_hash": "9a16d363"
-    },
-    {
-      "timestamp": 1761788728.359668,
-      "features": {
-        "length": 201,
-        "entropy": 4.559814654944438,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 26,
-        "avg_word_length": 6.769230769230769,
-        "compression_potential": 0.4300231681319453,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 201,
-      "compressed_size": 148,
-      "compression_time": 0.001,
-      "ratio": 1.3581081081081081,
-      "message_hash": "28b6f866"
-    },
-    {
-      "timestamp": 1761788728.363679,
-      "features": {
-        "length": 262,
-        "entropy": 4.558181808013424,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 37,
-        "avg_word_length": 6.108108108108108,
-        "compression_potential": 0.43022727399832195,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 262,
-      "compressed_size": 184,
-      "compression_time": 0.001,
-      "ratio": 1.423913043478261,
-      "message_hash": "e8098183"
-    },
-    {
-      "timestamp": 1761788728.368928,
-      "features": {
-        "length": 259,
-        "entropy": 4.5606793754721595,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 35,
-        "avg_word_length": 6.428571428571429,
-        "compression_potential": 0.42991507806598006,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 259,
-      "compressed_size": 182,
-      "compression_time": 0.001,
-      "ratio": 1.4230769230769231,
-      "message_hash": "7c464977"
-    },
-    {
-      "timestamp": 1761788728.374603,
-      "features": {
-        "length": 317,
-        "entropy": 4.601173711177412,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 43,
-        "avg_word_length": 6.395348837209302,
-        "compression_potential": 0.42485328610282347,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 317,
-      "compressed_size": 214,
-      "compression_time": 0.001,
-      "ratio": 1.4813084112149533,
-      "message_hash": "3c6eb005"
-    },
-    {
-      "timestamp": 1761788728.380816,
-      "features": {
-        "length": 306,
-        "entropy": 4.604467453608338,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 41,
-        "avg_word_length": 6.487804878048781,
-        "compression_potential": 0.42444156829895774,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 306,
-      "compressed_size": 209,
-      "compression_time": 0.001,
-      "ratio": 1.4641148325358853,
-      "message_hash": "d421e925"
-    },
-    {
-      "timestamp": 1761788728.385493,
-      "features": {
-        "length": 246,
-        "entropy": 4.6039291215364635,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 31,
-        "avg_word_length": 6.967741935483871,
-        "compression_potential": 0.42450885980794206,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 246,
-      "compressed_size": 177,
-      "compression_time": 0.001,
-      "ratio": 1.3898305084745763,
-      "message_hash": "e26284ef"
-    },
-    {
-      "timestamp": 1761788728.3901708,
-      "features": {
-        "length": 250,
-        "entropy": 4.591909256792543,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 34,
-        "avg_word_length": 6.382352941176471,
-        "compression_potential": 0.4260113429009321,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 250,
-      "compressed_size": 178,
-      "compression_time": 0.001,
-      "ratio": 1.404494382022472,
-      "message_hash": "20358601"
-    },
-    {
-      "timestamp": 1761788728.39567,
-      "features": {
-        "length": 288,
-        "entropy": 4.601203142721492,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 39,
-        "avg_word_length": 6.410256410256411,
-        "compression_potential": 0.42484960715981346,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 288,
-      "compressed_size": 199,
-      "compression_time": 0.001,
-      "ratio": 1.4472361809045227,
-      "message_hash": "46dfa3a0"
-    },
-    {
-      "timestamp": 1761788728.399426,
-      "features": {
-        "length": 210,
-        "entropy": 4.5774979647264935,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 27,
-        "avg_word_length": 6.814814814814815,
-        "compression_potential": 0.4278127544091883,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 210,
-      "compressed_size": 155,
-      "compression_time": 0.001,
-      "ratio": 1.3548387096774193,
-      "message_hash": "cea93613"
-    },
-    {
-      "timestamp": 1761788728.407412,
-      "features": {
-        "length": 367,
-        "entropy": 4.588692960256945,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 49,
-        "avg_word_length": 6.510204081632653,
-        "compression_potential": 0.42641337996788187,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 367,
-      "compressed_size": 246,
-      "compression_time": 0.001,
-      "ratio": 1.491869918699187,
-      "message_hash": "71b1898b"
-    },
-    {
-      "timestamp": 1761788728.4154398,
-      "features": {
-        "length": 361,
-        "entropy": 4.61270338686652,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 46,
-        "avg_word_length": 6.869565217391305,
-        "compression_potential": 0.423412076641685,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 361,
-      "compressed_size": 244,
-      "compression_time": 0.001,
-      "ratio": 1.4795081967213115,
-      "message_hash": "6c077052"
-    },
-    {
-      "timestamp": 1761788728.422009,
-      "features": {
-        "length": 310,
-        "entropy": 4.578150684203063,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 42,
-        "avg_word_length": 6.404761904761905,
-        "compression_potential": 0.4277311644746171,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 310,
-      "compressed_size": 212,
-      "compression_time": 0.001,
-      "ratio": 1.4622641509433962,
-      "message_hash": "414b015c"
-    },
-    {
-      "timestamp": 1761788728.431029,
-      "features": {
-        "length": 397,
-        "entropy": 4.553307066353614,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 55,
-        "avg_word_length": 6.236363636363636,
-        "compression_potential": 0.4308366167057982,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 397,
-      "compressed_size": 263,
-      "compression_time": 0.001,
-      "ratio": 1.5095057034220531,
-      "message_hash": "abaaae5c"
-    },
-    {
-      "timestamp": 1761788728.436838,
-      "features": {
-        "length": 296,
-        "entropy": 4.598291365008387,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 37,
-        "avg_word_length": 7.027027027027027,
-        "compression_potential": 0.42521357937395166,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 296,
-      "compressed_size": 203,
-      "compression_time": 0.001,
-      "ratio": 1.458128078817734,
-      "message_hash": "561e5f29"
-    },
-    {
-      "timestamp": 1761788728.443048,
-      "features": {
-        "length": 309,
-        "entropy": 4.538943686833988,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 39,
-        "avg_word_length": 6.948717948717949,
-        "compression_potential": 0.43263203914575155,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 309,
-      "compressed_size": 213,
-      "compression_time": 0.001,
-      "ratio": 1.4507042253521127,
-      "message_hash": "846f2414"
-    },
-    {
-      "timestamp": 1761788728.451415,
-      "features": {
-        "length": 381,
-        "entropy": 4.59745141040316,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 51,
-        "avg_word_length": 6.490196078431373,
-        "compression_potential": 0.425318573699605,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 381,
-      "compressed_size": 254,
-      "compression_time": 0.001,
-      "ratio": 1.5,
-      "message_hash": "c81660d3"
-    },
-    {
-      "timestamp": 1761788728.45886,
-      "features": {
-        "length": 352,
-        "entropy": 4.5757636922304465,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 50,
-        "avg_word_length": 6.06,
-        "compression_potential": 0.4280295384711942,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 352,
-      "compressed_size": 237,
-      "compression_time": 0.001,
-      "ratio": 1.4852320675105486,
-      "message_hash": "f2a6b676"
-    },
-    {
-      "timestamp": 1761788728.4659688,
-      "features": {
-        "length": 341,
-        "entropy": 4.579310952833914,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 49,
-        "avg_word_length": 5.979591836734694,
-        "compression_potential": 0.4275861308957607,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 341,
-      "compressed_size": 230,
-      "compression_time": 0.001,
-      "ratio": 1.482608695652174,
-      "message_hash": "f6d2ab7d"
-    },
-    {
-      "timestamp": 1761788728.472636,
-      "features": {
-        "length": 330,
-        "entropy": 4.615886792128612,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 45,
-        "avg_word_length": 6.355555555555555,
-        "compression_potential": 0.4230141509839235,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 330,
-      "compressed_size": 224,
-      "compression_time": 0.001,
-      "ratio": 1.4732142857142858,
-      "message_hash": "406a631c"
-    },
-    {
-      "timestamp": 1761788728.47842,
-      "features": {
-        "length": 291,
-        "entropy": 4.586001424357156,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 36,
-        "avg_word_length": 7.111111111111111,
-        "compression_potential": 0.4267498219553555,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 291,
-      "compressed_size": 202,
-      "compression_time": 0.001,
-      "ratio": 1.4405940594059405,
-      "message_hash": "3ad748df"
-    },
-    {
-      "timestamp": 1761788728.4840808,
-      "features": {
-        "length": 321,
-        "entropy": 4.575216397647699,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 46,
-        "avg_word_length": 6,
-        "compression_potential": 0.42809795029403763,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 321,
-      "compressed_size": 219,
-      "compression_time": 0.001,
-      "ratio": 1.4657534246575343,
-      "message_hash": "535f6a00"
-    },
-    {
-      "timestamp": 1761788728.49007,
-      "features": {
-        "length": 290,
-        "entropy": 4.578133004245661,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 41,
-        "avg_word_length": 6.097560975609756,
-        "compression_potential": 0.4277333744692924,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 290,
-      "compressed_size": 201,
-      "compression_time": 0.001,
-      "ratio": 1.4427860696517414,
-      "message_hash": "d02c5524"
-    },
-    {
-      "timestamp": 1761788728.496044,
-      "features": {
-        "length": 304,
-        "entropy": 4.534654125704474,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 46,
-        "avg_word_length": 5.630434782608695,
-        "compression_potential": 0.43316823428694073,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 304,
-      "compressed_size": 207,
-      "compression_time": 0.001,
-      "ratio": 1.4685990338164252,
-      "message_hash": "2407ad54"
-    },
-    {
-      "timestamp": 1761788728.502246,
-      "features": {
-        "length": 308,
-        "entropy": 4.579649277738379,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 41,
-        "avg_word_length": 6.536585365853658,
-        "compression_potential": 0.42754384028270265,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 308,
-      "compressed_size": 211,
-      "compression_time": 0.001,
-      "ratio": 1.4597156398104265,
-      "message_hash": "d2604041"
-    },
-    {
-      "timestamp": 1761788728.50804,
-      "features": {
-        "length": 292,
-        "entropy": 4.609311681855119,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 37,
-        "avg_word_length": 6.918918918918919,
-        "compression_potential": 0.42383603976811013,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 292,
-      "compressed_size": 204,
-      "compression_time": 0.001,
-      "ratio": 1.4313725490196079,
-      "message_hash": "67c4d2c3"
-    },
-    {
-      "timestamp": 1761788728.513002,
-      "features": {
-        "length": 268,
-        "entropy": 4.567029507330857,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 36,
-        "avg_word_length": 6.472222222222222,
-        "compression_potential": 0.42912131158364286,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 268,
-      "compressed_size": 185,
-      "compression_time": 0.001,
-      "ratio": 1.4486486486486487,
-      "message_hash": "623b575a"
-    },
-    {
-      "timestamp": 1761788728.518591,
-      "features": {
-        "length": 299,
-        "entropy": 4.526950210750439,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 43,
-        "avg_word_length": 5.976744186046512,
-        "compression_potential": 0.43413122365619516,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 299,
-      "compressed_size": 207,
-      "compression_time": 0.001,
-      "ratio": 1.4444444444444444,
-      "message_hash": "037686fd"
-    },
-    {
-      "timestamp": 1761788728.52441,
-      "features": {
-        "length": 314,
-        "entropy": 4.595789449403544,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 40,
-        "avg_word_length": 6.875,
-        "compression_potential": 0.42552631882455705,
-        "pattern_score": 0.5
-      },
-      "method": "zlib",
-      "original_size": 314,
-      "compressed_size": 213,
-      "compression_time": 0.001,
-      "ratio": 1.4741784037558685,
-      "message_hash": "4d95bc04"
-    },
-    {
-      "timestamp": 1761788855.542403,
-      "features": {
-        "length": 89,
-        "entropy": 3.942788315480277,
-        "has_numbers": false,
-        "has_special_chars": false,
-        "word_count": 13,
-        "avg_word_length": 5.923076923076923,
-        "compression_potential": 0.5071514605649654,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
         "pattern_score": 0.6
       },
-      "method": "zlib",
-      "original_size": 89,
-      "compressed_size": 79,
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
       "compression_time": 0.001,
-      "ratio": 1.1265822784810127,
-      "message_hash": "62ff77b0"
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
     },
     {
-      "timestamp": 1761788855.873973,
+      "timestamp": 1761801188.57476,
       "features": {
-        "length": 1800,
-        "entropy": 3.419381945646371,
+        "length": 30,
+        "entropy": 3.777747162910945,
         "has_numbers": false,
         "has_special_chars": false,
-        "word_count": 300,
-        "avg_word_length": 5,
-        "compression_potential": 0.5725772567942036,
-        "pattern_score": 0.8
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
+        "pattern_score": 0.6
       },
-      "method": "zlib",
-      "original_size": 1800,
-      "compressed_size": 43,
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
       "compression_time": 0.001,
-      "ratio": 41.86046511627907,
-      "message_hash": "b6f7d40b"
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
+    },
+    {
+      "timestamp": 1761801188.586617,
+      "features": {
+        "length": 30,
+        "entropy": 3.777747162910945,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
+      "compression_time": 0.001,
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
+    },
+    {
+      "timestamp": 1761801188.588643,
+      "features": {
+        "length": 30,
+        "entropy": 3.777747162910945,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
+      "compression_time": 0.001,
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
+    },
+    {
+      "timestamp": 1761801188.596975,
+      "features": {
+        "length": 30,
+        "entropy": 3.777747162910945,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
+      "compression_time": 0.001,
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
+    },
+    {
+      "timestamp": 1761801188.6148338,
+      "features": {
+        "length": 30,
+        "entropy": 3.777747162910945,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
+      "compression_time": 0.001,
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
+    },
+    {
+      "timestamp": 1761801188.6399648,
+      "features": {
+        "length": 30,
+        "entropy": 3.777747162910945,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
+      "compression_time": 0.001,
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
+    },
+    {
+      "timestamp": 1761801188.645988,
+      "features": {
+        "length": 30,
+        "entropy": 3.777747162910945,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
+      "compression_time": 0.001,
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
+    },
+    {
+      "timestamp": 1761801188.6462212,
+      "features": {
+        "length": 30,
+        "entropy": 3.777747162910945,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5277816046361319,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 27,
+      "compression_time": 0.001,
+      "ratio": 1.1111111111111112,
+      "message_hash": "106f25b6"
+    },
+    {
+      "timestamp": 1761802636.410212,
+      "features": {
+        "length": 26,
+        "entropy": 3.8150724101159423,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 8,
+        "compression_potential": 0.5231159487355073,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 26,
+      "compressed_size": 21,
+      "compression_time": 0.001,
+      "ratio": 1.2380952380952381,
+      "message_hash": "0b30401a"
+    },
+    {
+      "timestamp": 1761802636.513581,
+      "features": {
+        "length": 30,
+        "entropy": 3.739572261986723,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5325534672516596,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 25,
+      "compression_time": 0.001,
+      "ratio": 1.2,
+      "message_hash": "83c5476d"
+    },
+    {
+      "timestamp": 1761802636.628814,
+      "features": {
+        "length": 49,
+        "entropy": 3.950918263802342,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 8,
+        "avg_word_length": 5.25,
+        "compression_potential": 0.5061352170247073,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 49,
+      "compressed_size": 31,
+      "compression_time": 0.001,
+      "ratio": 1.5806451612903225,
+      "message_hash": "57b0553f"
+    },
+    {
+      "timestamp": 1761802636.640943,
+      "features": {
+        "length": 94,
+        "entropy": 4.180221401059781,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 15,
+        "avg_word_length": 5.333333333333333,
+        "compression_potential": 0.47747232486752733,
+        "pattern_score": 0.3
+      },
+      "method": "aura_lite",
+      "original_size": 94,
+      "compressed_size": 39,
+      "compression_time": 0.001,
+      "ratio": 2.41025641025641,
+      "message_hash": "b4897a9a"
+    },
+    {
+      "timestamp": 1761802636.745764,
+      "features": {
+        "length": 77,
+        "entropy": 3.9185287378871205,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 13,
+        "avg_word_length": 5,
+        "compression_potential": 0.5101839077641099,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 77,
+      "compressed_size": 52,
+      "compression_time": 0.001,
+      "ratio": 1.4807692307692308,
+      "message_hash": "c5ac33f8"
+    },
+    {
+      "timestamp": 1761802636.7932348,
+      "features": {
+        "length": 59,
+        "entropy": 1.7779887310739835,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 10,
+        "avg_word_length": 5,
+        "compression_potential": 0.7777514086157521,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 59,
+      "compressed_size": 29,
+      "compression_time": 0.001,
+      "ratio": 2.0344827586206895,
+      "message_hash": "816507cc"
+    },
+    {
+      "timestamp": 1761802636.914575,
+      "features": {
+        "length": 59,
+        "entropy": 4.121790245769794,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 11,
+        "avg_word_length": 4.454545454545454,
+        "compression_potential": 0.4847762192787758,
+        "pattern_score": 0.3
+      },
+      "method": "aura_lite",
+      "original_size": 59,
+      "compressed_size": 40,
+      "compression_time": 0.001,
+      "ratio": 1.475,
+      "message_hash": "8e768e3f"
+    },
+    {
+      "timestamp": 1761802636.980188,
+      "features": {
+        "length": 60,
+        "entropy": 3.9386079884705567,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 10,
+        "avg_word_length": 5.1,
+        "compression_potential": 0.5076740014411805,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 60,
+      "compressed_size": 42,
+      "compression_time": 0.001,
+      "ratio": 1.4285714285714286,
+      "message_hash": "5e36d193"
+    },
+    {
+      "timestamp": 1761802637.068842,
+      "features": {
+        "length": 86,
+        "entropy": 3.9379022469666065,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 12,
+        "avg_word_length": 6.25,
+        "compression_potential": 0.5077622191291742,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 86,
+      "compressed_size": 78,
+      "compression_time": 0.001,
+      "ratio": 1.1025641025641026,
+      "message_hash": "6a6cbdd0"
+    },
+    {
+      "timestamp": 1761802637.095968,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.099636,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.1026912,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.105967,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.109142,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.112424,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.115544,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.11873,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.121863,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.125,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.128233,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.131233,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.134372,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.1375942,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.140595,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.1437519,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.147059,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.150186,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.153599,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.156801,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.160012,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.1633248,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.166541,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.169835,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.172929,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802637.191218,
+      "features": {
+        "length": 72,
+        "entropy": 4.072567627960444,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 11,
+        "avg_word_length": 5.636363636363637,
+        "compression_potential": 0.4909290465049445,
+        "pattern_score": 0.3
+      },
+      "method": "aura_lite",
+      "original_size": 72,
+      "compressed_size": 52,
+      "compression_time": 0.001,
+      "ratio": 1.3846153846153846,
+      "message_hash": "6f7e3f47"
+    },
+    {
+      "timestamp": 1761802637.303628,
+      "features": {
+        "length": 37,
+        "entropy": 3.9182523518230763,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.428571428571429,
+        "compression_potential": 0.5102184560221155,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 37,
+      "compressed_size": 22,
+      "compression_time": 0.001,
+      "ratio": 1.6818181818181819,
+      "message_hash": "e182e123"
+    },
+    {
+      "timestamp": 1761802739.882783,
+      "features": {
+        "length": 26,
+        "entropy": 3.8150724101159423,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 8,
+        "compression_potential": 0.5231159487355073,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 26,
+      "compressed_size": 21,
+      "compression_time": 0.001,
+      "ratio": 1.2380952380952381,
+      "message_hash": "0b30401a"
+    },
+    {
+      "timestamp": 1761802740.010571,
+      "features": {
+        "length": 30,
+        "entropy": 3.739572261986723,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 3,
+        "avg_word_length": 9.333333333333334,
+        "compression_potential": 0.5325534672516596,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 30,
+      "compressed_size": 25,
+      "compression_time": 0.001,
+      "ratio": 1.2,
+      "message_hash": "83c5476d"
+    },
+    {
+      "timestamp": 1761802740.073361,
+      "features": {
+        "length": 49,
+        "entropy": 3.950918263802342,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 8,
+        "avg_word_length": 5.25,
+        "compression_potential": 0.5061352170247073,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 49,
+      "compressed_size": 31,
+      "compression_time": 0.001,
+      "ratio": 1.5806451612903225,
+      "message_hash": "57b0553f"
+    },
+    {
+      "timestamp": 1761802740.087122,
+      "features": {
+        "length": 94,
+        "entropy": 4.180221401059781,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 15,
+        "avg_word_length": 5.333333333333333,
+        "compression_potential": 0.47747232486752733,
+        "pattern_score": 0.3
+      },
+      "method": "aura_lite",
+      "original_size": 94,
+      "compressed_size": 39,
+      "compression_time": 0.001,
+      "ratio": 2.41025641025641,
+      "message_hash": "b4897a9a"
+    },
+    {
+      "timestamp": 1761802740.200563,
+      "features": {
+        "length": 77,
+        "entropy": 3.9185287378871205,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 13,
+        "avg_word_length": 5,
+        "compression_potential": 0.5101839077641099,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 77,
+      "compressed_size": 52,
+      "compression_time": 0.001,
+      "ratio": 1.4807692307692308,
+      "message_hash": "c5ac33f8"
+    },
+    {
+      "timestamp": 1761802740.2589922,
+      "features": {
+        "length": 59,
+        "entropy": 1.7779887310739835,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 10,
+        "avg_word_length": 5,
+        "compression_potential": 0.7777514086157521,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 59,
+      "compressed_size": 29,
+      "compression_time": 0.001,
+      "ratio": 2.0344827586206895,
+      "message_hash": "816507cc"
+    },
+    {
+      "timestamp": 1761802740.414012,
+      "features": {
+        "length": 59,
+        "entropy": 4.121790245769794,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 11,
+        "avg_word_length": 4.454545454545454,
+        "compression_potential": 0.4847762192787758,
+        "pattern_score": 0.3
+      },
+      "method": "aura_lite",
+      "original_size": 59,
+      "compressed_size": 40,
+      "compression_time": 0.001,
+      "ratio": 1.475,
+      "message_hash": "8e768e3f"
+    },
+    {
+      "timestamp": 1761802740.512807,
+      "features": {
+        "length": 60,
+        "entropy": 3.9386079884705567,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 10,
+        "avg_word_length": 5.1,
+        "compression_potential": 0.5076740014411805,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 60,
+      "compressed_size": 42,
+      "compression_time": 0.001,
+      "ratio": 1.4285714285714286,
+      "message_hash": "5e36d193"
+    },
+    {
+      "timestamp": 1761802740.6220758,
+      "features": {
+        "length": 86,
+        "entropy": 3.9379022469666065,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 12,
+        "avg_word_length": 6.25,
+        "compression_potential": 0.5077622191291742,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 86,
+      "compressed_size": 78,
+      "compression_time": 0.001,
+      "ratio": 1.1025641025641026,
+      "message_hash": "6a6cbdd0"
+    },
+    {
+      "timestamp": 1761802740.656323,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.660116,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.6635342,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.667135,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.670743,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.6743019,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.677558,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.680938,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.684236,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.687681,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.6910841,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.694454,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.697776,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.700902,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.704312,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.707906,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.7115378,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.714995,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.7183738,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.7218611,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.72527,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.72861,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.731914,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.735497,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.7391949,
+      "features": {
+        "length": 38,
+        "entropy": 3.902679737686644,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.571428571428571,
+        "compression_potential": 0.5121650327891696,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 38,
+      "compressed_size": 20,
+      "compression_time": 0.001,
+      "ratio": 1.9,
+      "message_hash": "e3ca54f4"
+    },
+    {
+      "timestamp": 1761802740.763863,
+      "features": {
+        "length": 72,
+        "entropy": 4.072567627960444,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 11,
+        "avg_word_length": 5.636363636363637,
+        "compression_potential": 0.4909290465049445,
+        "pattern_score": 0.3
+      },
+      "method": "aura_lite",
+      "original_size": 72,
+      "compressed_size": 52,
+      "compression_time": 0.001,
+      "ratio": 1.3846153846153846,
+      "message_hash": "6f7e3f47"
+    },
+    {
+      "timestamp": 1761802740.8783739,
+      "features": {
+        "length": 37,
+        "entropy": 3.9182523518230763,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 4.428571428571429,
+        "compression_potential": 0.5102184560221155,
+        "pattern_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 37,
+      "compressed_size": 22,
+      "compression_time": 0.001,
+      "ratio": 1.6818181818181819,
+      "message_hash": "e182e123"
     }
   ],
-  "timestamp": 1761793101.41423
+  "timestamp": 1761802741.9860501
 }

@@ -7,7 +7,7 @@
       "ratio": 0.9166666666666666,
       "method": "UNCOMPRESSED",
       "strategy": "maximum_compression",
-      "compression_time": 0.08225440979003906,
+      "compression_time": 0.052928924560546875,
       "target_ratio": 3.0,
       "max_latency": 100.0,
       "network_condition": "excellent"
@@ -19,7 +19,7 @@
       "ratio": 0.9824561403508771,
       "method": "UNCOMPRESSED",
       "strategy": "maximum_compression",
-      "compression_time": 0.3380775451660156,
+      "compression_time": 0.2307891845703125,
       "target_ratio": 3.0,
       "max_latency": 100.0,
       "network_condition": "excellent"
@@ -31,7 +31,7 @@
       "ratio": 1.017391304347826,
       "method": "BINARY_SEMANTIC",
       "strategy": "maximum_compression",
-      "compression_time": 0.051975250244140625,
+      "compression_time": 0.04935264587402344,
       "target_ratio": 3.0,
       "max_latency": 100.0,
       "network_condition": "excellent"
@@ -45,7 +45,7 @@
       "ratio": 0.9166666666666666,
       "method": "UNCOMPRESSED",
       "strategy": "balanced",
-      "compression_time": 0.01621246337890625,
+      "compression_time": 0.015735626220703125,
       "target_ratio": 2.0,
       "max_latency": 50.0,
       "network_condition": "good"
@@ -57,7 +57,7 @@
       "ratio": 0.9824561403508771,
       "method": "UNCOMPRESSED",
       "strategy": "balanced",
-      "compression_time": 0.1583099365234375,
+      "compression_time": 0.1480579376220703,
       "target_ratio": 2.0,
       "max_latency": 50.0,
       "network_condition": "good"
@@ -69,7 +69,7 @@
       "ratio": 1.017391304347826,
       "method": "BINARY_SEMANTIC",
       "strategy": "balanced",
-      "compression_time": 0.052928924560546875,
+      "compression_time": 0.04410743713378906,
       "target_ratio": 2.0,
       "max_latency": 50.0,
       "network_condition": "good"
@@ -83,7 +83,7 @@
       "ratio": 0.9166666666666666,
       "method": "UNCOMPRESSED",
       "strategy": "balanced",
-      "compression_time": 0.013113021850585938,
+      "compression_time": 0.014066696166992188,
       "target_ratio": 2.0,
       "max_latency": 50.0,
       "network_condition": "moderate"
@@ -95,7 +95,7 @@
       "ratio": 0.9824561403508771,
       "method": "UNCOMPRESSED",
       "strategy": "balanced",
-      "compression_time": 0.1533031463623047,
+      "compression_time": 0.13518333435058594,
       "target_ratio": 2.0,
       "max_latency": 50.0,
       "network_condition": "moderate"
@@ -107,7 +107,7 @@
       "ratio": 1.017391304347826,
       "method": "BINARY_SEMANTIC",
       "strategy": "balanced",
-      "compression_time": 0.04410743713378906,
+      "compression_time": 0.041961669921875,
       "target_ratio": 2.0,
       "max_latency": 50.0,
       "network_condition": "moderate"
@@ -121,7 +121,7 @@
       "ratio": 0.9166666666666666,
       "method": "UNCOMPRESSED",
       "strategy": "fast_compression",
-      "compression_time": 0.016927719116210938,
+      "compression_time": 0.014781951904296875,
       "target_ratio": 1.5,
       "max_latency": 20.0,
       "network_condition": "poor"
@@ -133,7 +133,7 @@
       "ratio": 0.9824561403508771,
       "method": "UNCOMPRESSED",
       "strategy": "fast_compression",
-      "compression_time": 0.1380443572998047,
+      "compression_time": 0.14519691467285156,
       "target_ratio": 1.5,
       "max_latency": 20.0,
       "network_condition": "poor"
@@ -145,7 +145,7 @@
       "ratio": 1.017391304347826,
       "method": "BINARY_SEMANTIC",
       "strategy": "fast_compression",
-      "compression_time": 0.04291534423828125,
+      "compression_time": 0.0457763671875,
       "target_ratio": 1.5,
       "max_latency": 20.0,
       "network_condition": "poor"
@@ -159,7 +159,7 @@
       "ratio": 0.9166666666666666,
       "method": "UNCOMPRESSED",
       "strategy": "minimal_compression",
-      "compression_time": 0.015020370483398438,
+      "compression_time": 0.0152587890625,
       "target_ratio": 1.2,
       "max_latency": 5.0,
       "network_condition": "very_poor"
@@ -171,7 +171,7 @@
       "ratio": 0.9824561403508771,
       "method": "UNCOMPRESSED",
       "strategy": "minimal_compression",
-      "compression_time": 0.13399124145507812,
+      "compression_time": 0.1811981201171875,
       "target_ratio": 1.2,
       "max_latency": 5.0,
       "network_condition": "very_poor"
@@ -183,7 +183,7 @@
       "ratio": 1.017391304347826,
       "method": "BINARY_SEMANTIC",
       "strategy": "minimal_compression",
-      "compression_time": 0.041961669921875,
+      "compression_time": 0.05602836608886719,
       "target_ratio": 1.2,
       "max_latency": 5.0,
       "network_condition": "very_poor"

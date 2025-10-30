@@ -34,6 +34,7 @@ class TestAuraHeavy(unittest.TestCase):
             AuraHeavyMethod.BRIO,
             AuraHeavyMethod.AURA_LITE,
             AuraHeavyMethod.ZLIB,
+            AuraHeavyMethod.HARDWARE_OPTIMIZED,
             AuraHeavyMethod.UNCOMPRESSED
         ])
 

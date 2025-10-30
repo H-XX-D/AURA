@@ -175,25 +175,45 @@ class FuzzyMatcher:
         }
 
 
+# GPU-accelerated fuzzy matcher integration
+try:
+    from .gpu_fuzzy_matcher import GPUFuzzyMatcher, create_gpu_fuzzy_matcher
+    GPU_FUZZY_AVAILABLE = True
+except ImportError:
+    GPU_FUZZY_AVAILABLE = False
+
+
 def create_fuzzy_matcher(min_similarity: float = 0.85,
                          max_distance: int = 50,
-                         enable_caching: bool = True) -> FuzzyMatcher:
+                         enable_caching: bool = True,
+                         use_gpu: bool = True,
+                         batch_size: int = 1000) -> FuzzyMatcher:
     """
-    Factory function to create a FuzzyMatcher instance.
+    Factory function to create a FuzzyMatcher instance with optional GPU acceleration.
 
     Args:
         min_similarity: Minimum similarity ratio for matches
         max_distance: Maximum Levenshtein distance for matches
         enable_caching: Enable caching for performance
+        use_gpu: Use GPU acceleration if available
+        batch_size: Batch size for GPU processing
 
     Returns:
-        Configured FuzzyMatcher instance
+        Configured FuzzyMatcher instance (GPU or CPU)
     """
-    return FuzzyMatcher(
-        min_similarity=min_similarity,
-        max_distance=max_distance,
-        enable_caching=enable_caching
-    )
+    if use_gpu and GPU_FUZZY_AVAILABLE:
+        return create_gpu_fuzzy_matcher(
+            min_similarity=min_similarity,
+            max_distance=max_distance,
+            batch_size=batch_size,
+            enable_caching=enable_caching
+        )
+    else:
+        return FuzzyMatcher(
+            min_similarity=min_similarity,
+            max_distance=max_distance,
+            enable_caching=enable_caching
+        )
 
 
 # Example usage and testing

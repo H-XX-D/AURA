@@ -1,0 +1,46 @@
+{
+  "generated_at": "2025-10-29T22:13:15.168543",
+  "template_coverage_analysis": {
+    "logs": {
+      "coverage": 1.0,
+      "avg_ratio": 1.2881145699103713,
+      "priority": "medium",
+      "recommendation": "Review existing logs templates - may need pattern refinement"
+    },
+    "metrics": {
+      "coverage": 0.0,
+      "avg_ratio": 0.9969616953356244,
+      "priority": "high",
+      "recommendation": "Add 50+ metrics templates - coverage is critically low"
+    },
+    "events": {
+      "coverage": 0.0,
+      "avg_ratio": 1.0071418969526285,
+      "priority": "high",
+      "recommendation": "Add 50+ events templates - coverage is critically low"
+    },
+    "messages": {
+      "coverage": 0.0,
+      "avg_ratio": 1.017001219874306,
+      "priority": "high",
+      "recommendation": "Add 50+ messages templates - coverage is critically low"
+    }
+  },
+  "fuzzy_matching_analysis": {
+    "recommendation": "Enable fuzzy matching for better coverage"
+  },
+  "memory_optimization": {
+    "current_mb": 20.296875,
+    "peak_mb": 20.296875,
+    "avg_mb": 20.296875,
+    "recommendations": [
+      "Memory usage is acceptable",
+      "Low message volume - consider reducing template cache size"
+    ]
+  },
+  "overall_recommendations": [
+    "High priority: Expand templates for metrics, events, messages",
+    "Memory usage is acceptable",
+    "Low message volume - consider reducing template cache size"
+  ]
+}

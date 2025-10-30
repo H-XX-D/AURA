@@ -157,7 +157,7 @@ class CompressorBenchmark:
         self.test_data = []
 
 
-class TestRunner:
+class BenchmarkRunner:
     """Main test runner for the framework."""
 
     def __init__(self):
@@ -240,7 +240,7 @@ def main():
 
     args = parser.parse_args()
 
-    runner = TestRunner()
+    runner = BenchmarkRunner()
 
     try:
         if args.benchmark:
@@ -347,7 +347,7 @@ def test_benchmark_result_serialization():
 
 def test_test_runner_benchmarks():
     """Test the main test runner."""
-    runner = TestRunner()
+    runner = BenchmarkRunner()
 
     results = runner.run_benchmarks(iterations=2)
 

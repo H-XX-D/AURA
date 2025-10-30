@@ -1,0 +1,74 @@
+{
+  "aura_compression": {
+    "version": "2.0",
+    "bootstrap_mode": true,
+    "training_data_path": "./training_data",
+    "aggressive_mode": {
+      "large_file_threshold": 512,
+      "very_large_threshold": 50000,
+      "binary_advantage_threshold": 1.05,
+      "tcp_brio_threshold": 1000,
+      "min_compression_size": 20
+    },
+    "fuzzy_matching": {
+      "enabled": true,
+      "min_similarity": 0.85,
+      "max_distance": 30
+    },
+    "template_discovery": {
+      "enabled": true,
+      "min_frequency": 3,
+      "max_templates": 1000
+    },
+    "hardware_acceleration": {
+      "enable_simd": true,
+      "enable_gpu": true,
+      "enable_hardware_optimized": true
+    }
+  },
+  "expected_performance": {
+    "compression_ratios": {
+      "logs": "1.8:1 to 3.2:1",
+      "api_responses": "2.1:1 to 4.5:1",
+      "metrics": "3.5:1 to 8.2:1",
+      "events": "1.6:1 to 2.8:1",
+      "messages": "1.4:1 to 2.5:1",
+      "mixed_workload": "1.45:1 to 3.8:1"
+    },
+    "when_145_ratios_achievable": [
+      "High template similarity (>80% of messages match known patterns)",
+      "Structured data (JSON, logs, metrics)",
+      "Repetitive content with minor variations",
+      "Large message volumes for template learning",
+      "Proper template library coverage"
+    ],
+    "factors_affecting_ratios": [
+      "Template library size and coverage",
+      "Message structure and predictability",
+      "Data entropy and randomness",
+      "Template matching accuracy",
+      "Fuzzy matching effectiveness",
+      "Hardware acceleration utilization"
+    ]
+  },
+  "usage_examples": {
+    "high_compression_scenario": {
+      "description": "System logs with structured format",
+      "sample_message": "User john.doe logged in from 192.168.1.100 at 2023-10-29T14:30:25Z",
+      "expected_ratio": "3.2:1",
+      "reason": "High template similarity, structured timestamps and IPs"
+    },
+    "moderate_compression_scenario": {
+      "description": "API responses with variable data",
+      "sample_message": "{\"status\": \"success\", \"data\": {\"user_id\": \"12345\", \"balance\": 99.50}, \"timestamp\": \"2023-10-29T14:30:25Z\"}",
+      "expected_ratio": "2.1:1",
+      "reason": "Structured JSON with variable numeric/string content"
+    },
+    "low_compression_scenario": {
+      "description": "Random or highly entropic data",
+      "sample_message": "Random text with no patterns: abcdefghijklmnopqrstuvwxyz0123456789",
+      "expected_ratio": "1.05:1",
+      "reason": "High entropy, no template matches, minimal compression possible"
+    }
+  }
+}

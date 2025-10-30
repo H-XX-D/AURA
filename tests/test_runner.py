@@ -21,7 +21,7 @@ src_path = project_root / 'src' / 'python'
 sys.path.insert(0, str(src_path))
 sys.path.insert(0, str(project_root))  # Add tests directory to path
 
-from test_framework import TestRunner as BenchmarkRunner
+from test_framework import BenchmarkRunner
 from test_data_generator import TestDataGenerator, PerformanceBaseline
 
 

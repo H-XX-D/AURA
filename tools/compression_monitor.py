@@ -20,6 +20,13 @@ import argparse
 import threading
 from pathlib import Path
 
+# Import memory profiler
+try:
+    from aura_compression.template_memory_profiler import TemplateMemoryProfiler, create_template_memory_profiler
+    HAS_MEMORY_PROFILER = True
+except ImportError:
+    HAS_MEMORY_PROFILER = False
+
 
 class CompressionMonitor:
     """Monitors AURA compression performance and provides optimization insights."""
@@ -39,6 +46,16 @@ class CompressionMonitor:
             'fuzzy_match_stats': defaultdict(int),
         }
         self.lock = threading.Lock()
+
+        # Initialize memory profiler if available
+        self.memory_profiler = None
+        if HAS_MEMORY_PROFILER:
+            try:
+                self.memory_profiler = create_template_memory_profiler(enable_tracemalloc=True)
+                print("🧠 Template memory profiler initialized")
+            except Exception as e:
+                print(f"Warning: Failed to initialize memory profiler: {e}")
+                self.memory_profiler = None
 
     def log_compression_event(self, message: str, message_type: str,
                             original_size: int, compressed_size: int,
@@ -91,6 +108,61 @@ class CompressionMonitor:
 
         self.metrics['memory_usage'].append(memory_mb)
 
+        # Record memory usage with profiler if available
+        if self.memory_profiler:
+            try:
+                snapshot = self.memory_profiler.snapshot()
+                self.metrics['memory_usage'][-1] = snapshot.size / 1024 / 1024  # Convert to MB
+            except Exception as e:
+                print(f"Warning: Failed to record memory usage with profiler: {e}")
+
+    def register_template_library(self, template_library: Any) -> None:
+        """Register a template library for memory profiling."""
+        if self.memory_profiler:
+            self.memory_profiler.register_template_library(template_library)
+            print(f"📚 Registered template library for memory profiling")
+
+    def get_memory_profile(self) -> Optional[Dict[str, Any]]:
+        """Get detailed memory profiling information."""
+        if not self.memory_profiler:
+            return None
+
+        try:
+            return self.memory_profiler.get_memory_report()
+        except Exception as e:
+            print(f"Warning: Failed to get memory profile: {e}")
+            return None
+
+    def get_template_memory_profile(self, template_library: Any) -> Optional[Dict[str, Any]]:
+        """Get detailed memory profile for a specific template library."""
+        if not self.memory_profiler:
+            return None
+
+        try:
+            profile = self.memory_profiler.profile_template_library(template_library)
+            return {
+                'total_templates': profile.total_templates,
+                'average_template_size_bytes': profile.average_template_size_bytes,
+                'largest_template_bytes': profile.largest_template_bytes,
+                'memory_efficiency': profile.memory_efficiency,
+                'cache_hit_rate': profile.cache_hit_rate,
+                'memory_fragmentation': profile.memory_fragmentation,
+                'recommended_cache_size': profile.recommended_cache_size,
+            }
+        except Exception as e:
+            print(f"Warning: Failed to profile template library: {e}")
+            return None
+
+    def force_memory_cleanup(self) -> Dict[str, Any]:
+        """Force garbage collection and memory cleanup."""
+        if not self.memory_profiler:
+            return {'error': 'Memory profiler not available'}
+
+        try:
+            return self.memory_profiler.force_garbage_collection()
+        except Exception as e:
+            return {'error': str(e)}
+
     def get_compression_summary(self) -> Dict[str, Any]:
         """Get comprehensive compression summary."""
         with self.lock:
@@ -138,6 +210,7 @@ class CompressionMonitor:
                 'errors': dict(self.metrics['error_counts']),
                 'memory_stats': memory_stats,
                 'performance_trend': self.metrics['performance_metrics'][-5:] if self.metrics['performance_metrics'] else [],
+                'memory_profiling': self.get_memory_profile() if self.memory_profiler else None,
             }
 
     def get_optimization_recommendations(self) -> List[str]:

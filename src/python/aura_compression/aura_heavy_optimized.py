@@ -306,10 +306,10 @@ class AuraHeavyOptimized:
                     hardware_optimized = True
 
                     result = AuraHeavyResult(
-                        compressed_data=compressed_bytes,
+                        compressed_data=bytes([AuraHeavyMethod.HARDWARE_OPTIMIZED.value]) + compressed_bytes,
                         method=AuraHeavyMethod.HARDWARE_OPTIMIZED,
                         original_size=original_size,
-                        compressed_size=compressed_size,
+                        compressed_size=compressed_size + 1,
                         ratio=ratio,
                         metadata={
                             'compression_layer': 'hardware_accelerated',
@@ -598,6 +598,14 @@ class AuraHeavyOptimized:
             # Uncompressed data
             return compressed_data[1:].decode('utf-8'), {
                 'method': 'UNCOMPRESSED'
+            }
+
+        elif method == AuraHeavyMethod.HARDWARE_OPTIMIZED:
+            # Hardware-optimized decompression (zlib base)
+            decompressed_bytes = zlib.decompress(compressed_data[1:])
+            return decompressed_bytes.decode('utf-8'), {
+                'method': 'HARDWARE_OPTIMIZED',
+                'decompressed_size': len(decompressed_bytes)
             }
 
         else:

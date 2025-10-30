@@ -1,0 +1,14 @@
+{
+  "generated_at": "2025-10-29T21:57:23.170170",
+  "generator_version": "1.0",
+  "categories": [
+    "logs",
+    "api",
+    "metrics",
+    "events",
+    "messages"
+  ],
+  "messages_per_category": 500,
+  "total_messages": 2500,
+  "description": "Training dataset for AURA compression system bootstrap"
+}

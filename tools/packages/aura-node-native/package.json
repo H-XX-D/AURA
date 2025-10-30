@@ -8,11 +8,8 @@
     "name": "aura-native",
     "triples": {
       "additional": [
-        "aarch64-apple-darwin",
         "aarch64-unknown-linux-gnu",
-        "aarch64-unknown-linux-musl",
-        "aarch64-pc-windows-msvc",
-        "x86_64-unknown-linux-musl"
+        "x86_64-unknown-linux-gnu"
       ]
     }
   },
@@ -20,7 +17,6 @@
     "artifacts": "napi artifacts",
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
-    "prepublishOnly": "napi prepublish -t npm",
     "test": "node test.js",
     "universal": "napi universal",
     "version": "napi version"
@@ -51,5 +47,15 @@
   },
   "engines": {
     "node": ">= 16"
+  },
+  "optionalDependencies": {
+    "@aura-protocol/native-win32-x64-msvc": "1.0.1",
+    "@aura-protocol/native-darwin-x64": "1.0.1",
+    "@aura-protocol/native-linux-x64-gnu": "1.0.1",
+    "@aura-protocol/native-darwin-arm64": "1.0.1",
+    "@aura-protocol/native-linux-arm64-gnu": "1.0.1",
+    "@aura-protocol/native-linux-arm64-musl": "1.0.1",
+    "@aura-protocol/native-win32-arm64-msvc": "1.0.1",
+    "@aura-protocol/native-linux-x64-musl": "1.0.1"
   }
 }

@@ -8,6 +8,7 @@ but not identical, enabling compression of messages that differ by small variati
 like timestamps, counters, or minor text differences.
 """
 
+import logging
 import difflib
 from typing import List, Tuple, Dict, Any, Optional
 from dataclasses import dataclass
@@ -227,9 +228,9 @@ if __name__ == "__main__":
 
     matches = matcher.find_similar_patterns(test_text, test_patterns)
 
-    print(f"Found {len(matches)} fuzzy matches for: {test_text}")
+    logger.info(f"Found {len(matches)} fuzzy matches for: {test_text}")
     for match in matches:
-        print(f"  Similarity: {match.similarity:.2f}, Distance: {match.distance}")
-        print(f"  Pattern: {match.template_pattern}")
-        print(f"  Differences: {match.differences}")
-        print()
+        logger.info(f"  Similarity: {match.similarity:.2f}, Distance: {match.distance}")
+        logger.info(f"  Pattern: {match.template_pattern}")
+        logger.info(f"  Differences: {match.differences}")
+        logger.info("")

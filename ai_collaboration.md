@@ -40,6 +40,13 @@
 
 ### Task Queue
 
+#### Task 22: Network simulation hang fix
+**Status:** in_progress
+**Description:** Investigate and resolve the long-running network simulation harness so it terminates promptly without manual intervention.
+**Assigned to:** Codex
+**Started:** 2025-10-30
+**Dependencies:** None
+
 #### Task 21: Metadata header fast-path refactor
 **Status:** completed
 **Description:** Replace incremental `int.from_bytes` parsing with a precompiled `struct.Struct` and shared buffer for metadata header encode/decode to shave additional microseconds from the fast path.

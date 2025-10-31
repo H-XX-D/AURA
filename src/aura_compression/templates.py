@@ -41,7 +41,10 @@ class TemplateRecord:
         if not match_obj:
             return None
         slots = self._extract_slots(match_obj)
-        reconstructed = self.pattern.format(*slots)
+        try:
+            reconstructed = self.pattern.format(*slots)
+        except (IndexError, KeyError, ValueError):
+            return None
         if reconstructed != text:
             return None
         return slots
@@ -71,6 +74,7 @@ class TemplateLibrary:
     # 0-127:   DEFAULT_TEMPLATES (most common patterns)
     # 128-191: DYNAMIC_RANGE (discovered templates - 64 slots)
     # 192-255: CLIENT_SYNC_RANGE (client-discovered - 64 slots)
+    # 256-383: WHITESPACE_VARIANTS (auto-generated leading/trailing whitespace variants)
 
     DEFAULT_TEMPLATES: Dict[int, str] = {
         # Common responses (0-19)
@@ -165,6 +169,14 @@ class TemplateLibrary:
         125: "Unlike {0}, {1} {2}.",
         126: "Both {0} and {1} {2}.",
         127: "Neither {0} nor {1} {2}.",
+
+        # Conversational assistant phrasing (140-149)
+    140: "Hello {0}, how are you today?",
+    141: "Thanks for your help with {0}!",
+    142: "Can you explain {0} in more detail?",
+    143: "I appreciate your help with {0}.",
+    144: "What do you think about {0}?",
+    145: "Hello {0}, how are you today? {1}",
     }
 
     # Dynamic templates: discovered at runtime (64 slots)
@@ -173,6 +185,8 @@ class TemplateLibrary:
     # Client-synced templates: discovered on client side (64 slots)
     CLIENT_SYNC_RANGE = range(192, 256)
 
+    WHITESPACE_RANGE = range(256, 384)
+
     def __init__(self, custom_templates: Optional[Dict[int, str]] = None, enable_fast_matching: bool = True,
                  enable_persistent_cache: bool = True, cache_dir: str = ".aura_cache"):
         self._templates: Dict[int, str] = {}
@@ -180,6 +194,8 @@ class TemplateLibrary:
         self._static_ids = set(self.DEFAULT_TEMPLATES.keys())
         self._next_dynamic_id = self.DYNAMIC_RANGE.start
         self._next_client_sync_id = self.CLIENT_SYNC_RANGE.start
+        self._next_whitespace_id = self.WHITESPACE_RANGE.start
+        self._whitespace_variants: Dict[tuple[int, str, str], int] = {}
 
         # Fast matching optimization
         self.enable_fast_matching = enable_fast_matching
@@ -390,6 +406,32 @@ class TemplateLibrary:
 
         return result
 
+    def ensure_whitespace_variant(self, template_id: int, leading_ws: str, trailing_ws: str) -> int:
+        """Return template ID that includes provided whitespace, creating variant if needed."""
+        if not leading_ws and not trailing_ws:
+            return template_id
+
+        key = (template_id, leading_ws, trailing_ws)
+        if key in self._whitespace_variants:
+            return self._whitespace_variants[key]
+
+        base_pattern = self._templates.get(template_id)
+        if base_pattern is None:
+            return template_id
+
+        try:
+            variant_id = self._allocate_whitespace_id()
+        except RuntimeError:
+            return template_id
+
+        variant_pattern = f"{leading_ws}{base_pattern}{trailing_ws}"
+        self._register_template(variant_id, variant_pattern)
+        self._advance_counters(variant_id)
+        self._whitespace_variants[key] = variant_id
+        self._static_ids.add(variant_id)
+        self.templates = dict(self._templates)
+        return variant_id
+
     def find_substring_matches(self, text: str) -> List[TemplateMatch]:
         candidates: List[TemplateMatch] = []
         seen_spans = set()
@@ -452,17 +494,31 @@ class TemplateLibrary:
                     if seg[-1].isalnum() and best_end < text_length and text[best_end].isalnum():
                         continue
 
-                span = (start, best_end)
+                # Detect leading/trailing whitespace for whitespace-aware matching
+                ws_start = start
+                while ws_start > 0 and text[ws_start - 1] in ' \t\n\r':
+                    ws_start -= 1
+                leading_ws = text[ws_start:start] if ws_start < start else ""
+
+                ws_end = best_end
+                while ws_end < text_length and text[ws_end] in ' \t\n\r':
+                    ws_end += 1
+                trailing_ws = text[best_end:ws_end] if ws_end > best_end else ""
+
+                match_start = ws_start if leading_ws else start
+                match_end = ws_end if trailing_ws else best_end
+                span = (match_start, match_end)
                 if span in seen_spans:
                     continue
                 seen_spans.add(span)
 
+                variant_template_id = self.ensure_whitespace_variant(record.template_id, leading_ws, trailing_ws)
                 candidates.append(
                     TemplateMatch(
-                        template_id=record.template_id,
+                        template_id=variant_template_id,
                         slots=best_slots,
-                        start=start,
-                        end=best_end,
+                        start=match_start,
+                        end=match_end,
                     )
                 )
 
@@ -530,11 +586,22 @@ class TemplateLibrary:
         self._next_client_sync_id += 1
         return allocated
 
+    def _allocate_whitespace_id(self) -> int:
+        while self._next_whitespace_id in self._templates and self._next_whitespace_id < self.WHITESPACE_RANGE.stop:
+            self._next_whitespace_id += 1
+        if self._next_whitespace_id >= self.WHITESPACE_RANGE.stop:
+            raise RuntimeError("Whitespace template ID range exhausted")
+        allocated = self._next_whitespace_id
+        self._next_whitespace_id += 1
+        return allocated
+
     def _advance_counters(self, template_id: int) -> None:
         if template_id in self.DYNAMIC_RANGE and template_id >= self._next_dynamic_id:
             self._next_dynamic_id = template_id + 1
         if template_id in self.CLIENT_SYNC_RANGE and template_id >= self._next_client_sync_id:
             self._next_client_sync_id = template_id + 1
+        if template_id in self.WHITESPACE_RANGE and template_id >= self._next_whitespace_id:
+            self._next_whitespace_id = template_id + 1
 
     # ------------------------------------------------------------------ helpers
 

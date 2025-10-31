@@ -5,6 +5,7 @@ Demonstrates metadata-only fast paths achieve 60% usage in multi-agent scenarios
 """
 import time
 import threading
+import logging
 from dataclasses import dataclass
 from typing import List, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from aura_compression.compressor import ProductionHybridCompressor
 from aura_compression.metadata import MetadataExtractor
 from aura_compression.router import ProductionRouter, RoutingMetrics
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -202,13 +205,13 @@ class StreamingHarness:
         Returns:
             Comprehensive metrics dictionary
         """
-        print(f"\n{'='*80}")
-        print(f"STREAMING HARNESS - Patent Claim 20")
-        print(f"{'='*80}")
-        print(f"Concurrent sessions: {self.concurrent_sessions}")
-        print(f"Messages per session: {self.messages_per_session}")
-        print(f"Total messages: {self.concurrent_sessions * self.messages_per_session}")
-        print(f"{'='*80}\n")
+        logger.info("="*80)
+        logger.info("STREAMING HARNESS - Patent Claim 20")
+        logger.info("="*80)
+        logger.info(f"Concurrent sessions: {self.concurrent_sessions}")
+        logger.info(f"Messages per session: {self.messages_per_session}")
+        logger.info(f"Total messages: {self.concurrent_sessions * self.messages_per_session}")
+        logger.info("="*80)
 
         start_time = time.time()
 
@@ -274,27 +277,24 @@ class StreamingHarness:
 
     def _print_results(self, metrics: Dict[str, Any]):
         """Print streaming harness results"""
-        print(f"\n{'='*80}")
-        print(f"STREAMING HARNESS RESULTS")
-        print(f"{'='*80}")
-        print(f"Total messages:           {metrics['total_messages']}")
-        print(f"Fast-path messages:       {metrics['fast_path_count']}")
-        print(f"Slow-path messages:       {metrics['slow_path_count']}")
-        print(f"Fast-path percentage:     {metrics['fast_path_percentage']:.1f}%")
-        print(f"Target (Claim 20):        {metrics['target_percentage']:.1f}%")
-        print(f"Meets target:             {'✅ YES' if metrics['meets_target'] else '❌ NO'}")
-        print()
-        print(f"AI-to-AI messages:        {metrics['ai_to_ai_messages']}")
-        print(f"AI-to-AI fast-path:       {metrics['ai_to_ai_fast_path_percentage']:.1f}%")
-        print()
-        print(f"Average total latency:    {metrics['average_total_latency_ms']:.3f}ms")
-        print(f"Fast-path latency:        {metrics['average_fast_path_latency_ms']:.3f}ms")
-        print(f"Slow-path latency:        {metrics['average_slow_path_latency_ms']:.3f}ms")
-        print(f"Speedup factor:           {metrics['speedup_factor']:.1f}x")
-        print()
-        print(f"Execution time:           {metrics['total_execution_time_seconds']:.2f}s")
-        print(f"Messages per second:      {metrics['messages_per_second']:.1f}")
-        print(f"{'='*80}\n")
+        logger.info("="*80)
+        logger.info("STREAMING HARNESS RESULTS")
+        logger.info("="*80)
+        logger.info(f"Total messages:           {metrics['total_messages']}")
+        logger.info(f"Fast-path messages:       {metrics['fast_path_count']}")
+        logger.info(f"Slow-path messages:       {metrics['slow_path_count']}")
+        logger.info(f"Fast-path percentage:     {metrics['fast_path_percentage']:.1f}%")
+        logger.info(f"Target (Claim 20):        {metrics['target_percentage']:.1f}%")
+        logger.info(f"Meets target:             {'✅ YES' if metrics['meets_target'] else '❌ NO'}")
+        logger.info(f"AI-to-AI messages:        {metrics['ai_to_ai_messages']}")
+        logger.info(f"AI-to-AI fast-path:       {metrics['ai_to_ai_fast_path_percentage']:.1f}%")
+        logger.info(f"Average total latency:    {metrics['average_total_latency_ms']:.3f}ms")
+        logger.info(f"Fast-path latency:        {metrics['average_fast_path_latency_ms']:.3f}ms")
+        logger.info(f"Slow-path latency:        {metrics['average_slow_path_latency_ms']:.3f}ms")
+        logger.info(f"Speedup factor:           {metrics['speedup_factor']:.1f}x")
+        logger.info(f"Execution time:           {metrics['total_execution_time_seconds']:.2f}s")
+        logger.info(f"Messages per second:      {metrics['messages_per_second']:.1f}")
+        logger.info("="*80)
 
 
 def run_streaming_harness_demo():

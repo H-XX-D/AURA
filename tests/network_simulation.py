@@ -339,16 +339,6 @@ def run_simulation(duration_seconds: int = 60):
     print(f"Total data transmitted: {total_original:,} bytes → {total_compressed:,} bytes")
     print(f"Overall compression ratio: {overall_ratio:.3f}x")
 
-    avg_prompt_size = statistics.mean([m.original_size for m in client_to_server_metrics]) if client_to_server_metrics else 0
-    avg_response_size = statistics.mean([m.original_size for m in server_to_client_metrics]) if server_to_client_metrics else 0
-
-    if avg_prompt_size and avg_response_size:
-        size_ratio = avg_response_size / max(avg_prompt_size, 1)
-        print()
-        print(f"Average prompt size: {avg_prompt_size:.1f} bytes")
-        print(f"Average AI response size: {avg_response_size:.1f} bytes")
-        print(f"AI responses are {size_ratio:.1f}× larger than prompts on average")
-
     if total_original > total_compressed:
         total_savings = total_original - total_compressed
         total_savings_pct = (total_savings / total_original) * 100
@@ -365,7 +355,7 @@ def run_simulation(duration_seconds: int = 60):
     print()
 
     # Honest assessment based on actual results
-    avg_compression = overall_ratio
+    avg_compression = statistics.mean(c2s_ratios + s2c_ratios)
 
     if avg_compression > 1.5:
         print("✓ EXCELLENT: AURA is performing well for this use case")
@@ -391,6 +381,9 @@ def run_simulation(duration_seconds: int = 60):
 
 
 if __name__ == "__main__":
+    import sys
+
+    # Allow duration to be passed as argument
     duration = 60
     if len(sys.argv) > 1:
         try:

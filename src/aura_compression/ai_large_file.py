@@ -429,9 +429,9 @@ def compare_with_traditional(data: str) -> Dict:
 
 
 if __name__ == "__main__":
-    print("AI-Powered Novel Large File Compression")
-    print("=" * 70)
-    print("Patent US 19/366,538 Pending - Proprietary AURA Technology\n")
+    logger.info("AI-Powered Novel Large File Compression")
+    logger.info("=" * 70)
+    logger.info("Patent US 19/366,538 Pending - Proprietary AURA Technology\n")
 
     # Test 1: Repetitive code
     code_sample = """
@@ -474,13 +474,13 @@ function processProductData(productId, productData) {
 
     result = compare_with_traditional(code_sample)
 
-    print("Test: Repetitive Code (JavaScript)")
-    print(f"  Original Size: {result['original_size']} bytes ({result['original_size']/1024:.1f} KB)")
-    print(f"  AI Compressed: {result['ai_compressed']} bytes ({result['ai_ratio']:.2f}:1 ratio)")
-    print(f"  Zlib Compressed: {result['zlib_compressed']} bytes ({result['zlib_ratio']:.2f}:1 ratio)")
-    print(f"  AI Improvement: {result['improvement_percent']:.1f}% better than zlib")
-    print(f"  Patterns Found: {result['patterns_discovered']}")
-    print(f"  Winner: {'AI' if result['ai_wins'] else 'Traditional'}")
+    logger.info("Test: Repetitive Code (JavaScript)")
+    logger.info(f"  Original Size: {result['original_size']} bytes ({result['original_size']/1024:.1f} KB)")
+    logger.info(f"  AI Compressed: {result['ai_compressed']} bytes ({result['ai_ratio']:.2f}:1 ratio)")
+    logger.info(f"  Zlib Compressed: {result['zlib_compressed']} bytes ({result['zlib_ratio']:.2f}:1 ratio)")
+    logger.info(f"  AI Improvement: {result['improvement_percent']:.1f}% better than zlib")
+    logger.info(f"  Patterns Found: {result['patterns_discovered']}")
+    logger.info(f"  Winner: {'AI' if result['ai_wins'] else 'Traditional'}")
 
     # Test 2: Log file
     log_sample = """
@@ -496,16 +496,16 @@ function processProductData(productId, productData) {
 
     result2 = compare_with_traditional(log_sample)
 
-    print(f"\nTest: Server Logs")
-    print(f"  Original Size: {result2['original_size']} bytes ({result2['original_size']/1024:.1f} KB)")
-    print(f"  AI Compressed: {result2['ai_compressed']} bytes ({result2['ai_ratio']:.2f}:1 ratio)")
-    print(f"  Zlib Compressed: {result2['zlib_compressed']} bytes ({result2['zlib_ratio']:.2f}:1 ratio)")
-    print(f"  AI Improvement: {result2['improvement_percent']:.1f}% better than zlib")
-    print(f"  Patterns Found: {result2['patterns_discovered']}")
-    print(f"  Winner: {'AI' if result2['ai_wins'] else 'Traditional'}")
+    logger.info(f"\nTest: Server Logs")
+    logger.info(f"  Original Size: {result2['original_size']} bytes ({result2['original_size']/1024:.1f} KB)")
+    logger.info(f"  AI Compressed: {result2['ai_compressed']} bytes ({result2['ai_ratio']:.2f}:1 ratio)")
+    logger.info(f"  Zlib Compressed: {result2['zlib_compressed']} bytes ({result2['zlib_ratio']:.2f}:1 ratio)")
+    logger.info(f"  AI Improvement: {result2['improvement_percent']:.1f}% better than zlib")
+    logger.info(f"  Patterns Found: {result2['patterns_discovered']}")
+    logger.info(f"  Winner: {'AI' if result2['ai_wins'] else 'Traditional'}")
 
-    print("\n" + "=" * 70)
-    print("Summary:")
-    print("  AI compression leverages semantic understanding to achieve")
-    print("  significantly better ratios than traditional statistical methods.")
-    print("  Best for: Code, logs, structured data with repeating patterns")
+    logger.info("\n" + "=" * 70)
+    logger.info("Summary:")
+    logger.info("  AI compression leverages semantic understanding to achieve")
+    logger.info("  significantly better ratios than traditional statistical methods.")
+    logger.info("  Best for: Code, logs, structured data with repeating patterns")

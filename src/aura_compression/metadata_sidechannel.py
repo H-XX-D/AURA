@@ -2,15 +2,13 @@
 """
 AURA Metadata Side-Channel for Fast-Path Processing
 
-Implements Claims 21-30: Process compressed communications without decompression
-through inline metadata extraction.
+Process compressed communications without decompression through inline metadata extraction.
 
 Key Innovation: 76-200× faster processing (0.17ms vs 13.0ms) by enabling
 classification, routing, security screening, and analytics using only metadata.
 
 Copyright (c) 2025 Todd James Hendricks
 Licensed under Apache License 2.0
-Patent Pending - Application No. 19/366,538
 """
 
 import struct

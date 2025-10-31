@@ -3,6 +3,8 @@
 Comprehensive tests for metadata.py
 Tests metadata extraction, classification, security screening, and routing
 """
+from typing import List, Optional
+
 import pytest
 from aura_compression.metadata import (
     MetadataKind,
@@ -13,6 +15,30 @@ from aura_compression.metadata import (
     SecurityScreener,
     MetadataRouter,
 )
+
+
+_BINARY_SEMANTIC_METHOD = 0x00
+_AURALITE_METHOD = 0x01
+_BRIO_METHOD = 0x02
+_LEGACY_AURALITE_METHOD = 0x03
+_UNCOMPRESSED_METHOD = 0xFF
+
+
+def make_binary_semantic(template_id: int, slot_lengths: Optional[List[int]] = None) -> bytes:
+    """Utility to build binary semantic payloads for tests."""
+    lengths = slot_lengths or []
+    payload = bytearray()
+    payload.append(_BINARY_SEMANTIC_METHOD)
+    payload.extend(template_id.to_bytes(2, "big"))
+    payload.append(len(lengths))
+
+    for length in lengths:
+        payload.extend(length.to_bytes(2, "big"))
+
+    for length in lengths:
+        payload.extend(b"\x00" * length)
+
+    return bytes(payload)
 
 
 class TestMetadataKind:
@@ -184,29 +210,29 @@ class TestMetadataExtractor:
 
     def test_extract_binary_semantic_minimal(self):
         """Test binary semantic extraction with minimal data"""
-        data = bytes([0x00, 0x01, 0x02])  # BINARY_SEMANTIC method, template_id=1, slot_count=2
+        data = make_binary_semantic(1)
 
         metadata = MetadataExtractor.extract(data)
 
         assert metadata.compression_method == "binary_semantic"
-        assert metadata.compressed_size == 2
+        assert metadata.compressed_size == 3
         assert metadata.template_ids == [1]
         assert metadata.fast_path_candidate is True
 
     def test_extract_binary_semantic_full(self):
         """Test binary semantic extraction with full data"""
-        data = bytes([0x00, 0x0A, 0x03])  # BINARY_SEMANTIC, template_id=10, slot_count=3
+        data = make_binary_semantic(10, [2, 4, 1])
 
         metadata = MetadataExtractor.extract(data)
 
         assert metadata.compression_method == "binary_semantic"
-        assert metadata.compressed_size == 2
+        assert metadata.compressed_size == 16
         assert metadata.template_ids == [10]
         assert metadata.fast_path_candidate is True
 
     def test_extract_brio_minimal(self):
         """Test BRIO extraction with minimal data"""
-        data = bytes([0x01, 0x01, 0x02])  # BRIO method
+        data = bytes([_BRIO_METHOD, 0x01, 0x02])  # BRIO method
 
         metadata = MetadataExtractor.extract(data)
 
@@ -216,7 +242,7 @@ class TestMetadataExtractor:
 
     def test_extract_brio_invalid_magic(self):
         """Test BRIO extraction with invalid magic bytes"""
-        data = bytes([0x01]) + b"INVALID" + b"\x00" * 10  # BRIO method, invalid magic
+        data = bytes([_BRIO_METHOD]) + b"INVALID" + b"\x00" * 10  # BRIO method, invalid magic
 
         metadata = MetadataExtractor.extract(data)
 
@@ -238,7 +264,7 @@ class TestMetadataExtractor:
         entry2 = bytes([0x03, 0x00, 0x02, 0x00, 0x14, 0x01])  # SEMANTIC, token=2, value=20, flags=1
         entry3 = bytes([0x02, 0x00, 0x03, 0x00, 0x1E, 0x00])  # LZ77, token=3, value=30
 
-        data = bytes([0x01]) + magic + version + plain_token_len + rans_payload_len + metadata_count + freq_table + entry1 + entry2 + entry3
+        data = bytes([_BRIO_METHOD]) + magic + version + plain_token_len + rans_payload_len + metadata_count + freq_table + entry1 + entry2 + entry3
 
         metadata = MetadataExtractor.extract(data)
 
@@ -255,7 +281,7 @@ class TestMetadataExtractor:
 
     def test_extract_auralite_minimal(self):
         """Test Auralite extraction with minimal data"""
-        data = bytes([0x03, 0x01, 0x02])  # Legacy AuraLite method byte
+        data = bytes([_LEGACY_AURALITE_METHOD, 0x01, 0x02])  # Legacy AuraLite method byte
 
         metadata = MetadataExtractor.extract(data)
 
@@ -264,7 +290,7 @@ class TestMetadataExtractor:
 
     def test_extract_auralite_invalid_magic(self):
         """Test Auralite extraction with invalid magic"""
-        data = bytes([0x03]) + b"INVALID" + b"\x00" * 5  # Legacy tag, invalid magic
+        data = bytes([_LEGACY_AURALITE_METHOD]) + b"INVALID" + b"\x00" * 5  # Legacy tag, invalid magic
 
         metadata = MetadataExtractor.extract(data)
 
@@ -287,8 +313,7 @@ class TestMetadataExtractor:
             0x03, 0x05,                    # literal run: len=5
             0x01, 0x02,                    # dictionary token
         ])
-
-        data = bytes([0x03]) + magic + version + unused1 + token_len + unused2 + tokens
+        data = bytes([_LEGACY_AURALITE_METHOD]) + magic + version + unused1 + token_len + unused2 + tokens
 
         metadata = MetadataExtractor.extract(data)
 
@@ -300,7 +325,7 @@ class TestMetadataExtractor:
 
     def test_extract_uncompressed(self):
         """Test uncompressed data extraction"""
-        data = bytes([0xFF, 0x01, 0x02, 0x03, 0x04])  # UNCOMPRESSED method
+        data = bytes([_UNCOMPRESSED_METHOD, 0x01, 0x02, 0x03, 0x04])  # UNCOMPRESSED method
 
         metadata = MetadataExtractor.extract(data)
 
@@ -333,7 +358,7 @@ class TestFastPathClassifier:
         classifier = FastPathClassifier({5: "test_intent"})
 
         # Binary semantic data with template_id=5
-        data = bytes([0x00, 0x05, 0x01])
+        data = make_binary_semantic(5)
 
         result = classifier.classify(data)
 
@@ -355,7 +380,7 @@ class TestFastPathClassifier:
         classifier = FastPathClassifier({})
 
         # Binary semantic data with template_id=99 (not in intents)
-        data = bytes([0x00, 0x63, 0x01])  # 0x63 = 99
+        data = make_binary_semantic(99)
 
         result = classifier.classify(data)
 
@@ -395,7 +420,7 @@ class TestSecurityScreener:
         screener = SecurityScreener([5])
 
         # Binary semantic data with template_id=5
-        data = bytes([0x00, 0x05, 0x01])
+        data = make_binary_semantic(5)
 
         result = screener.is_safe_fast_path(data)
 
@@ -406,7 +431,7 @@ class TestSecurityScreener:
         screener = SecurityScreener([1, 2, 3])  # 5 not in whitelist
 
         # Binary semantic data with template_id=5
-        data = bytes([0x00, 0x05, 0x01])
+        data = make_binary_semantic(5)
 
         result = screener.is_safe_fast_path(data)
 
@@ -477,7 +502,7 @@ class TestMetadataRouter:
         router = MetadataRouter({5: "test_handler"})
 
         # Binary semantic data with template_id=5
-        data = bytes([0x00, 0x05, 0x01])
+        data = make_binary_semantic(5)
 
         result = router.route(data)
 
@@ -499,7 +524,7 @@ class TestMetadataRouter:
         router = MetadataRouter({1: "handler1"})
 
         # Binary semantic data with template_id=99 (not routed)
-        data = bytes([0x00, 0x63, 0x01])  # 0x63 = 99
+        data = make_binary_semantic(99)
 
         result = router.route(data)
 
@@ -522,7 +547,7 @@ class TestIntegration:
     def test_full_pipeline_binary_semantic(self):
         """Test full pipeline with binary semantic data"""
         # Create binary semantic data
-        data = bytes([0x00, 0x0A, 0x02])  # template_id=10, slot_count=2
+        data = make_binary_semantic(10, [3, 2])
 
         # Extract metadata
         metadata = MetadataExtractor.extract(data)
@@ -551,9 +576,10 @@ class TestIntegration:
         rans_payload_len = (200).to_bytes(4, 'big')
         metadata_count = (1).to_bytes(2, 'big')
         freq_table = b"\x00\x01" * 256
+
         entry = bytes([0x01, 0x00, 0x05, 0x00, 0x14, 0x00])  # TEMPLATE, value=20
 
-        data = bytes([0x01]) + magic + plain_token_len + rans_payload_len + metadata_count + freq_table + entry
+        data = bytes([_BRIO_METHOD]) + magic + plain_token_len + rans_payload_len + metadata_count + freq_table + entry
 
         # Extract metadata
         metadata = MetadataExtractor.extract(data)

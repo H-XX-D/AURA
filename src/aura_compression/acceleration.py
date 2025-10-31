@@ -9,7 +9,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any, List, Tuple, Sequence
+from typing import Dict, Optional, Any, List, Tuple, Sequence, Union
 
 
 @dataclass
@@ -127,7 +127,7 @@ class ConversationAccelerator:
         cache_size: int = 1000,
         decay_rate: float = 0.05,
         enable_platform_wide_learning: bool = False,
-        preload_speed_profile: bool | Sequence[Tuple[int, float]] = True,
+    preload_speed_profile: Union[bool, Sequence[Tuple[int, float]]] = True,
     ):
         """
         Args:

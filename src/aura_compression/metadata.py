@@ -141,14 +141,13 @@ class MetadataExtractor:
     @staticmethod
     def _extract_binary_semantic(payload: bytes) -> ExtractedMetadata:
         """Extract metadata from binary semantic compressed data"""
-        if len(payload) < 2:
+        if len(payload) < 3:
             return ExtractedMetadata(
                 compression_method="binary_semantic",
                 compressed_size=len(payload),
             )
 
-        template_id = payload[0]
-        slot_count = payload[1]
+        template_id = int.from_bytes(payload[0:2], "big")
 
         return ExtractedMetadata(
             compression_method="binary_semantic",

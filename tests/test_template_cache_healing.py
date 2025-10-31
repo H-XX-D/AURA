@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for template cache self-healing logic."""
 
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -32,6 +33,14 @@ def test_template_library_invalidates_stale_persistent(tmp_path):
     assert match is None
     assert library._persistent_cache.get(text) is None
 
+    cache_file = Path(library._persistent_cache.cache_file)
+    assert cache_file.exists(), "SQLite cache should be created on disk"
+    with sqlite3.connect(cache_file) as conn:
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='template_cache'"
+        )
+        assert cursor.fetchone() is not None
+
 
 def test_compressor_self_heals_stale_cache(tmp_path):
     """ProductionHybridCompressor should recover from stale template cache entries."""
@@ -61,3 +70,11 @@ def test_compressor_self_heals_stale_cache(tmp_path):
     _, method, _ = compressor.compress(text)
     assert method != CompressionMethod.BINARY_SEMANTIC
     assert compressor.template_library._persistent_cache.get(text) is None
+
+    cache_file = Path(compressor.template_library._persistent_cache.cache_file)
+    assert cache_file.exists(), "SQLite cache should persist to disk"
+    with sqlite3.connect(cache_file) as conn:
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='template_cache'"
+        )
+        assert cursor.fetchone()[0] == 1

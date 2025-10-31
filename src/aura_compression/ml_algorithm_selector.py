@@ -4,12 +4,15 @@ import time
 import math
 import statistics
 import re
-from typing import Dict, List, Tuple, Optional, Any, NamedTuple
-from pathlib import Path
+import logging
 import json
 import threading
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
+from typing import Dict, List, Tuple, Optional, Any, NamedTuple
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
 
 # Import AI and template components for enhanced feature extraction
 try:
@@ -160,22 +163,10 @@ class MLAlgorithmSelector:
 
         # Check if we've already analyzed this exact message
         message_hash = hashlib.md5(message.encode()).hexdigest()
-        if message_hash in self._analyzed_messages:
-            # Return cached result or default to uncompressed for speed
-            return AlgorithmPrediction(
-                method=CompressionMethod.UNCOMPRESSED,
-                confidence=0.8,
-                expected_ratio=1.0,
-                reasoning="Message already analyzed"
-            )
-        
-        # Mark as analyzed
-        self._analyzed_messages.add(message_hash)
-        
-        # Limit the set size to prevent memory issues
-        if len(self._analyzed_messages) > 10000:
-            # Remove oldest entries (simple approach)
-            self._analyzed_messages = set(list(self._analyzed_messages)[-5000:])
+        if message_hash not in self._analyzed_messages:
+            self._analyzed_messages.add(message_hash)
+            if len(self._analyzed_messages) > 10000:
+                self._analyzed_messages = set(list(self._analyzed_messages)[-5000:])
 
         if not available_methods:
             return AlgorithmPrediction(
@@ -997,10 +988,10 @@ class MLAlgorithmSelector:
             self.method_stats = data.get('method_stats', {})
             self.performance_history = data.get('performance_history', [])
 
-            print(f"Loaded ML model with {len(self.performance_history)} training samples")
+            logger.info(f"Loaded ML model with {len(self.performance_history)} training samples")
 
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Failed to load ML model: {e}")
+            logger.info(f"Warning: Failed to load ML model: {e}")
 
     def save_model(self) -> None:
         """Save model to disk."""
@@ -1018,7 +1009,7 @@ class MLAlgorithmSelector:
                 json.dump(data, f, indent=2)
 
         except IOError as e:
-            print(f"Warning: Failed to save ML model: {e}")
+            logger.info(f"Warning: Failed to save ML model: {e}")
 
     def __del__(self):
         """Save model on destruction."""

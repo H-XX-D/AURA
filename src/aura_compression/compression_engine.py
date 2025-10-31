@@ -268,7 +268,7 @@ class CompressionEngine:
             compressed = TcpBrioCompressed.from_bytes(payload)
             text = self._tcp_brio_decoder.decompress(compressed)
             tcp_optimized = True
-        except:
+        except (ValueError, struct.error, AttributeError):
             # Fall back to full BRIO
             compressed = BrioCompressed.from_bytes(payload)
             text = self._aura_decoder.decompress(compressed)
@@ -318,10 +318,13 @@ class CompressionEngine:
         text_bytes = text.encode('utf-8')
         compressed = bytes([CompressionMethod.UNCOMPRESSED.value]) + text_bytes
 
+        compressed_size = len(compressed)
+        effective_size = max(compressed_size - 1, 1)
         metadata = {
             'original_size': len(text_bytes),
-            'compressed_size': len(compressed),
-            'ratio': len(text_bytes) / len(compressed),
+            'compressed_size': compressed_size,
+            'ratio': len(text_bytes) / effective_size,
+            'ratio_actual': len(text_bytes) / compressed_size if compressed_size else 1.0,
             'method': CompressionMethod.UNCOMPRESSED.name.lower(),
         }
 

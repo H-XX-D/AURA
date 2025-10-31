@@ -53,6 +53,7 @@ class CompressionStrategyManager:
     Manages compression strategies and method selection
     """
     _METRIC_CACHE_LIMIT = 256
+    _PARTIAL_UNCOMPRESSED_THRESHOLD = 16  # bytes
 
     def __init__(self,
                  compression_engine: CompressionEngine,
@@ -134,15 +135,62 @@ class CompressionStrategyManager:
         for strategy in strategies:
             try:
                 if strategy == CompressionMethod.BINARY_SEMANTIC:
+                    # Try full template match first
                     if template_match is None:
-                        continue
-                    compressed, metadata = self.compression_engine.compress_binary_semantic(text, template_match)
+                        # Fallback: Try partial template matching
+                        partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                        if partial_matches:
+                            # Use partial matching compression (best match or hybrid)
+                            compressed, metadata = self._compress_with_partial_templates(
+                                text,
+                                partial_matches,
+                                strategy,
+                            )
+                        else:
+                            continue
+                    else:
+                        compressed, metadata = self.compression_engine.compress_binary_semantic(text, template_match)
+
                 elif strategy == CompressionMethod.AURALITE:
-                    compressed, metadata = self.compression_engine.compress_auralite(text)
+                    # Try partial template matching first for AURALITE too
+                    if template_match is None:
+                        partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                        if partial_matches:
+                            # Use partial matching compression
+                            compressed, metadata = self._compress_with_partial_templates(
+                                text,
+                                partial_matches,
+                                strategy,
+                            )
+                        else:
+                            # No template match, use standard AURALITE
+                            compressed, metadata = self.compression_engine.compress_auralite(text)
+                    else:
+                        # Full template match available
+                        compressed, metadata = self.compression_engine.compress_binary_semantic(text, template_match)
+
                 elif strategy == CompressionMethod.BRIO:
-                    compressed, metadata = self.compression_engine.compress_brio(text)
+                    # Try partial template matching first for BRIO too
+                    if template_match is None:
+                        partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                        if partial_matches:
+                            # Use partial matching compression
+                            compressed, metadata = self._compress_with_partial_templates(
+                                text,
+                                partial_matches,
+                                strategy,
+                            )
+                        else:
+                            # No template match, use standard BRIO
+                            compressed, metadata = self.compression_engine.compress_brio(text)
+                    else:
+                        # Full template match available
+                        compressed, metadata = self.compression_engine.compress_binary_semantic(text, template_match)
+
                 elif strategy == CompressionMethod.AI_SEMANTIC:
+                    # AI_SEMANTIC does NOT use partial template matching (as requested)
                     compressed, metadata = self.compression_engine.compress_ai_semantic(text)
+
                 else:
                     continue
 
@@ -157,6 +205,13 @@ class CompressionStrategyManager:
 
         if best_result is None:
             # Fallback to uncompressed
+            return self.compression_engine.compress_uncompressed(text)
+
+        # If the best ratio does not beat the uncompressed baseline, prefer raw text.
+        if best_ratio <= 1.0:
+            compressed, metadata = best_result
+            if metadata.get('method') == CompressionMethod.UNCOMPRESSED.name.lower():
+                return best_result
             return self.compression_engine.compress_uncompressed(text)
 
         # Validate compression result if enabled (post-compression validation hook)
@@ -181,23 +236,52 @@ class CompressionStrategyManager:
                             template_match: Optional[TemplateMatch] = None) -> Tuple[bytes, dict]:
         """
         Compress using a specific method
+        All methods (except AI_SEMANTIC) now try partial template matching first
         """
         import time
-        
+
         start_time = time.time()
-        
+
         if method == CompressionMethod.BINARY_SEMANTIC:
             if template_match is None:
-                raise ValueError("Template match required for BINARY_SEMANTIC")
-            result = self.compression_engine.compress_binary_semantic(text, template_match)
+                # Try partial template matching
+                partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                if partial_matches:
+                    result = self._compress_with_partial_templates(text, partial_matches, method)
+                else:
+                    raise ValueError("No template match found for BINARY_SEMANTIC")
+            else:
+                result = self.compression_engine.compress_binary_semantic(text, template_match)
+
         elif method == CompressionMethod.AURALITE:
-            result = self.compression_engine.compress_auralite(text)
+            # Try partial template matching first
+            if template_match is None:
+                partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                if partial_matches:
+                    result = self._compress_with_partial_templates(text, partial_matches, method)
+                else:
+                    result = self.compression_engine.compress_auralite(text)
+            else:
+                result = self.compression_engine.compress_binary_semantic(text, template_match)
+
         elif method == CompressionMethod.BRIO:
-            result = self.compression_engine.compress_brio(text)
+            # Try partial template matching first
+            if template_match is None:
+                partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                if partial_matches:
+                    result = self._compress_with_partial_templates(text, partial_matches, method)
+                else:
+                    result = self.compression_engine.compress_brio(text)
+            else:
+                result = self.compression_engine.compress_binary_semantic(text, template_match)
+
         elif method == CompressionMethod.AI_SEMANTIC:
+            # AI_SEMANTIC does NOT use partial template matching (as requested)
             result = self.compression_engine.compress_ai_semantic(text)
+
         elif method == CompressionMethod.UNCOMPRESSED:
             result = self.compression_engine.compress_uncompressed(text)
+
         else:
             raise ValueError(f"Unsupported compression method: {method}")
         
@@ -297,28 +381,28 @@ class CompressionStrategyManager:
             # BINARY_SEMANTIC requires template library
             if hasattr(self.compression_engine, 'template_library') and self.compression_engine.template_library:
                 strategies.append(CompressionMethod.BINARY_SEMANTIC)
-        except:
+        except (AttributeError, TypeError):
             pass
 
         try:
             # Auralite requires encoder
             if hasattr(self.compression_engine, '_auralite_encoder') and self.compression_engine._auralite_encoder:
                 strategies.append(CompressionMethod.AURALITE)
-        except:
+        except (AttributeError, TypeError):
             pass
 
         try:
             # BRIO requires BRIO encoder
             if hasattr(self.compression_engine, '_aura_encoder') and self.compression_engine._aura_encoder:
                 strategies.append(CompressionMethod.BRIO)
-        except:
+        except (AttributeError, TypeError):
             pass
 
         try:
             # AI_SEMANTIC requires AI semantic compressor
             if hasattr(self.compression_engine, '_ai_semantic_compressor') and self.compression_engine._ai_semantic_compressor:
                 strategies.append(CompressionMethod.AI_SEMANTIC)
-        except:
+        except (AttributeError, TypeError):
             pass
 
         return strategies
@@ -857,3 +941,92 @@ class CompressionStrategyManager:
             return decompressed == original
         except Exception:
             return False
+
+    def _compress_with_partial_templates(
+        self,
+        text: str,
+        partial_matches: List[TemplateMatch],
+        target_method: CompressionMethod,
+    ) -> Tuple[bytes, dict]:
+        """
+        Compress text using partial template matches.
+
+        Strategy:
+        1. Use the best partial match for template compression
+        2. For leftover data (prefix/suffix), fall back to UNCOMPRESSED if too small
+        3. Otherwise run the fallback encoder appropriate for ``target_method``
+        4. Track match coverage and compression effectiveness in metadata
+
+        Args:
+            text: Original text to compress
+            partial_matches: Partial template matches found for ``text``
+            target_method: Compression method we are attempting (drives fallback)
+
+        Returns:
+            Tuple of (compressed_bytes, metadata_dict)
+        """
+        best_match = max(partial_matches, key=lambda m: m.end - m.start)
+
+        start = best_match.start or 0
+        end = best_match.end or start
+        match_length = max(0, end - start)
+
+        if match_length == 0:
+            return self.compression_engine.compress_uncompressed(text)
+
+        prefix = text[:start]
+        suffix = text[end:]
+        leftover_bytes = len(prefix.encode('utf-8')) + len(suffix.encode('utf-8'))
+        match_coverage = match_length / len(text) if text else 0.0
+
+        if leftover_bytes == 0:
+            try:
+                compressed, metadata = self.compression_engine.compress_binary_semantic(text, best_match)
+                metadata.update({
+                    'partial_match': True,
+                    'match_coverage': match_coverage,
+                    'leftover_bytes': leftover_bytes,
+                    'leftover_strategy': 'exact_match',
+                    'template_id': best_match.template_id,
+                    'target_method': target_method.name.lower(),
+                })
+                return compressed, metadata
+            except Exception:
+                pass
+
+        if leftover_bytes <= self._PARTIAL_UNCOMPRESSED_THRESHOLD:
+            compressed, metadata = self.compression_engine.compress_uncompressed(text)
+            metadata.update({
+                'partial_match': True,
+                'match_coverage': match_coverage,
+                'leftover_bytes': leftover_bytes,
+                'leftover_strategy': 'uncompressed_fallback',
+                'template_id': best_match.template_id,
+                'target_method': target_method.name.lower(),
+            })
+            return compressed, metadata
+
+        if target_method == CompressionMethod.BRIO:
+            compressed, metadata = self.compression_engine.compress_brio(text)
+            fallback_strategy = 'brio_fallback'
+        elif target_method == CompressionMethod.AURALITE:
+            compressed, metadata = self.compression_engine.compress_auralite(text)
+            fallback_strategy = 'auralite_fallback'
+        elif target_method == CompressionMethod.BINARY_SEMANTIC:
+            # No hybrid support yet; prefer auralite over binary partial payloads
+            compressed, metadata = self.compression_engine.compress_auralite(text)
+            fallback_strategy = 'auralite_fallback'
+        else:
+            compressed, metadata = self.compression_engine.compress_uncompressed(text)
+            fallback_strategy = 'uncompressed_fallback'
+
+        metadata.update({
+            'partial_match': True,
+            'match_coverage': match_coverage,
+            'leftover_bytes': leftover_bytes,
+            'leftover_strategy': fallback_strategy,
+            'template_id': best_match.template_id,
+            'target_method': target_method.name.lower(),
+            'note': 'Partial match detected; hybrid compression not yet implemented',
+        })
+        return compressed, metadata

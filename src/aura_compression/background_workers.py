@@ -4,6 +4,7 @@ Background Workers - Automatic Template Discovery and Maintenance
 Implements Claims 3, 17: Continuous template mining from audit logs
 """
 import json
+import logging
 import threading
 import time
 from pathlib import Path
@@ -12,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 
 from aura_compression.audit import AuditLogger, AuditLogType
 from aura_compression.discovery import TemplateDiscoveryEngine, TemplateCandidate
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateDiscoveryWorker:
@@ -96,9 +99,9 @@ class TemplateDiscoveryWorker:
                 with open(processed_file, 'r') as f:
                     data = json.load(f)
                     self.processed_message_ids = set(data.get('processed_ids', []))
-                    print(f"Loaded {len(self.processed_message_ids)} processed message IDs")
+                    logger.info(f"Loaded {len(self.processed_message_ids)} processed message IDs")
             except Exception as e:
-                print(f"Failed to load processed message IDs: {e}")
+                logger.info(f"Failed to load processed message IDs: {e}")
                 self.processed_message_ids = set()
 
     def _save_processed_message_ids(self):
@@ -112,7 +115,7 @@ class TemplateDiscoveryWorker:
             with open(processed_file, 'w') as f:
                 json.dump(data, f)
         except Exception as e:
-            print(f"Failed to save processed message IDs: {e}")
+            logger.info(f"Failed to save processed message IDs: {e}")
 
     def _load_template_store(self):
         """Load set of already processed message IDs"""
@@ -122,9 +125,9 @@ class TemplateDiscoveryWorker:
                 with open(processed_file, 'r') as f:
                     data = json.load(f)
                     self.processed_message_ids = set(data.get('processed_ids', []))
-                    print(f"Loaded {len(self.processed_message_ids)} processed message IDs")
+                    logger.info(f"Loaded {len(self.processed_message_ids)} processed message IDs")
             except Exception as e:
-                print(f"Failed to load processed message IDs: {e}")
+                logger.info(f"Failed to load processed message IDs: {e}")
                 self.processed_message_ids = set()
 
     def _load_template_store_real(self):
@@ -138,7 +141,7 @@ class TemplateDiscoveryWorker:
             with open(processed_file, 'w') as f:
                 json.dump(data, f)
         except Exception as e:
-            print(f"Failed to save processed message IDs: {e}")
+            logger.info(f"Failed to save processed message IDs: {e}")
 
     def _load_template_store(self):
         """Load existing templates from disk (Claim 17)"""
@@ -163,21 +166,26 @@ class TemplateDiscoveryWorker:
             try:
                 template_id = int(tid)
             except ValueError:
-                print(f"Skipping template with non-integer id: {tid}")
+                logger.info(f"Skipping template with non-integer id: {tid}")
                 continue
 
             if template_id < self.discovery_engine.starting_template_id or template_id > self.discovery_engine.max_template_id:
                 continue
 
+            pattern = template_data.get('pattern')
+            if not pattern:
+                continue
+
             candidate = TemplateCandidate(
-                pattern=template_data['pattern'],
-                frequency=template_data['frequency'],
-                compression_ratio=template_data['compression_ratio'],
-                slot_count=template_data['slot_count'],
-                safety_approved=template_data['safety_approved'],
-                version=template_data['version'],
-                discovered_at=template_data['discovered_at'],
+                pattern=pattern,
+                frequency=template_data.get('frequency', 0),
+                compression_ratio=template_data.get('compression_ratio', 1.0),
+                slot_count=template_data.get('slot_count', pattern.count('{')),
+                safety_approved=template_data.get('safety_approved', True),
+                version=template_data.get('version', 1),
+                discovered_at=template_data.get('discovered_at'),
             )
+            candidate.examples = template_data.get('examples', [])
             self.discovery_engine.promoted_templates[template_id] = candidate
             next_id = max(
                 self.discovery_engine.next_template_id,
@@ -191,9 +199,9 @@ class TemplateDiscoveryWorker:
         self.total_templates_discovered = len(self.discovery_engine.promoted_templates)
 
         if self.discovery_mode == "user":
-            print(f"Loaded {self.total_templates_discovered} user-specific templates for {self.user_id}")
+            logger.info(f"Loaded {self.total_templates_discovered} user-specific templates for {self.user_id}")
         else:
-            print(f"Loaded {self.total_templates_discovered} platform-wide templates")
+            logger.info(f"Loaded {self.total_templates_discovered} platform-wide templates")
 
     def _save_template_store(self):
         """Save templates to disk for client synchronization (Claim 17)"""
@@ -224,7 +232,7 @@ class TemplateDiscoveryWorker:
                 template_dict['user_id'] = self.user_id
                 data['user_templates'][self.user_id][str(template_id)] = template_dict
 
-            print(f"Saved {len(self.discovery_engine.promoted_templates)} user-specific templates for {self.user_id}")
+            logger.info(f"Saved {len(self.discovery_engine.promoted_templates)} user-specific templates for {self.user_id}")
 
         else:  # platform mode
             # Platform-wide templates (129-188)
@@ -247,8 +255,8 @@ class TemplateDiscoveryWorker:
                 template_dict['retired_at'] = datetime.now().isoformat()
                 data['cold_storage_templates'][str(template_id)] = template_dict
 
-            print(f"Saved {len(self.discovery_engine.promoted_templates)} platform-wide templates")
-            print(f"Saved {len(self.discovery_engine.cold_storage)} cold storage templates")
+            logger.info(f"Saved {len(self.discovery_engine.promoted_templates)} platform-wide templates")
+            logger.info(f"Saved {len(self.discovery_engine.cold_storage)} cold storage templates")
 
         # Keep audit log
         data['audit_log'] = self.discovery_engine.export_audit_log()
@@ -295,19 +303,19 @@ class TemplateDiscoveryWorker:
         Returns:
             Number of new templates discovered and promoted
         """
-        print(f"\n{'='*80}")
-        print(f"TEMPLATE DISCOVERY RUN - {datetime.now().isoformat()}")
-        print(f"{'='*80}")
+        logger.info(f"\n{'='*80}")
+        logger.info(f"TEMPLATE DISCOVERY RUN - {datetime.now().isoformat()}")
+        logger.info(f"{'='*80}")
 
         # Get recent messages
-        print("Fetching recent messages from audit logs...")
+        logger.info("Fetching recent messages from audit logs...")
         messages = self._get_recent_messages(hours=24)
 
         if len(messages) < self.min_messages_for_discovery:
-            print(f"Not enough messages for discovery: {len(messages)} < {self.min_messages_for_discovery}")
+            logger.info(f"Not enough messages for discovery: {len(messages)} < {self.min_messages_for_discovery}")
             return 0
 
-        print(f"Analyzing {len(messages)} messages...")
+        logger.info(f"Analyzing {len(messages)} messages...")
 
         # Run discovery pipeline (Claims 3, 15, 16)
         candidates = self.discovery_engine.discover_templates(messages)
@@ -327,7 +335,7 @@ class TemplateDiscoveryWorker:
                     try:
                         template_id = self.discovery_engine.promote_template(candidate)
                     except RuntimeError as exc:
-                        print(f"Skipping promotion: {exc}")
+                        logger.info(f"Skipping promotion: {exc}")
                         continue
                     new_templates += 1
 
@@ -338,22 +346,22 @@ class TemplateDiscoveryWorker:
 
         self.last_discovery_run = datetime.now()
 
-        print(f"\n{'='*80}")
-        print(f"DISCOVERY COMPLETE: {new_templates} new templates promoted")
-        print(f"Total templates in store: {self.total_templates_discovered}")
-        print(f"{'='*80}\n")
+        logger.info(f"\n{'='*80}")
+        logger.info(f"DISCOVERY COMPLETE: {new_templates} new templates promoted")
+        logger.info(f"Total templates in store: {self.total_templates_discovered}")
+        logger.info(f"{'='*80}\n")
 
         return new_templates
 
     def _worker_loop(self):
         """Background worker loop"""
-        print(f"Template discovery worker started (interval: {self.discovery_interval}s)")
+        logger.info(f"Template discovery worker started (interval: {self.discovery_interval}s)")
 
         while self.running:
             try:
                 self.run_discovery()
             except Exception as e:
-                print(f"Error in discovery worker: {e}")
+                logger.info(f"Error in discovery worker: {e}")
 
             # Sleep until next run
             time.sleep(self.discovery_interval)
@@ -361,13 +369,13 @@ class TemplateDiscoveryWorker:
     def start(self):
         """Start background worker (Claim 3)"""
         if self.running:
-            print("Worker already running")
+            logger.info("Worker already running")
             return
 
         self.running = True
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
-        print("Template discovery worker started")
+        logger.info("Template discovery worker started")
 
     def stop(self):
         """Stop background worker"""
@@ -377,7 +385,7 @@ class TemplateDiscoveryWorker:
         self.running = False
         if self.worker_thread:
             self.worker_thread.join(timeout=5)
-        print("Template discovery worker stopped")
+        logger.info("Template discovery worker stopped")
 
     def get_status(self) -> Dict[str, Any]:
         """Get worker status for monitoring"""

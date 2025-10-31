@@ -2,67 +2,53 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Tests: 168 passing](https://img.shields.io/badge/tests-168%20passing-brightgreen.svg)](tests/)
 
-**AI-Optimized Hybrid Compression Protocol for Real-Time Communication**
+**AI-Optimized Hybrid Compression Framework**
 
-AURA (Advanced Universal Response Algorithm) is a high-performance compression framework designed specifically for AI assistant responses and real-time communication. It provides intelligent, adaptive compression with multiple strategies optimized for different data types and network conditions.
+AURA is an experimental compression framework designed for AI-to-AI communication and structured data. It combines template-based compression, dictionary encoding, and entropy coding to achieve high compression ratios on repetitive data patterns.
 
-## Features
+## Project Status: Alpha
 
-### Core Compression Methods
-- **BINARY_SEMANTIC**: Template-based compression for repetitive data (ultra-compact)
-- **AURALITE**: Proprietary AURA-based compression (primary method)
-- **AURA_LITE**: Template + dictionary + literals compression
-- **BRIO_FULL**: Full semantic compression with rANS entropy coding for large messages
-- **BRIO_TCP**: TCP-optimized BRIO for small/medium messages
-- **AURA_HEAVY**: Hybrid semantic + traditional compression for maximum ratios
+This is an **alpha-stage** research project. While the core functionality works and tests pass, it's not yet recommended for production use without thorough testing in your specific environment.
 
-### Intelligent Features
-- **Template Discovery**: Automatic pattern recognition from production traffic
-- **ML Algorithm Selection**: Intelligent method selection based on data characteristics
-- **SIMD Acceleration**: Hardware-optimized processing for small messages
-- **Network-Aware Compression**: Adaptive compression based on network conditions
-- **Hardware Acceleration**: Architecture-specific optimizations (ARM64/NEON)
-- **Persistent Caching**: Template match caching for performance
-- **Audit Logging**: GDPR/HIPAA/SOC2 compliant logging
-- **Metadata Sidechain**: Fast-path processing without decompression for routing, classification, and security screening (76-200× faster processing)
-- **AI Semantic Compression**: Advanced compression for large files using semantic chunking, pattern recognition, and context-aware encoding
+**What Works:**
+- ✅ Core compression/decompression with 5 methods
+- ✅ Template discovery and pattern matching
+- ✅ Metadata sidechannel for fast-path processing
+- ✅ AI-powered semantic compression for large files (>1MB)
+- ✅ 168 passing tests with good coverage
+- ✅ Zero external dependencies
 
-### Performance Highlights
-- Average compression ratios up to 55:1+ on large data
-- Sub-millisecond compression times (typically 0.05-0.25ms)
-- 100% SIMD processing utilization where applicable
-- Automatic optimization pipeline with 18+ optimizations
-- Metadata sidechain enables 76-200× faster routing and processing (0.17ms vs 13.0ms)
-- AI semantic compression achieves 5-300:1 ratios on large files (vs 2.5-64:1 traditional methods)
+**Known Limitations:**
+- ⚠️ Performance varies significantly by data type
+- ⚠️ Small messages (<100 bytes) may expand rather than compress
+- ⚠️ ML algorithm selector exists but needs training data to be effective
+- ⚠️ No formal benchmarks against industry-standard compressors
+- ⚠️ Limited documentation on optimal configuration
+- ⚠️ No production deployments yet
 
 ## Installation
 
 ### Requirements
 - Python 3.8 or higher
-- pip for package management
+- No external dependencies (100% pure Python)
 
 ### Basic Installation
 ```bash
-pip install aura-compression
+git clone https://github.com/hendrixx-cnc/AURA.git
+cd AURA
+pip install -e .
 ```
 
 ### Development Installation
 ```bash
-git clone https://github.com/hendrixx-cnc/AURA.git
-cd AURA
 pip install -e .[dev]
-```
-
-### Optional Dependencies
-For WebSocket support:
-```bash
-pip install aura-compression[websocket]
 ```
 
 ## Quick Start
 
-### Basic Compression
+### Basic Usage
 ```python
 from aura_compression import ProductionHybridCompressor
 
@@ -70,94 +56,253 @@ from aura_compression import ProductionHybridCompressor
 compressor = ProductionHybridCompressor()
 
 # Compress data
-original_data = b"Hello, this is a test message for compression."
-compressed = compressor.compress(original_data)
+message = "Your data here"
+compressed, method, metadata = compressor.compress(message)
 
-# Decompress data
+# Decompress
 decompressed = compressor.decompress(compressed)
 
-print(f"Original: {len(original_data)} bytes")
+print(f"Original: {len(message)} bytes")
 print(f"Compressed: {len(compressed)} bytes")
-print(f"Ratio: {len(original_data)/len(compressed):.2f}:1")
+print(f"Method: {method.name}")
+print(f"Ratio: {metadata['ratio']:.2f}:1")
 ```
 
-### Command Line Usage
-```bash
-# Compress a file
-aura-compress input.txt output.compressed
-
-# Decompress a file
-aura-decompress output.compressed decompressed.txt
-
-# Start compression server
-aura-server --port 8080
-
-# Run benchmarks
-aura-benchmark --iterations 1000
-```
-
-## Configuration
-
-The compressor can be configured for different use cases:
-
+### Configuration Options
 ```python
 compressor = ProductionHybridCompressor(
-    enable_aura=True,  # Use AURA methods only (no standard fallbacks)
-    binary_advantage_threshold=1.1,
-    min_compression_size=20,
-    aura_preference_margin=0.05
+    # Compression settings
+    binary_advantage_threshold=1.01,  # Minimum ratio to use binary compression
+    min_compression_size=10,          # Minimum bytes to attempt compression
+
+    # Feature flags
+    enable_aura=False,                # Use only AURA methods (no zstd fallback)
+    enable_ml_selection=True,         # Use ML for method selection (needs training)
+    enable_fast_path=True,            # Enable SIMD optimizations
+    enable_audit_logging=False,       # Log compression operations
+    enable_scorer=True,               # Score compression quality
 )
 ```
 
-## API Reference
+## Core Features
 
-For detailed API documentation, see the [API Reference](docs/api/README.md) in the docs directory.
+### Compression Methods
+
+1. **BINARY_SEMANTIC** - Template-based compression for highly repetitive data
+   - Best for: Structured responses with known patterns
+   - Typical ratio: 10:1 to 50:1 (on suitable data)
+
+2. **AURALITE** - Lightweight template + dictionary compression
+   - Best for: General-purpose compression of small to medium messages
+   - Typical ratio: 2:1 to 8:1
+
+3. **BRIO** - Dictionary + LZ77 + rANS entropy coding
+   - Best for: Medium to large messages with mixed patterns
+   - Typical ratio: 3:1 to 15:1
+
+4. **AURA_HEAVY** - Hybrid semantic + traditional compression
+   - Best for: Maximum compression regardless of speed
+   - Typical ratio: 5:1 to 20:1
+
+5. **AI_SEMANTIC** - AI-powered semantic compression for large files (>1MB)
+   - Best for: Large files with patterns (code, logs, JSON, XML)
+   - Typical ratio: 5:1 to 50:1+ (highly data-dependent)
+   - Uses semantic chunking, pattern recognition, and context-aware encoding
+
+### Advanced Features
+
+**Template Discovery** - Automatically learns patterns from data
+```python
+from aura_compression import TemplateDiscoveryEngine
+
+engine = TemplateDiscoveryEngine()
+engine.add_message(message)  # Feed production data
+candidates = engine.discover_templates()
+```
+
+**Metadata Sidechannel** - Process compressed data without decompression
+```python
+from aura_compression import MetadataSideChannel
+
+sidechannel = MetadataSideChannel()
+metadata = sidechannel.extract_metadata(compressed_data)
+# Route, classify, or filter without decompressing
+```
+
+**ML Algorithm Selection** - Intelligent method selection (experimental, needs training)
+```python
+from aura_compression import MLAlgorithmSelector
+
+# Works but improves with training data from your production usage
+selector = MLAlgorithmSelector(enable_learning=True)
+best_method = selector.select_method(data_characteristics)
+
+# Selector learns from performance over time
+selector.record_performance(result)
+```
+
+## Performance Characteristics
+
+### Compression Speed
+- Typical: 0.05ms - 0.50ms per message (small messages <1KB)
+- Large files: 10-100ms (depending on method and size)
+- SIMD optimizations provide 2-5x speedup on compatible hardware
+
+### Compression Ratios
+**Highly data-dependent.** Representative examples:
+
+| Data Type | Typical Ratio | Best Case | Worst Case |
+|-----------|---------------|-----------|------------|
+| Structured JSON (repetitive) | 8:1 | 50:1 | 1:1 |
+| AI responses (varied) | 3:1 | 15:1 | 0.8:1 ¹ |
+| Random data | 1:1 | 1.2:1 | 0.95:1 ¹ |
+| Small messages (<100 bytes) | 0.9:1 ¹ | 2:1 | 0.7:1 ¹ |
+
+¹ Ratios < 1.0 indicate expansion (compressed is larger than original)
+
+**Important:** Always measure with YOUR data. Compression effectiveness varies dramatically based on:
+- Data structure and patterns
+- Message size distribution
+- Repetition and redundancy
+- Template library optimization for your use case
+
+## When to Use AURA
+
+### Good Use Cases ✅
+- AI-to-AI communication with structured responses
+- API responses with repeated patterns
+- Large messages (>500 bytes) with redundancy
+- Scenarios where you can train templates on production data
+- Applications where you control both compression and decompression
+
+### Poor Use Cases ❌
+- Small, diverse messages (<100 bytes)
+- Highly random or encrypted data
+- One-way compression (sender ≠ receiver)
+- When compatibility with standard formats (gzip, zstd) is required
+- Production systems requiring proven reliability
 
 ## Testing
 
-Run the test suite:
+Run the full test suite:
 ```bash
-pytest
+pytest tests/
 ```
 
 Run with coverage:
 ```bash
-pytest --cov=aura_compression
+pytest --cov=aura_compression --cov-report=html
 ```
+
+Current test status: **168 tests passing** ✅
+
+## Documentation
+
+- [API Reference](docs/api/) - Detailed module documentation
+- [Performance Guide](docs/performance.md) - Optimization tips and benchmarks
+- [Architecture Overview](docs/architecture.md) - System design and internals
+
+## Project Structure
+
+```
+AURA/
+├── src/aura_compression/          # Core library
+│   ├── compressor_refactored.py   # Main compression engine
+│   ├── compression_strategy_manager.py
+│   ├── templates.py               # Template library
+│   ├── ml_algorithm_selector.py   # ML-based method selection
+│   └── metadata_sidechannel.py    # Fast-path processing
+├── tests/                         # 168 tests
+└── docs/                          # Documentation
+```
+
+## Roadmap
+
+**Current Focus (Q4 2025):**
+- [ ] Train ML algorithm selector with diverse data sets
+- [ ] Comprehensive benchmarks vs zstd/brotli/gzip
+- [ ] Performance optimization (target <0.01ms for small messages)
+- [ ] Production deployment guide
+- [ ] Better documentation with more examples
+
+**Future (2026):**
+- [ ] Pre-trained ML models for common use cases
+- [ ] Multi-language support (Go, Rust, JavaScript)
+- [ ] Streaming compression API
+- [ ] Cloud-based template sync service
+- [ ] GPU acceleration for large files
 
 ## Contributing
 
+Contributions welcome! This is an early-stage project, so there's plenty to improve.
+
+**Areas needing help:**
+- Training ML selector with diverse real-world data
+- Benchmarking against established compressors
+- Performance profiling and optimization
+- Documentation and examples
+- Testing on diverse data types
+- Code review and quality improvements
+
+**To contribute:**
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Make your changes with tests
+4. Run the test suite (`pytest`)
+5. Submit a pull request
 
 ### Development Setup
 ```bash
-# Install development dependencies
+# Install dev dependencies
 pip install -e .[dev]
 
-# Run linting
+# Run tests
+pytest
+
+# Run linting (optional - not currently enforced)
 flake8 src/
-
-# Format code
 black src/
-
-# Type checking
 mypy src/
 ```
 
+## Known Issues
+
+1. **Print statements in production code** - Should use logging module instead
+2. **Some files >1000 lines** - Need refactoring for maintainability
+3. **Magic numbers** - Many thresholds are hardcoded, need configuration
+4. **No CI/CD** - Tests not automated in GitHub Actions
+5. **Version inconsistencies** - Multiple version strings across files
+
+See [Issues](https://github.com/hendrixx-cnc/AURA/issues) for full list.
+
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Licensed under Apache License 2.0 with a dual-license model for commercial use.
 
-## Authors
+**Open Source (Free):**
+- Individual developers
+- Non-profit organizations
+- Educational institutions
+- Companies with annual revenue ≤ $5M
+- Internal testing and evaluation (any company size)
 
-- **Todd Hendricks** - *Initial work* - [todd@auraprotocol.org](mailto:todd@auraprotocol.org)
+**Commercial License (Required):**
+- Public/production deployments by companies with revenue > $5M
+
+See [LICENSE](LICENSE) for full details.
+
+**Patent Notice:** This software implements patent-pending technology. Open source users receive a royalty-free patent license. See LICENSE for details.
+
+## Contact
+
+- **Author:** Todd Hendricks
+- **Email:** todd@auraprotocol.org
+- **Issues:** [GitHub Issues](https://github.com/hendrixx-cnc/AURA/issues)
 
 ## Acknowledgments
 
-- Built for high-performance AI communication systems
-- Optimized for real-time compression needs
-- Compliant with enterprise security standards
+Built as a research project exploring specialized compression for AI communication. Inspired by the need for efficient AI-to-AI data exchange.
+
+---
+
+**Bottom Line:** AURA is an interesting experiment in specialized compression. It works well for specific use cases (structured, repetitive data), but it's not a drop-in replacement for general-purpose compressors. Evaluate it thoroughly with your own data before considering production use.

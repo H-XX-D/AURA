@@ -29,7 +29,7 @@
 - **SIMD Acceleration**: Hardware-optimized processing for small messages
 - **Network-Aware Compression**: Adaptive compression based on network conditions
 - **Hardware Acceleration**: Architecture-specific optimizations (ARM64/NEON)
-- **Persistent Caching**: Template match caching for performance
+- **Persistent Caching**: SQLite-backed template match caching for performance and crash resilience
 - **Audit Logging**: GDPR/HIPAA/SOC2 compliant logging
 
 ## Current System Status ✅

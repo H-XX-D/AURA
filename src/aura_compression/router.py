@@ -4,6 +4,7 @@ Production Router - Patent Claims 20, 26, 28
 Routes messages using metadata without decompression
 Measures fast-path usage percentage
 """
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, Callable
@@ -124,7 +125,7 @@ class ProductionRouter:
             requires_decompression=requires_decompression,
         )
         self.routes.append(route)
-        print(f"Registered route: {handler_name}")
+        logger.info(f"Registered route: {handler_name}")
 
     def set_default_handler(self, handler: Callable):
         """Set default handler for unmatched routes"""

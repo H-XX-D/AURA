@@ -345,7 +345,11 @@ class ProductionHybridCompressor:
 
         # Add method marker (except for uncompressed which already has it)
         if optimal_strategy != CompressionMethod.UNCOMPRESSED:
-            final_payload = bytes([optimal_strategy.value]) + compressed
+            method_byte = optimal_strategy.value
+            if compressed and compressed[0] == method_byte:
+                final_payload = compressed
+            else:
+                final_payload = bytes([method_byte]) + compressed
         else:
             final_payload = compressed
 
@@ -434,7 +438,10 @@ class ProductionHybridCompressor:
         """Try fast path binary semantic compression"""
         try:
             compressed, metadata = self._compression_engine.compress_binary_semantic(text, template_match)
-            binary_payload = bytes([CompressionMethod.BINARY_SEMANTIC.value]) + compressed
+            if compressed and compressed[0] == CompressionMethod.BINARY_SEMANTIC.value:
+                binary_payload = compressed
+            else:
+                binary_payload = bytes([CompressionMethod.BINARY_SEMANTIC.value]) + compressed
 
             original_size = len(text.encode('utf-8'))
             if len(binary_payload) < original_size:

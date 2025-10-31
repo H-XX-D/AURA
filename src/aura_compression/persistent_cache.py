@@ -1,13 +1,20 @@
-"""Persistent template cache for surviving application restarts."""
+"""Persistent template cache for surviving application restarts.
+
+The implementation now stores cache entries in a lightweight SQLite database
+so the cache survives process restarts while remaining resilient to partial
+writes or concurrent updates."""
 
 import json
 import hashlib
-import os
-from pathlib import Path
-from typing import Dict, Optional, Any, List, Tuple
+import logging
+import sqlite3
 import threading
 import time
+from pathlib import Path
+from typing import Dict, Optional, Any, List
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
 
 # TemplateMatch data structure (to avoid circular imports)
 # We'll work with dictionaries and convert in TemplateLibrary
@@ -35,7 +42,7 @@ class PersistentTemplateCache:
             compression_enabled: Whether to compress cache data
         """
         self.cache_dir = Path(cache_dir)
-        self.cache_file = self.cache_dir / "template_cache.json"
+        self.cache_file = self.cache_dir / "template_cache.db"
         self.max_size = max_size
         self.save_interval = save_interval
         self.compression_enabled = compression_enabled
@@ -57,6 +64,12 @@ class PersistentTemplateCache:
 
         # Ensure cache directory exists
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Database connection and schema setup
+        self._conn = sqlite3.connect(self.cache_file, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
+        self._initialize_database()
 
         # Load existing cache
         self._load_cache()
@@ -161,58 +174,70 @@ class PersistentTemplateCache:
             del self._cache[lru_key]
             self.evictions += 1
 
+    def _initialize_database(self) -> None:
+        """Ensure the SQLite backing store is ready for use."""
+        with self._conn:
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS template_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    payload   TEXT NOT NULL,
+                    last_access REAL NOT NULL
+                )
+                """
+            )
+
     def _load_cache(self) -> None:
         """Load cache from disk."""
         if not self.cache_file.exists():
             return
 
+        loaded_count = 0
         try:
-            with open(self.cache_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+            cursor = self._conn.execute(
+                "SELECT cache_key, payload FROM template_cache ORDER BY last_access"
+            )
+            for cache_key, payload in cursor:
+                if len(self._cache) >= self.max_size:
+                    break
+                try:
+                    value = json.loads(payload)
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                self._cache[cache_key] = value
+                self._access_order.append(cache_key)
+                loaded_count += 1
 
-            # Validate and load entries
-            loaded_count = 0
-            for key, value in data.items():
-                if isinstance(value, dict) and len(self._cache) < self.max_size:
-                    self._cache[key] = value
-                    self._access_order.append(key)
-                    loaded_count += 1
+            if loaded_count:
+                logger.info(f"Loaded {loaded_count} cached template matches from {self.cache_file}")
 
-            print(f"Loaded {loaded_count} cached template matches from {self.cache_file}")
-
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Failed to load template cache: {e}")
-            # Remove corrupted cache file
-            try:
-                self.cache_file.unlink()
-            except OSError:
-                pass
+        except sqlite3.Error as exc:
+            logger.info(f"Warning: Failed to load template cache: {exc}")
+            with self._conn:
+                self._conn.execute("DELETE FROM template_cache")
 
     def _save_cache_sync(self) -> None:
         """Synchronously save cache to disk."""
         try:
-            # Ensure cache directory exists
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            with self._lock:
+                with self._conn:
+                    self._conn.execute("DELETE FROM template_cache")
+                    rows = [
+                        (
+                            cache_key,
+                            json.dumps(self._cache[cache_key]),
+                            idx,
+                        )
+                        for idx, cache_key in enumerate(self._access_order)
+                    ]
+                    if rows:
+                        self._conn.executemany(
+                            "INSERT INTO template_cache (cache_key, payload, last_access) VALUES (?, ?, ?)",
+                            rows,
+                        )
 
-            # Use a more unique temp file name to avoid conflicts
-            import uuid
-            temp_file = self.cache_file.parent / f"template_cache_{uuid.uuid4().hex[:8]}.tmp"
-
-            # Write to temp file
-            with open(temp_file, 'w', encoding='utf-8') as f:
-                json.dump(self._cache, f, indent=None, separators=(',', ':'))
-
-            # Atomic move
-            temp_file.replace(self.cache_file)
-
-        except IOError as e:
-            print(f"Warning: Failed to save template cache: {e}")
-            # Try to clean up temp file if it exists
-            try:
-                if 'temp_file' in locals():
-                    temp_file.unlink(missing_ok=True)
-            except:
-                pass
+        except sqlite3.Error as exc:
+            logger.info(f"Warning: Failed to save template cache: {exc}")
 
     def _save_cache_async(self) -> None:
         """Asynchronously save cache to disk."""

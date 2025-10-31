@@ -649,7 +649,7 @@ if __name__ == "__main__":
             print("✅ Audit logging complete")
             print()
             print("🚀 AURA PROTOCOL IS PRODUCTION READY")
-            print("💰 Patent Pending | Enterprise Ready | Compliance-First")
+            print("💰 Enterprise Ready | Compliance-First")
         else:
             total_failed = self.results["ai_to_ai"]["failed"] + self.results["human_to_ai"]["failed"]
             print(f"❌ {total_failed} TEST(S) FAILED")

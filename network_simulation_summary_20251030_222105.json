@@ -1,0 +1,170 @@
+{
+  "simulation_info": {
+    "start_time": "2025-10-30T22:20:35.146602",
+    "end_time": "2025-10-30T22:21:05.159977",
+    "planned_duration_seconds": 30.0,
+    "actual_duration_seconds": 30.013348,
+    "total_messages_processed": 856,
+    "scorer_enabled": false,
+    "scorer_status": {
+      "requested": false,
+      "enabled": false,
+      "auto_disabled": false,
+      "disabled_reason": null,
+      "messages_seen": 783,
+      "borderline_messages": 96,
+      "global_borderline_ratio": 0.12260536398467432,
+      "evaluation_window": 500,
+      "window_threshold": 0.15,
+      "last_window_ratio": null,
+      "last_window_sample": 0,
+      "recommendation": null
+    }
+  },
+  "compression_performance": {
+    "methods_used": {
+      "1": 676,
+      "0": 75,
+      "255": 105
+    },
+    "average_compression_ratio": 1.0698682106390105,
+    "median_compression_ratio": 0.9577464788732394,
+    "min_compression_ratio": 0.9239130434782609,
+    "max_compression_ratio": 2.9,
+    "compression_ratio_stddev": 0.3778225699651826
+  },
+  "message_type_distribution": {
+    "log_message": 221,
+    "repetitive_text": 44,
+    "binary_data": 81,
+    "structured_data": 119,
+    "api_request": 267,
+    "chat_message": 124
+  },
+  "template_discovery": {
+    "template_matches": 75,
+    "template_match_rate": 0.08761682242990654,
+    "template_discoveries": 0
+  },
+  "ml_algorithm_performance": {
+    "ai_semantic_usage": 0,
+    "ai_semantic_rate": 0.0,
+    "binary_semantic_usage": 75,
+    "binary_semantic_rate": 0.08761682242990654
+  },
+  "performance_metrics": {
+    "average_processing_time": 0.0016418464272935814,
+    "median_processing_time": 0.0016440153121948242,
+    "messages_per_second": 28.52064354833056,
+    "processing_time_stddev": 0.0009974385634955796,
+    "average_message_size": 200.55841121495328,
+    "median_message_size": 127.0,
+    "min_message_size": 29,
+    "max_message_size": 1015,
+    "size_distribution": {
+      "small": 225,
+      "medium": 605,
+      "large": 26
+    },
+    "latency_metrics": {
+      "average_latency_ms": 1.6418464272935813,
+      "median_latency_ms": 1.6440153121948242,
+      "min_latency_ms": 0.1926422119140625,
+      "max_latency_ms": 7.164955139160156,
+      "latency_stddev_ms": 0.9974385634955796,
+      "p95_latency_ms": 3.2433390617370605
+    },
+    "bandwidth_metrics": {
+      "average_bandwidth_bps": 190269.7041288593,
+      "median_bandwidth_bps": 113056.5638979412,
+      "min_bandwidth_bps": 4047.478237721283,
+      "max_bandwidth_bps": 1898829.7786720323,
+      "bandwidth_stddev_bps": 227261.63491076138,
+      "total_data_processed_mb": 0.1637248992919922,
+      "effective_bandwidth_mbps": 0.32730417004859075
+    }
+  },
+  "error_analysis": {
+    "total_errors": 0,
+    "error_rate": 0.0,
+    "error_samples": []
+  },
+  "detailed_analysis": {
+    "template_matching_analysis": {
+      "total_attempts": 856,
+      "failure_rate": 0.9123831775700935,
+      "success_rate": 0.08761682242990654,
+      "reason_for_low_matches": "Very high template matching failure rate (91.2%). Possible issues: 1) Templates not diverse enough for message patterns, 2) Template discovery not finding good patterns, 3) Message variation too high for existing templates, 4) Template library not being updated properly"
+    },
+    "compression_method_analysis": {
+      "methods_available_distribution": {
+        "4": 856
+      },
+      "method_usage_breakdown": {
+        "1": {
+          "usage_count": 676,
+          "usage_rate": 0.7897196261682243,
+          "avg_compression_ratio": 0.9599778680751623,
+          "avg_message_size": 229.58136094674558,
+          "template_match_rate": 0.0,
+          "avg_available_methods": 4
+        },
+        "0": {
+          "usage_count": 75,
+          "usage_rate": 0.08761682242990654,
+          "avg_compression_ratio": 2.173506439413426,
+          "avg_message_size": 57.54666666666667,
+          "template_match_rate": 1.0,
+          "avg_available_methods": 4
+        },
+        "255": {
+          "usage_count": 105,
+          "usage_rate": 0.12266355140186916,
+          "avg_compression_ratio": 0.9890396812588222,
+          "avg_message_size": 115.85714285714286,
+          "template_match_rate": 0.0,
+          "avg_available_methods": 4
+        }
+      },
+      "why_other_methods_not_used": "AI semantic compression not being used despite being available. May be due to: 1) AI compressor not initialized, 2) ML selector preferring other methods, 3) AI method not meeting quality thresholds"
+    },
+    "ml_decision_analysis": {
+      "ml_selection_reasons": {},
+      "method_effectiveness": {
+        "1": {
+          "best_ratio": 1.146341463414634,
+          "worst_ratio": 0.9239130434782609,
+          "avg_ratio": 0.9599778680751623,
+          "ratio_consistency": 0.030326332152622468,
+          "usage_efficiency": 0.0073964497041420114,
+          "avg_latency_ms": 1.6847845365309857,
+          "avg_bandwidth_bps": 212276.2840442115,
+          "latency_vs_ratio_tradeoff": 0.3606277355751954,
+          "bandwidth_efficiency": 203.8386289478845
+        },
+        "0": {
+          "best_ratio": 2.9,
+          "worst_ratio": 0.9758064516129032,
+          "avg_ratio": 2.173506439413426,
+          "ratio_consistency": 0.5355968517707305,
+          "usage_efficiency": 0.9733333333333334,
+          "avg_latency_ms": 1.8302631378173828,
+          "avg_bandwidth_bps": 54735.07550011409,
+          "latency_vs_ratio_tradeoff": 0.680850509342329,
+          "bandwidth_efficiency": 109.91251676822
+        },
+        "255": {
+          "best_ratio": 0.9974424552429667,
+          "worst_ratio": 0.9772727272727273,
+          "avg_ratio": 0.9890396812588222,
+          "ratio_consistency": 0.004211390066849813,
+          "usage_efficiency": 0.0,
+          "avg_latency_ms": 1.2308234260195778,
+          "avg_bandwidth_bps": 145399.69578960046,
+          "latency_vs_ratio_tradeoff": 0.5640101763688918,
+          "bandwidth_efficiency": 144.0811090543732
+        }
+      }
+    }
+  }
+}

@@ -7,7 +7,9 @@ Automatically derives compression templates from historical audit logs using:
 - Regex inference
 - Prefix/suffix extraction
 """
+import logging
 import re
+import logging
 import hashlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
@@ -337,15 +339,15 @@ class TemplateDiscoveryEngine:
         if not messages:
             return []
 
-        print(f"Discovering templates from {len(messages)} messages...")
+        logger.info(f"Discovering templates from {len(messages)} messages...")
 
         # Step 1: Cluster similar messages (Claim 15)
-        print("Step 1: Clustering similar messages...")
+        logger.info("Step 1: Clustering similar messages...")
         clusters = self.clustering_engine.cluster_messages(messages)
-        print(f"  Found {len(clusters)} clusters")
+        logger.info(f"  Found {len(clusters)} clusters")
 
         # Step 2: Extract patterns from clusters (Claim 3)
-        print("Step 2: Extracting patterns...")
+        logger.info("Step 2: Extracting patterns...")
         candidates = []
         for cluster in clusters:
             if len(cluster) >= self.min_frequency:
@@ -353,26 +355,26 @@ class TemplateDiscoveryEngine:
                 if pattern:
                     candidates.append(pattern)
 
-        print(f"  Extracted {len(candidates)} pattern candidates")
+        logger.info(f"  Extracted {len(candidates)} pattern candidates")
 
         # Step 3: Safety screening (Claim 3)
-        print("Step 3: Safety screening...")
+        logger.info("Step 3: Safety screening...")
         safe_candidates = []
         for candidate in candidates:
             if self.safety_screener.screen(candidate):
                 candidate.safety_approved = True
                 safe_candidates.append(candidate)
 
-        print(f"  {len(safe_candidates)} candidates passed safety")
+        logger.info(f"  {len(safe_candidates)} candidates passed safety")
 
         # Step 4: Compression advantage testing (Claim 16)
-        print("Step 4: Testing compression advantage...")
+        logger.info("Step 4: Testing compression advantage...")
         approved_candidates = []
         for candidate in safe_candidates:
             if candidate.compression_ratio >= self.compression_threshold:
                 approved_candidates.append(candidate)
 
-        print(f"  {len(approved_candidates)} candidates meet compression threshold")
+        logger.info(f"  {len(approved_candidates)} candidates meet compression threshold")
 
         return approved_candidates
 
@@ -407,7 +409,7 @@ class TemplateDiscoveryEngine:
             del self.promoted_templates[template_id]
             retired_ids.append(template_id)
             
-            print(f"RETIRED: Template {template_id} (usage: {template.usage_count}, days unused: {template.days_since_used})")
+            logger.info(f"RETIRED: Template {template_id} (usage: {template.usage_count}, days unused: {template.days_since_used})")
             
             # Limit cold storage size
             if len(self.cold_storage) > 1000:
@@ -473,11 +475,11 @@ class TemplateDiscoveryEngine:
         self.promoted_templates[template_id] = candidate
 
         # Log promotion event for forensic review (Claim 18)
-        print(f"PROMOTED: Template {template_id}")
-        print(f"  Pattern: {candidate.pattern}")
-        print(f"  Frequency: {candidate.frequency}")
-        print(f"  Compression: {candidate.compression_ratio:.2f}:1")
-        print(f"  Safety: {'APPROVED' if candidate.safety_approved else 'PENDING'}")
+        logger.info(f"PROMOTED: Template {template_id}")
+        logger.info(f"  Pattern: {candidate.pattern}")
+        logger.info(f"  Frequency: {candidate.frequency}")
+        logger.info(f"  Compression: {candidate.compression_ratio:.2f}:1")
+        logger.info(f"  Safety: {'APPROVED' if candidate.safety_approved else 'PENDING'}")
 
         return template_id
 
@@ -505,7 +507,7 @@ class TemplateDiscoveryEngine:
             if template.usage_count > self.min_usage_threshold * 2:
                 self.promoted_templates[template_id] = template
                 del self.cold_storage[template_id]
-                print(f"RESTORED: Template {template_id} from cold storage")
+                logger.info(f"RESTORED: Template {template_id} from cold storage")
                 return True
         return False
 

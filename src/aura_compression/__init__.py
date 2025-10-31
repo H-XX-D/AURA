@@ -1,21 +1,13 @@
 """
 AURA Compression - AI-Optimized Hybrid Compression Protocol
 
-Patent Claims Implementation:
-- Claims 1-20: Core compression (hybrid templates + LZ77 + rANS)
-- Claims 21-30: Metadata side-channel (fast-path processing)
-- Claims 31-31E: Conversation acceleration (pattern caching)
-- Claims 32-35: Compliance architecture (4-log system)
-
 Copyright (c) 2025 Todd Hendricks
 Licensed under Apache License 2.0
-Patent Pending - Application No. 19/366,538
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __author__ = "Todd Hendricks"
 __license__ = "Apache 2.0"
-__patent__ = "US Patent Application No. 19/366,538"
 
 from .compressor import ProductionHybridCompressor
 from .enums import CompressionMethod
@@ -39,24 +31,24 @@ from .brio_full import BrioEncoder as BrioFullEncoder, BrioCompressed as BrioFul
 from .ml_algorithm_selector import MLAlgorithmSelector
 
 __all__ = [
-    # Core compression (Claims 1-20)
+    # Core compression
     "ProductionHybridCompressor",
     "CompressionMethod",
     "TemplateLibrary",
 
-    # Audit logging (Claims 2, 11, 32-35)
+    # Audit logging
     "AuditLogger",
     "AuditLogType",
     "get_audit_logger",
     "reset_audit_logger",
 
-    # Metadata fast-path (Claims 21-30)
+    # Metadata fast-path
     "MetadataExtractor",
     "FastPathClassifier",
     "SecurityScreener",
     "MetadataRouter",
 
-    # Template discovery (Claims 3, 15-18)
+    # Template discovery
     "TemplateDiscoveryEngine",
     "TemplateCandidate",
     "TemplateDiscoveryWorker",
@@ -64,23 +56,23 @@ __all__ = [
     "start_discovery_worker",
     "stop_discovery_worker",
 
-    # Conversation acceleration (Claims 31-31E)
+    # Conversation acceleration
     "ConversationAccelerator",
     "ConversationSession",
     "PlatformWideAccelerator",
 
-    # AI-to-AI function parsing (Claim 19)
+    # AI-to-AI function parsing
     "FunctionCallParser",
     "FunctionCall",
     "AItoAIOrchestrator",
 
-    # Production routing (Claims 20, 26, 28)
+    # Production routing
     "ProductionRouter",
     "LoadBalancer",
     "RoutingMetrics",
     "StreamingHarness",
 
-    # Metadata sidechannel (Claims 21-30)
+    # Metadata sidechannel
     "MetadataSideChannel",
     "MessageCategory",
     "MessageMetadata",

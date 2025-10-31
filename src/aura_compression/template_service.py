@@ -3,16 +3,21 @@
 Template Service - Unified Template Management System
 Combines template management, synchronization, and discovery
 """
+
 import json
+import logging
 import threading
 import time
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from aura_compression.template_manager import TemplateManager
 from aura_compression.templates import TemplateLibrary
-from aura_compression.background_workers import TemplateSyncService, TemplateDiscoveryWorker
+from aura_compression.background_workers import TemplateDiscoveryWorker, TemplateSyncService
+
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateService:
@@ -66,7 +71,7 @@ class TemplateService:
             self.discovery_worker.start()
         except Exception as e:
             # Discovery is optional, don't fail if it can't start
-            print(f"Warning: Could not start template discovery worker: {e}")
+            logger.warning("Could not start template discovery worker: %s", e)
             self.discovery_worker = None
 
     def sync_template_store(self):
@@ -94,7 +99,7 @@ class TemplateService:
                     self.template_library.sync_dynamic_templates(dynamic_templates)
             except Exception as e:
                 # Sync is best-effort, don't fail operations
-                print(f"Warning: Template sync failed: {e}")
+                logger.warning("Template sync failed: %s", e)
 
     def heal_template_cache(self,
                              text: Optional[str] = None,

@@ -134,13 +134,15 @@ class TemplateService:
         """
         with self._lock:
             templates = {}
+            metadata: Dict[str, Any] = {}
             if self.discovery_worker:
                 templates = self.discovery_worker.get_discovered_templates()
+                metadata = self.discovery_worker.get_store_metadata()
             
             return {
                 'version': 1,
                 'templates': templates,
-                'last_updated': datetime.now(timezone.utc).isoformat(),
+                'last_updated': metadata.get('last_updated', datetime.now(timezone.utc).isoformat()),
                 'total_templates': len(templates),
             }
 

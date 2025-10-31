@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
+import sqlite3
 
 from aura_compression.audit import AuditLogger, AuditLogType
 from aura_compression.discovery import TemplateDiscoveryEngine, TemplateCandidate
@@ -86,13 +87,242 @@ class TemplateDiscoveryWorker:
         
         # In-memory template store for quick access (points to SQL cache)
         self.discovered_templates: Dict[int, str] = {}
-        
+        self._scope = f"user:{self.user_id}" if self.discovery_mode == "user" else "platform"
+        self._db_conn: Optional[sqlite3.Connection] = None
+        self._db_lock = threading.RLock()
+        self._init_database()
+
         # Track processed messages to avoid re-analysis
         self.processed_message_ids: set = set()
         self._load_processed_message_ids()
 
         # Load existing template store
         self._load_template_store()
+
+    def _init_database(self) -> None:
+        """Initialize SQLite backing store for discovered templates."""
+        Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
+        db_path = Path(self.cache_dir) / "template_store.db"
+        self._db_conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._db_conn.execute("PRAGMA journal_mode=WAL")
+        self._db_conn.execute("PRAGMA synchronous=NORMAL")
+        with self._db_lock, self._db_conn:
+            self._db_conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS template_store (
+                    template_id INTEGER NOT NULL,
+                    scope TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    user_id TEXT,
+                    data_json TEXT NOT NULL,
+                    discovered_by TEXT,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (template_id, scope)
+                )
+                """
+            )
+            self._db_conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS cold_storage_templates (
+                    template_id INTEGER NOT NULL,
+                    scope TEXT NOT NULL,
+                    mode TEXT NOT NULL,
+                    user_id TEXT,
+                    data_json TEXT NOT NULL,
+                    retired_at TEXT NOT NULL,
+                    PRIMARY KEY (template_id, scope)
+                )
+                """
+            )
+            self._db_conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS template_metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """
+            )
+
+    def _close_database(self) -> None:
+        """Close SQLite connection."""
+        if self._db_conn is not None:
+            try:
+                self._db_conn.close()
+            except sqlite3.Error:
+                pass
+            self._db_conn = None
+
+    def _candidate_from_payload(self, payload: Dict[str, Any]) -> Optional[TemplateCandidate]:
+        """Rehydrate TemplateCandidate from stored JSON payload."""
+        pattern = payload.get('pattern')
+        if not pattern:
+            return None
+
+        candidate = TemplateCandidate(
+            pattern=pattern,
+            frequency=payload.get('frequency', 0),
+            compression_ratio=payload.get('compression_ratio', 1.0),
+            slot_count=payload.get('slot_count') or pattern.count('{'),
+            examples=payload.get('examples', []),
+            safety_approved=payload.get('safety_approved', True),
+            version=payload.get('version', 1),
+            discovered_at=payload.get('discovered_at'),
+        )
+        candidate.usage_count = payload.get('usage_count', 0)
+        candidate.last_used = payload.get('last_used')
+        candidate.days_since_used = payload.get('days_since_used', 0)
+        return candidate
+
+    def _migrate_legacy_template_store(self) -> None:
+        """Migrate legacy JSON template store into SQLite backend."""
+        legacy_file = Path(self.cache_dir) / "discovered_templates.json"
+        if not legacy_file.exists():
+            return
+
+        try:
+            data = json.loads(legacy_file.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning(f"Failed to read legacy template store: {exc}")
+            legacy_file.rename(legacy_file.with_suffix(".corrupt"))
+            return
+
+        scope_templates: Dict[int, Dict[str, Any]]
+        if self.discovery_mode == "user":
+            scope_templates = data.get('user_templates', {}).get(self.user_id, {}) or {}
+        else:
+            scope_templates = data.get('platform_templates', {}) or {}
+
+        cold_templates = data.get('cold_storage_templates', {})
+        namespace = f"user:{self.user_id}" if self.discovery_mode == "user" else "platform"
+        now = datetime.now(timezone.utc).isoformat()
+
+        with self._db_lock, self._db_conn:
+            for tid_str, template_data in scope_templates.items():
+                try:
+                    template_id = int(tid_str)
+                except ValueError:
+                    continue
+                payload = json.dumps(template_data)
+                discovered_by = template_data.get('discovered_by')
+                self._db_conn.execute(
+                    """
+                    INSERT OR REPLACE INTO template_store
+                    (template_id, scope, mode, user_id, data_json, discovered_by, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        template_id,
+                        namespace,
+                        self.discovery_mode,
+                        self.user_id,
+                        payload,
+                        discovered_by,
+                        now,
+                    ),
+                )
+
+            for tid_str, template_data in cold_templates.items():
+                try:
+                    template_id = int(tid_str)
+                except ValueError:
+                    continue
+                payload = json.dumps(template_data)
+                self._db_conn.execute(
+                    """
+                    INSERT OR REPLACE INTO cold_storage_templates
+                    (template_id, scope, mode, user_id, data_json, retired_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        template_id,
+                        namespace,
+                        self.discovery_mode,
+                        self.user_id,
+                        payload,
+                        now,
+                    ),
+                )
+
+            self._db_conn.execute(
+                """
+                INSERT INTO template_metadata(key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                """,
+                (f"last_updated::{namespace}", now),
+            )
+
+        backup_path = legacy_file.with_suffix(".json.backup")
+        try:
+            legacy_file.rename(backup_path)
+            logger.info(f"Migrated legacy template store to SQLite (backup: {backup_path.name})")
+        except OSError:
+            logger.info("Migrated legacy template store to SQLite; original file kept for reference")
+
+    def _load_templates_from_db(self) -> None:
+        """Populate in-memory structures from SQLite backend."""
+        if self._db_conn is None:
+            return
+
+        self.discovered_templates.clear()
+        self.discovery_engine.promoted_templates.clear()
+        self.discovery_engine.cold_storage.clear()
+
+        max_template_id = self.discovery_engine.starting_template_id - 1
+
+        with self._db_lock:
+            cursor = self._db_conn.cursor()
+            cursor.execute(
+                """
+                SELECT template_id, data_json
+                FROM template_store
+                WHERE scope=?
+                ORDER BY template_id
+                """,
+                (self._scope,),
+            )
+            for template_id, payload_json in cursor.fetchall():
+                try:
+                    payload = json.loads(payload_json)
+                except json.JSONDecodeError:
+                    continue
+
+                candidate = self._candidate_from_payload(payload)
+                if candidate is None:
+                    continue
+
+                self.discovery_engine.promoted_templates[template_id] = candidate
+                self.discovered_templates[template_id] = candidate.pattern
+                max_template_id = max(max_template_id, template_id)
+
+            cursor.execute(
+                """
+                SELECT template_id, data_json
+                FROM cold_storage_templates
+                WHERE scope=?
+                """,
+                (self._scope,),
+            )
+            for template_id, payload_json in cursor.fetchall():
+                try:
+                    payload = json.loads(payload_json)
+                except json.JSONDecodeError:
+                    continue
+
+                candidate = self._candidate_from_payload(payload)
+                if candidate is None:
+                    continue
+                self.discovery_engine.cold_storage[template_id] = candidate
+
+        if max_template_id >= self.discovery_engine.starting_template_id:
+            self.discovery_engine.next_template_id = max_template_id + 1
+
+        self.total_templates_discovered = len(self.discovery_engine.promoted_templates)
+
+        if self.discovery_mode == "user":
+            logger.info(f"Loaded {self.total_templates_discovered} user-specific templates for {self.user_id}")
+        else:
+            logger.info(f"Loaded {self.total_templates_discovered} platform-wide templates")
 
     def _load_processed_message_ids(self):
         """Load set of already processed message IDs from cache directory"""
@@ -123,142 +353,132 @@ class TemplateDiscoveryWorker:
             logger.warning(f"Failed to save processed message IDs: {e}")
 
     def _load_template_store(self):
-        """Load existing templates from SQL cache"""
+        """Load existing templates from SQLite cache, migrating legacy JSON if needed."""
         try:
-            # Load templates from the template cache metadata
-            cache_file = Path(self.cache_dir) / "discovered_templates.json"
-            if not cache_file.exists():
-                return
-
-            with open(cache_file, 'r') as f:
-                data = json.load(f)
-
-            # Load templates based on discovery mode
-            if self.discovery_mode == "user":
-                templates_dict = data.get('user_templates', {}).get(self.user_id, {})
-            else:
-                templates_dict = data.get('platform_templates', {})
-
-            # Restore promoted templates
-            for tid, template_data in templates_dict.items():
-                try:
-                    template_id = int(tid)
-                except ValueError:
-                    logger.info(f"Skipping template with non-integer id: {tid}")
-                    continue
-
-                if template_id < self.discovery_engine.starting_template_id or template_id > self.discovery_engine.max_template_id:
-                    continue
-
-                pattern = template_data.get('pattern')
-                if not pattern:
-                    continue
-
-                # Store in memory
-                self.discovered_templates[template_id] = pattern
-
-                candidate = TemplateCandidate(
-                    pattern=pattern,
-                    frequency=template_data.get('frequency', 0),
-                    compression_ratio=template_data.get('compression_ratio', 1.0),
-                    slot_count=template_data.get('slot_count', pattern.count('{')),
-                    safety_approved=template_data.get('safety_approved', True),
-                    version=template_data.get('version', 1),
-                    discovered_at=template_data.get('discovered_at'),
-                )
-                candidate.examples = template_data.get('examples', [])
-                self.discovery_engine.promoted_templates[template_id] = candidate
-                next_id = max(
-                    self.discovery_engine.next_template_id,
-                    template_id + 1
-                )
-                self.discovery_engine.next_template_id = min(
-                    next_id,
-                    self.discovery_engine.max_template_id + 1,
-                )
-
-            self.total_templates_discovered = len(self.discovery_engine.promoted_templates)
-
-            if self.discovery_mode == "user":
-                logger.info(f"Loaded {self.total_templates_discovered} user-specific templates for {self.user_id}")
-            else:
-                logger.info(f"Loaded {self.total_templates_discovered} platform-wide templates")
+            self._migrate_legacy_template_store()
+            self._load_templates_from_db()
         except Exception as e:
             logger.warning(f"Failed to load template store: {e}")
 
     def _save_template_store(self):
-        """Save templates to SQL cache for persistence"""
+        """Persist templates to SQLite cache."""
+        if self._db_conn is None:
+            return
+
+        now = datetime.now(timezone.utc).isoformat()
+        active_count = len(self.discovery_engine.promoted_templates)
+        cold_count = len(self.discovery_engine.cold_storage)
+
         try:
-            # Ensure cache directory exists
-            Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
-            cache_file = Path(self.cache_dir) / "discovered_templates.json"
+            with self._db_lock:
+                cursor = self._db_conn.cursor()
+                cursor.execute("BEGIN IMMEDIATE")
+                cursor.execute("DELETE FROM template_store WHERE scope=?", (self._scope,))
+                cursor.execute("DELETE FROM cold_storage_templates WHERE scope=?", (self._scope,))
 
-            # Load existing data
-            if cache_file.exists():
-                with open(cache_file, 'r') as f:
-                    data = json.load(f)
-            else:
-                data = {
-                    'version': 1,
-                    'platform_templates': {},
-                    'user_templates': {},
-                }
+                self.discovered_templates.clear()
 
-            data['last_updated'] = datetime.now().isoformat()
+                for template_id, candidate in self.discovery_engine.promoted_templates.items():
+                    payload = candidate.to_dict()
+                    if self.discovery_mode == "user":
+                        payload['user_id'] = self.user_id
+                    elif self.user_id:
+                        payload['discovered_by'] = self.user_id
+
+                    cursor.execute(
+                        """
+                        INSERT INTO template_store
+                        (template_id, scope, mode, user_id, data_json, discovered_by, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            template_id,
+                            self._scope,
+                            self.discovery_mode,
+                            self.user_id,
+                            json.dumps(payload),
+                            payload.get('discovered_by'),
+                            now,
+                        ),
+                    )
+                    self.discovered_templates[template_id] = candidate.pattern
+
+                for template_id, candidate in self.discovery_engine.cold_storage.items():
+                    payload = candidate.to_dict()
+                    payload['retired_at'] = now
+                    cursor.execute(
+                        """
+                        INSERT INTO cold_storage_templates
+                        (template_id, scope, mode, user_id, data_json, retired_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            template_id,
+                            self._scope,
+                            self.discovery_mode,
+                            self.user_id,
+                            json.dumps(payload),
+                            now,
+                        ),
+                    )
+
+                cursor.execute(
+                    """
+                    INSERT INTO template_metadata(key, value)
+                    VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                    """,
+                    (f"last_updated::{self._scope}", now),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO template_metadata(key, value)
+                    VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                    """,
+                    (f"audit_log::{self._scope}", json.dumps(self.discovery_engine.export_audit_log())),
+                )
+
+                self._db_conn.commit()
 
             if self.discovery_mode == "user":
-                # User-specific templates
-                if 'user_templates' not in data:
-                    data['user_templates'] = {}
-                if self.user_id not in data['user_templates']:
-                    data['user_templates'][self.user_id] = {}
-
-                for template_id, candidate in self.discovery_engine.promoted_templates.items():
-                    template_dict = candidate.to_dict()
-                    template_dict['user_id'] = self.user_id
-                    data['user_templates'][self.user_id][str(template_id)] = template_dict
-                    # Update in-memory store
-                    self.discovered_templates[template_id] = candidate.pattern
-
-                logger.info(f"Saved {len(self.discovery_engine.promoted_templates)} user-specific templates for {self.user_id}")
-
-            else:  # platform mode
-                # Platform-wide templates
-                if 'platform_templates' not in data:
-                    data['platform_templates'] = {}
-
-                for template_id, candidate in self.discovery_engine.promoted_templates.items():
-                    template_dict = candidate.to_dict()
-                    # Track who discovered it for analytics
-                    if self.user_id:
-                        template_dict['discovered_by'] = self.user_id
-                    data['platform_templates'][str(template_id)] = template_dict
-                    # Update in-memory store
-                    self.discovered_templates[template_id] = candidate.pattern
-
-                # Save cold storage templates
-                if 'cold_storage_templates' not in data:
-                    data['cold_storage_templates'] = {}
-                
-                for template_id, candidate in self.discovery_engine.cold_storage.items():
-                    template_dict = candidate.to_dict()
-                    template_dict['retired_at'] = datetime.now().isoformat()
-                    data['cold_storage_templates'][str(template_id)] = template_dict
-
-                logger.info(f"Saved {len(self.discovery_engine.promoted_templates)} platform-wide templates")
-                logger.info(f"Saved {len(self.discovery_engine.cold_storage)} cold storage templates")
-
-            # Keep audit log
-            data['audit_log'] = self.discovery_engine.export_audit_log()
-
-            # Atomic write to cache file
-            temp_path = cache_file.with_suffix('.tmp')
-            with open(temp_path, 'w') as f:
-                json.dump(data, f, indent=2)
-
-            temp_path.replace(cache_file)
+                logger.info(f"Saved {active_count} user-specific templates for {self.user_id}")
+            else:
+                logger.info(f"Saved {active_count} platform-wide templates")
+                logger.info(f"Saved {cold_count} cold storage templates")
         except Exception as e:
+            if self._db_conn:
+                self._db_conn.rollback()
             logger.error(f"Failed to save template store: {e}")
+
+    def get_store_metadata(self) -> Dict[str, Any]:
+        """Return metadata about the template store (timestamps, audit log)."""
+        if self._db_conn is None:
+            return {}
+
+        metadata: Dict[str, Any] = {}
+        with self._db_lock:
+            cursor = self._db_conn.cursor()
+            cursor.execute(
+                "SELECT value FROM template_metadata WHERE key=?",
+                (f"last_updated::{self._scope}",),
+            )
+            row = cursor.fetchone()
+            if row and row[0]:
+                metadata['last_updated'] = row[0]
+
+            cursor.execute(
+                "SELECT value FROM template_metadata WHERE key=?",
+                (f"audit_log::{self._scope}",),
+            )
+            row = cursor.fetchone()
+            if row and row[0]:
+                try:
+                    metadata['audit_log'] = json.loads(row[0])
+                except json.JSONDecodeError:
+                    metadata['audit_log'] = row[0]
+
+        return metadata
 
     def _get_recent_messages(self, hours: int = 24) -> List[str]:
         """Get recent messages from audit logs that haven't been processed yet"""
@@ -364,6 +584,10 @@ class TemplateDiscoveryWorker:
             logger.info("Worker already running")
             return
 
+        if self._db_conn is None:
+            self._init_database()
+            self._load_template_store()
+
         self.running = True
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
@@ -377,6 +601,7 @@ class TemplateDiscoveryWorker:
         self.running = False
         if self.worker_thread:
             self.worker_thread.join(timeout=5)
+        self._close_database()
         logger.info("Template discovery worker stopped")
 
     def get_discovered_templates(self) -> Dict[int, str]:

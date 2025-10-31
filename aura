@@ -26,7 +26,7 @@ def compress_file(input_path, output_path):
     # Initialize compressor
     compressor = ProductionHybridCompressor(
         enable_aura=True,
-        template_store_path='./template_store.json'
+        template_cache_dir=".aura_cache",
     )
     
     # Read input
@@ -58,7 +58,7 @@ def decompress_file(input_path, output_path):
     # Initialize compressor
     compressor = ProductionHybridCompressor(
         enable_aura=True,
-        template_store_path='./template_store.json'
+        template_cache_dir=".aura_cache",
     )
     
     # Read compressed

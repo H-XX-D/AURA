@@ -21,12 +21,7 @@ from aura_compression.enums import (
     _SEMANTIC_TOKEN_PATTERN,
 )
 
-from aura_compression.brio_full import (
-    BrioEncoder,
-    BrioDecoder,
-    BrioCompressed,
-    BrioDecompressed,
-)
+from aura_compression.brio_full import BrioEncoder, BrioDecoder, BrioDecompressed
 from aura_compression.brio_full.tokens import (
     LiteralToken as AuraLiteralToken,
     DictionaryToken as AuraDictionaryToken,
@@ -34,11 +29,7 @@ from aura_compression.brio_full.tokens import (
     TemplateToken as AuraTemplateToken,
 )
 # TCP-optimized BRIO for small messages (using enhanced brio_full)
-from aura_compression.brio_full import (
-    BrioEncoder as TcpBrioEncoder,
-    BrioDecoder as TcpBrioDecoder,
-    BrioCompressed as TcpBrioCompressed,
-)
+from aura_compression.brio_full import BrioEncoder as TcpBrioEncoder, BrioDecoder as TcpBrioDecoder
 from aura_compression.brio_full.tokens import (
     LiteralToken as TcpLiteralToken,
     MatchToken as TcpMatchToken,
@@ -231,20 +222,43 @@ class CompressionEngine:
 
         return text, metadata
 
+    def _extract_template_usage(self, tokens: List[Any]) -> Tuple[List[int], List[Dict[str, Any]]]:
+        """Collect template usage information from BRIO token streams."""
+        template_ids: List[int] = []
+        template_details: List[Dict[str, Any]] = []
+        template_token_types = (AuraTemplateToken, TcpTemplateToken)
+
+        for token in tokens:
+            if isinstance(token, template_token_types):
+                template_ids.append(token.template_id)
+                template_details.append(
+                    {
+                        'template_id': token.template_id,
+                        'slot_count': len(token.slots),
+                    }
+                )
+        return template_ids, template_details
+
     def compress_brio(self, text: str, use_tcp: bool = True) -> Tuple[bytes, dict]:
         """Compress using BRIO (TCP-optimized or full)"""
         original_size = len(text.encode('utf-8'))
 
         if use_tcp and original_size < self.tcp_brio_threshold:
             # Use TCP-optimized BRIO
+            if self._tcp_brio_encoder is None:
+                raise ValueError("TCP BRIO encoder is not available")
             compressed = self._tcp_brio_encoder.compress(text)
             compressed_bytes = compressed.payload
             method = CompressionMethod.BRIO.name.lower()
         else:
             # Use full BRIO
+            if self._aura_encoder is None:
+                raise ValueError("BRIO encoder is not available")
             compressed = self._aura_encoder.compress(text)
             compressed_bytes = compressed.payload
             method = CompressionMethod.BRIO.name.lower()
+
+        template_ids, template_details = self._extract_template_usage(getattr(compressed, "tokens", []))
 
         metadata = {
             'original_size': original_size,
@@ -253,6 +267,9 @@ class CompressionEngine:
             'method': method,
             'tcp_optimized': use_tcp and original_size < self.tcp_brio_threshold,
         }
+        if template_ids:
+            metadata['template_ids'] = template_ids
+            metadata['template_usage'] = template_details
 
         return compressed_bytes, metadata
 
@@ -263,21 +280,33 @@ class CompressionEngine:
 
         # Skip method byte
         payload = data[1:]
-        try:
-            # Try TCP-optimized first
-            compressed = TcpBrioCompressed.from_bytes(payload)
-            text = self._tcp_brio_decoder.decompress(compressed)
-            tcp_optimized = True
-        except (ValueError, struct.error, AttributeError):
-            # Fall back to full BRIO
-            compressed = BrioCompressed.from_bytes(payload)
-            text = self._aura_decoder.decompress(compressed)
+
+        result: Optional[BrioDecompressed] = None
+        tcp_optimized = False
+
+        if self._tcp_brio_decoder is not None:
+            try:
+                result = self._tcp_brio_decoder.decompress(payload)
+                tcp_optimized = True
+            except (ValueError, RuntimeError):
+                result = None
+
+        if result is None:
+            if self._aura_decoder is None:
+                raise ValueError("BRIO decoder is not available")
+            result = self._aura_decoder.decompress(payload)
             tcp_optimized = False
+
+        text = result.text
+        template_ids, template_details = self._extract_template_usage(getattr(result, "tokens", []))
 
         metadata = {
             'method': CompressionMethod.BRIO.name.lower(),
             'tcp_optimized': tcp_optimized,
         }
+        if template_ids:
+            metadata['template_ids'] = template_ids
+            metadata['template_usage'] = template_details
 
         return text, metadata
 

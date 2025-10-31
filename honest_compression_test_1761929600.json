@@ -1,0 +1,164 @@
+{
+  "test_name": "AURA Honest Compression Test",
+  "timestamp": 1761929593.345442,
+  "tests": [
+    {
+      "name": "text_simple_english",
+      "category": "text",
+      "original_size": 2650,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "text_technical_content",
+      "category": "text",
+      "original_size": 5620,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "text_code_sample",
+      "category": "text",
+      "original_size": 7560,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "mixed_json_data",
+      "category": "mixed",
+      "original_size": 3923,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "mixed_log_entries",
+      "category": "mixed",
+      "original_size": 4389,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "large_text_lorem_ipsum",
+      "category": "large_text",
+      "original_size": 100600,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "repeated_simple_repetition",
+      "category": "repeated",
+      "original_size": 8000,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "repeated_template-like_data",
+      "category": "repeated",
+      "original_size": 14000,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "repeated_structured_repetition",
+      "category": "repeated",
+      "original_size": 26000,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "edge_empty_data",
+      "category": "edge_case",
+      "original_size": 0,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "edge_single_byte",
+      "category": "edge_case",
+      "original_size": 1,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "edge_small_data",
+      "category": "edge_case",
+      "original_size": 3,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "edge_unicode_text",
+      "category": "edge_case",
+      "original_size": 29,
+      "passed": false,
+      "compression_ratio": 0.0,
+      "compression_time": 0.0,
+      "decompression_time": 0.0,
+      "error": "Decompression failed - data mismatch"
+    },
+    {
+      "name": "edge_high_entropy_text",
+      "category": "edge_case",
+      "original_size": 1031,
+      "passed": true,
+      "compression_ratio": 1.0009699321047527,
+      "compression_time": 0.00034545800008345395,
+      "decompression_time": 3.832999937003478e-06,
+      "error": null,
+      "compressed_size": 1032,
+      "compression_throughput": 2984443.839051162,
+      "decompression_throughput": 268979915.71740127
+    }
+  ],
+  "summary": {
+    "total_tests": 14,
+    "passed_tests": 1,
+    "failed_tests": 13,
+    "pass_rate": 0.07142857142857142,
+    "avg_compression_ratio": 1.0009699321047527,
+    "best_compression_ratio": 1.0009699321047527,
+    "worst_compression_ratio": 1.0009699321047527,
+    "avg_compression_time": 0.00034545800008345395,
+    "avg_decompression_time": 3.832999937003478e-06,
+    "avg_compression_throughput": 2984443.839051162,
+    "avg_decompression_throughput": 268979915.71740127,
+    "total_data_processed": 1031,
+    "total_compressed_size": 1032
+  }
+}

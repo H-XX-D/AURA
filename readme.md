@@ -69,6 +69,62 @@ print(f"Method: {method.name}")
 print(f"Ratio: {metadata['ratio']:.2f}:1")
 ```
 
+### CLI Utilities
+
+For large payloads, the repository ships with a streaming CLI that keeps
+template discovery and binary semantics enabled while processing fixed-size
+chunks.
+
+#### Compress a large file
+
+```bash
+python tools/compress_large_file.py compress \
+  --input /path/to/enwik8 \
+  --output /path/to/enwik8.aura \
+  --chunk-size 64K \
+  --progress percent \
+  --stats-format table
+```
+
+Key options:
+- `--chunk-size` accepts raw bytes or suffixed values like `128K`, `4M`, `1G`.
+- `--progress` controls the visual feedback (`auto`, `bar`, `percent`, `none`).
+- `--stats-format` chooses between table or JSON output; combine with
+  `--stats-file` to persist the results.
+
+#### Decompress
+
+```bash
+python tools/compress_large_file.py decompress \
+  --input /path/to/enwik8.aura \
+  --output /path/to/enwik8.restored \
+  --progress bar
+```
+
+#### Inspect a container without decompressing
+
+```bash
+python tools/compress_large_file.py info \
+  --input /path/to/enwik8.aura \
+  --max-chunks 3 \
+  --stats-format json
+```
+
+The `info` command prints header metadata, per-method counts, template usage,
+and a handful of representative chunks.
+
+#### Verify integrity
+
+```bash
+python tools/compress_large_file.py verify \
+  --input /path/to/enwik8.aura \
+  --progress none
+```
+
+`verify` decompresses the archive in-memory to confirm integrity without
+writing an output file. All commands support the optional `--stats-file` flag
+to save summaries for CI pipelines or audits.
+
 ### Configuration Options
 ```python
 compressor = ProductionHybridCompressor(

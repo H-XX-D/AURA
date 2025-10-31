@@ -5,7 +5,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.compress_large_file import compress_path, decompress_path
+from tools.compress_large_file import (
+    compress_path,
+    decompress_path,
+    inspect_container,
+    verify_container,
+)
 
 
 def test_round_trip_large_file_cli(tmp_path: Path) -> None:
@@ -30,6 +35,8 @@ def test_round_trip_large_file_cli(tmp_path: Path) -> None:
         cache_dir=cache_dir,
         audit_dir=audit_dir,
         sync_every=2,
+        show_progress=False,
+        progress_mode="none",
     )
     assert compress_stats["chunks"] > 0
     assert compress_stats["input_size"] == source.stat().st_size
@@ -39,6 +46,23 @@ def test_round_trip_large_file_cli(tmp_path: Path) -> None:
         restored,
         cache_dir=cache_dir,
         audit_dir=audit_dir,
+        show_progress=False,
+        progress_mode="none",
     )
     assert decompress_stats["chunks"] == compress_stats["chunks"]
     assert restored.read_bytes() == sample_data.encode("utf-8")
+
+    info = inspect_container(compressed, max_chunks=2)
+    assert info["chunk_count"] == compress_stats["chunks"]
+    assert info["path"].endswith("sample.aura")
+
+    verify_stats = verify_container(
+        compressed,
+        cache_dir=cache_dir / "verify",
+        audit_dir=audit_dir / "verify",
+        show_progress=False,
+        progress_mode="none",
+    )
+    assert verify_stats["verified"] is True
+    assert verify_stats["output_path"] is None
+    assert verify_stats["restored_size"] == compress_stats["input_size"]

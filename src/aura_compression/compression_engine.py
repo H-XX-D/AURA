@@ -67,8 +67,8 @@ class CompressionEngine:
                  aura_decoder: Optional[BrioDecoder] = None,
                  tcp_brio_encoder: Optional[TcpBrioEncoder] = None,
                  tcp_brio_decoder: Optional[TcpBrioDecoder] = None,
-                 aura_lite_encoder: Optional[AuraLiteEncoder] = None,
-                 aura_lite_decoder: Optional[AuraLiteDecoder] = None,
+                 auralite_encoder: Optional[AuraLiteEncoder] = None,
+                 auralite_decoder: Optional[AuraLiteDecoder] = None,
                  tcp_brio_threshold: int = 1000,
                  ai_semantic_compressor: Optional[AILargeFileCompressor] = None):
         """
@@ -83,9 +83,9 @@ class CompressionEngine:
         self._tcp_brio_encoder = tcp_brio_encoder
         self._tcp_brio_decoder = tcp_brio_decoder
 
-        # AuraLite encoders/decoders
-        self._aura_lite_encoder = aura_lite_encoder or AuraLiteEncoder(template_library=template_library)
-        self._aura_lite_decoder = aura_lite_decoder or AuraLiteDecoder(template_library=template_library)
+        # Auralite encoders/decoders
+        self._auralite_encoder = auralite_encoder or AuraLiteEncoder(template_library=template_library)
+        self._auralite_decoder = auralite_decoder or AuraLiteDecoder(template_library=template_library)
 
         # AI Semantic compressor
         self._ai_semantic_compressor = ai_semantic_compressor or AILargeFileCompressor()
@@ -148,7 +148,7 @@ class CompressionEngine:
             'original_size': len(text.encode('utf-8')),
             'compressed_size': len(compressed),
             'ratio': len(text.encode('utf-8')) / len(compressed),
-            'method': CompressionMethod.BINARY_SEMANTIC,
+            'method': CompressionMethod.BINARY_SEMANTIC.name.lower(),
             'template_id': template_id,
             'slot_count': len(slots),
         }
@@ -194,34 +194,39 @@ class CompressionEngine:
         text = self.template_library.format_template(template_id, slots)
 
         metadata = {
-            'method': CompressionMethod.BINARY_SEMANTIC,
+            'method': CompressionMethod.BINARY_SEMANTIC.name.lower(),
             'template_id': template_id,
             'slot_count': len(slots),
         }
 
         return text, metadata
 
-    def compress_aura_lite(self, text: str) -> Tuple[bytes, dict]:
-        """Compress using AuraLite"""
-        compressed = self._aura_lite_encoder.encode(text)
+    def compress_auralite(self, text: str) -> Tuple[bytes, dict]:
+        """Compress using Auralite"""
+        compressed = self._auralite_encoder.encode(text)
         compressed_bytes = compressed.payload
 
         metadata = {
             'original_size': len(text.encode('utf-8')),
             'compressed_size': len(compressed_bytes),
             'ratio': len(text.encode('utf-8')) / len(compressed_bytes),
-            'method': CompressionMethod.AURA_LITE,
+            'method': CompressionMethod.AURALITE.name.lower(),
         }
 
         return compressed_bytes, metadata
 
-    def decompress_aura_lite(self, data: bytes) -> Tuple[str, dict]:
-        """Decompress AuraLite"""
-        decoded = self._aura_lite_decoder.decode(data)
+    def decompress_auralite(self, data: bytes) -> Tuple[str, dict]:
+        """Decompress Auralite"""
+        if len(data) < 1:
+            raise ValueError("Invalid Auralite data: no method byte")
+
+        # Skip method byte
+        payload = data[1:]
+        decoded = self._auralite_decoder.decode(payload)
         text = decoded.text
 
         metadata = {
-            'method': CompressionMethod.AURA_LITE,
+            'method': CompressionMethod.AURALITE.name.lower(),
         }
 
         return text, metadata
@@ -234,12 +239,12 @@ class CompressionEngine:
             # Use TCP-optimized BRIO
             compressed = self._tcp_brio_encoder.compress(text)
             compressed_bytes = compressed.to_bytes()
-            method = CompressionMethod.BRIO
+            method = CompressionMethod.BRIO.name.lower()
         else:
             # Use full BRIO
             compressed = self._aura_encoder.compress(text)
             compressed_bytes = compressed.to_bytes()
-            method = CompressionMethod.BRIO
+            method = CompressionMethod.BRIO.name.lower()
 
         metadata = {
             'original_size': original_size,
@@ -253,19 +258,24 @@ class CompressionEngine:
 
     def decompress_brio(self, data: bytes) -> Tuple[str, dict]:
         """Decompress BRIO (TCP-optimized or full)"""
+        if len(data) < 1:
+            raise ValueError("Invalid BRIO data: no method byte")
+
+        # Skip method byte
+        payload = data[1:]
         try:
             # Try TCP-optimized first
-            compressed = TcpBrioCompressed.from_bytes(data)
+            compressed = TcpBrioCompressed.from_bytes(payload)
             text = self._tcp_brio_decoder.decompress(compressed)
             tcp_optimized = True
         except:
             # Fall back to full BRIO
-            compressed = BrioCompressed.from_bytes(data)
+            compressed = BrioCompressed.from_bytes(payload)
             text = self._aura_decoder.decompress(compressed)
             tcp_optimized = False
 
         metadata = {
-            'method': CompressionMethod.BRIO,
+            'method': CompressionMethod.BRIO.name.lower(),
             'tcp_optimized': tcp_optimized,
         }
 
@@ -279,7 +289,7 @@ class CompressionEngine:
             'original_size': stats.original_size,
             'compressed_size': stats.compressed_size,
             'ratio': stats.ratio,
-            'method': CompressionMethod.AI_SEMANTIC,
+            'method': CompressionMethod.AI_SEMANTIC.name.lower(),
             'patterns_found': stats.patterns_found,
             'dictionary_size': stats.dictionary_size,
             'semantic_chunks': stats.semantic_chunks,
@@ -290,10 +300,15 @@ class CompressionEngine:
 
     def decompress_ai_semantic(self, data: bytes) -> Tuple[str, dict]:
         """Decompress AI-powered semantic compression"""
-        text = self._ai_semantic_compressor.decompress(data)
+        if len(data) < 1:
+            raise ValueError("Invalid AI semantic data: no method byte")
+
+        # Skip method byte
+        payload = data[1:]
+        text = self._ai_semantic_compressor.decompress(payload)
 
         metadata = {
-            'method': CompressionMethod.AI_SEMANTIC,
+            'method': CompressionMethod.AI_SEMANTIC.name.lower(),
         }
 
         return text, metadata
@@ -307,7 +322,7 @@ class CompressionEngine:
             'original_size': len(text_bytes),
             'compressed_size': len(compressed),
             'ratio': len(text_bytes) / len(compressed),
-            'method': CompressionMethod.UNCOMPRESSED,
+            'method': CompressionMethod.UNCOMPRESSED.name.lower(),
         }
 
         return compressed, metadata
@@ -322,18 +337,10 @@ class CompressionEngine:
         text = text_bytes.decode('utf-8')
 
         metadata = {
-            'method': CompressionMethod.UNCOMPRESSED,
+            'method': CompressionMethod.UNCOMPRESSED.name.lower(),
         }
 
         return text, metadata
-
-    def compress_auralite(self, text: str) -> Tuple[bytes, dict]:
-        """Compress using Auralite (alias for AuraLite)"""
-        return self.compress_aura_lite(text)
-
-    def decompress_auralite(self, data: bytes) -> Tuple[str, dict]:
-        """Decompress Auralite (alias for AuraLite)"""
-        return self.decompress_aura_lite(data)
 
     def get_compression_method(self, data: bytes) -> CompressionMethod:
         """Extract compression method from compressed data"""
@@ -341,6 +348,9 @@ class CompressionEngine:
             raise ValueError("Empty data")
 
         method_byte = data[0]
+        if method_byte == 0x03:
+            # Legacy Aura_Lite payloads are treated as Auralite
+            return CompressionMethod.AURALITE
         try:
             return CompressionMethod(method_byte)
         except ValueError:
@@ -352,8 +362,6 @@ class CompressionEngine:
 
         if method == CompressionMethod.BINARY_SEMANTIC:
             return self.decompress_binary_semantic(data)
-        elif method == CompressionMethod.AURA_LITE:
-            return self.decompress_aura_lite(data)
         elif method == CompressionMethod.AURALITE:
             return self.decompress_auralite(data)
         elif method == CompressionMethod.BRIO:

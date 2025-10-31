@@ -37,10 +37,14 @@ class TemplateRecord:
     anchor_casefold: Optional[str]
 
     def match(self, text: str) -> Optional[List[str]]:
-        match_obj = self.regex.fullmatch(text.strip())
+        match_obj = self.regex.fullmatch(text)
         if not match_obj:
             return None
-        return self._extract_slots(match_obj)
+        slots = self._extract_slots(match_obj)
+        reconstructed = self.pattern.format(*slots)
+        if reconstructed != text:
+            return None
+        return slots
 
     def _extract_slots(self, match_obj) -> List[str]:
         if not self.slot_order:
@@ -50,7 +54,7 @@ class TemplateRecord:
         for slot_idx in self.slot_order:
             prefix = f"slot_{slot_idx}_"
             values = [
-                value.strip() if value else ""
+                value if value else ""
                 for name, value in group_dict.items()
                 if name.startswith(prefix)
             ]
@@ -228,6 +232,20 @@ class TemplateLibrary:
         self._cached_match.cache_clear()
         self._match_cache_hits = 0
         self._match_cache_misses = 0
+        self._length_buckets.clear()
+        self._pattern_hashes.clear()
+
+    def invalidate_text_cache(self, text: str) -> None:
+        """Invalidate cached matches for a specific text payload."""
+        if self._persistent_cache:
+            self._persistent_cache.invalidate_text(text)
+        self._cached_match.cache_clear()
+
+    def clear_persistent_cache(self) -> None:
+        """Clear persistent template cache from disk."""
+        if self._persistent_cache:
+            self._persistent_cache.clear_and_persist()
+        self._cached_match.cache_clear()
 
     def get_cache_stats(self) -> Dict[str, int]:
         """Get template match cache statistics"""
@@ -297,7 +315,7 @@ class TemplateLibrary:
             if not record:
                 continue
 
-            slots = record.match(stripped)
+            slots = record.match(text)
             if slots is None:
                 continue
             total_slot_length = sum(len(slot) for slot in slots)
@@ -314,8 +332,23 @@ class TemplateLibrary:
         if self._persistent_cache:
             cached_data = self._persistent_cache.get(text)
             if cached_data is not None:
-                # Convert dict back to TemplateMatch
-                return TemplateMatch(**cached_data)
+                template_id = cached_data.get('template_id')
+                slots = cached_data.get('slots', [])
+                record = self._records.get(template_id)
+                if record and len(slots) == len(record.slot_order):
+                    try:
+                        reconstructed = record.pattern.format(*slots)
+                    except Exception:
+                        reconstructed = None
+                    if reconstructed == text:
+                        return TemplateMatch(
+                            template_id=template_id,
+                            slots=list(slots),
+                            start=cached_data.get('start'),
+                            end=cached_data.get('end')
+                        )
+                # Cached entry stale; invalidate and fall through to fresh lookup
+                self._persistent_cache.invalidate_text(text)
 
         # Try in-memory LRU cache
         if self._match_cache_enabled:
@@ -328,7 +361,7 @@ class TemplateLibrary:
                     # Convert TemplateMatch to dict for storage
                     match_data = {
                         'template_id': result.template_id,
-                        'slots': result.slots,
+                        'slots': list(result.slots),
                         'start': result.start,
                         'end': result.end
                     }
@@ -349,7 +382,7 @@ class TemplateLibrary:
             # Convert TemplateMatch to dict for storage
             match_data = {
                 'template_id': result.template_id,
-                'slots': result.slots,
+                'slots': list(result.slots),
                 'start': result.start,
                 'end': result.end
             }

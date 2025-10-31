@@ -4,11 +4,39 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import List, Optional, cast, Dict
+from typing import Callable, Dict, FrozenSet, List, Optional, Union, cast
 
-from aura_compression.brio_full.dictionary import DICTIONARY
+from aura_compression.brio_full.dictionary import DICTIONARY, DictionaryEntry
 from aura_compression.templates import TemplateMatch, TemplateLibrary
 from aura_compression.brio_full.trie import DictionaryTrie
+
+
+@dataclass(frozen=True)
+class _DictionaryResources:
+    entries: tuple[DictionaryEntry, ...]
+    id_to_entry: Dict[int, DictionaryEntry]
+    trie: DictionaryTrie
+    prefix_chars: FrozenSet[str]
+
+
+def _build_dictionary_resources() -> _DictionaryResources:
+    filtered_entries = tuple(entry for entry in DICTIONARY if entry.token_id <= 255)
+    trie = DictionaryTrie()
+    prefix_chars = set()
+    for entry in filtered_entries:
+        trie.insert(entry.phrase, entry.token_id)
+        if entry.phrase:
+            prefix_chars.add(entry.phrase[0])
+
+    return _DictionaryResources(
+        entries=filtered_entries,
+        id_to_entry={entry.token_id: entry for entry in filtered_entries},
+        trie=trie,
+        prefix_chars=frozenset(prefix_chars),
+    )
+
+
+_DICTIONARY_RESOURCES = _build_dictionary_resources()
 
 
 @dataclass
@@ -24,26 +52,28 @@ class AuraLiteEncoder:
     DICTIONARY_KIND = 0x01
     LITERAL_KIND = 0x03
 
-    def __init__(self, template_library: Optional[TemplateLibrary] = None, use_compact_header: bool = True, enable_fast_path: bool = True) -> None:
-        # Filter dictionary to only entries with ID <= 255 (fits in 1 byte)
-        # The current format uses 1 byte for dictionary token IDs, so IDs > 255 cannot be encoded
-        filtered_dict = [entry for entry in DICTIONARY if entry.token_id <= 255]
-        self._id_to_entry = {entry.token_id: entry for entry in filtered_dict}
-        self._dictionary_trie = DictionaryTrie()
-        for entry in filtered_dict:
-            self._dictionary_trie.insert(entry.phrase, entry.token_id)
+    def __init__(
+        self,
+        template_library: Optional[TemplateLibrary] = None,
+        use_compact_header: bool = True,
+        enable_fast_path: bool = True,
+        fast_path_cache_size: int = 4096,
+    ) -> None:
+        resources = _DICTIONARY_RESOURCES
+        self._id_to_entry = resources.id_to_entry
+        self._dictionary_trie = resources.trie
+        self._dictionary_prefix_chars = resources.prefix_chars
         self._template_library = template_library or TemplateLibrary()
         self._use_compact_header = use_compact_header
-        self._enable_fast_path = enable_fast_path
 
-        # Fast path cache for AURA-Lite compression
+        # Fast path configuration
         self._cache_enabled = enable_fast_path
-        self._cache_hits = 0
-        self._cache_misses = 0
+        self._fast_path_cache_size = max(0, fast_path_cache_size)
+        self._effective_cache_size = 0
+        self._fast_path_encoder: Callable[[str], AuraLiteEncoded] = self._build_fast_path_encoder(self._fast_path_cache_size)
 
-    @lru_cache(maxsize=1024)
-    def _cached_encode(self, text: str) -> AuraLiteEncoded:
-        """Cached encoding for fast path (text-only, no template hints)"""
+    def _encode_text_only(self, text: str) -> AuraLiteEncoded:
+        """Encode text-only payloads without template hints."""
         token_bytes, template_ids = self._tokenise(text)
 
         if self._use_compact_header and len(token_bytes) <= 255:
@@ -64,6 +94,25 @@ class AuraLiteEncoder:
         payload = bytes(header + token_bytes)
         return AuraLiteEncoded(payload=payload, template_ids=template_ids)
 
+    def _build_fast_path_encoder(self, desired_maxsize: int) -> Callable[[str], AuraLiteEncoded]:
+        """Create (or rebuild) the fast path encoder with the requested cache size."""
+        effective_size = desired_maxsize if self._cache_enabled and desired_maxsize > 0 else 0
+        self._effective_cache_size = effective_size
+
+        if effective_size <= 0:
+            return self._encode_text_only
+
+        return lru_cache(maxsize=effective_size)(self._encode_text_only)
+
+    def configure_fast_path_cache(self, *, enabled: Optional[bool] = None, maxsize: Optional[int] = None) -> None:
+        """Allow callers to tune or disable the fast path cache at runtime."""
+        if enabled is not None:
+            self._cache_enabled = enabled
+        if maxsize is not None:
+            self._fast_path_cache_size = max(0, int(maxsize))
+
+        self._fast_path_encoder = self._build_fast_path_encoder(self._fast_path_cache_size)
+
     def encode(
         self,
         text: str,
@@ -71,16 +120,18 @@ class AuraLiteEncoder:
         template_spans: Optional[List[TemplateMatch]] = None,
     ) -> AuraLiteEncoded:
         # FAST PATH: Use cache for simple text-only encoding
-        if self._enable_fast_path and template_match is None and (template_spans is None or len(template_spans) == 0):
+        use_fast_path = (
+            self._cache_enabled
+            and template_match is None
+            and (template_spans is None or len(template_spans) == 0)
+        )
+
+        if use_fast_path:
             try:
-                result = self._cached_encode(text)
-                self._cache_hits += 1
-                return result
+                return self._fast_path_encoder(text)
             except TypeError:
                 # Unhashable type, fall through to normal path
-                self._cache_misses += 1
-        else:
-            self._cache_misses += 1
+                pass
 
         # Normal path
         if template_match:
@@ -185,22 +236,33 @@ class AuraLiteEncoder:
         token_bytes = bytearray()
         template_ids: List[int] = []
 
+        length = len(text)
+        prefix_chars = self._dictionary_prefix_chars
         i = 0
-        while i < len(text):
-            entry = self._longest_dictionary_match(text, i)
+
+        while i < length:
+            entry = None
+            if text[i] in prefix_chars:
+                entry = self._longest_dictionary_match(text, i)
+
             if entry:
                 token_bytes.append(self.DICTIONARY_KIND)
                 token_bytes.append(entry.token_id & 0xFF)
                 i += len(entry.phrase)
                 continue
 
-            # literal run
             start = i
             i += 1
-            while i < len(text) and (i - start) < 255:
-                if self._longest_dictionary_match(text, i):
+            while i < length:
+                if (i - start) >= 255:
                     break
+                char = text[i]
+                if char in prefix_chars:
+                    entry = self._longest_dictionary_match(text, i)
+                    if entry:
+                        break
                 i += 1
+
             literal_bytes = text[start:i].encode("utf-8")
             token_bytes.append(self.LITERAL_KIND)
             token_bytes.append(len(literal_bytes) & 0xFF)
@@ -217,18 +279,30 @@ class AuraLiteEncoder:
         return entry
 
     def clear_cache(self) -> None:
-        """Clear the encoding cache"""
-        self._cached_encode.cache_clear()
-        self._cache_hits = 0
-        self._cache_misses = 0
+        """Clear the encoding cache."""
+        cache_clear = getattr(self._fast_path_encoder, "cache_clear", None)
+        if callable(cache_clear):
+            cache_clear()
 
-    def get_cache_stats(self) -> Dict[str, int]:
-        """Get cache statistics"""
-        cache_info = self._cached_encode.cache_info()
-        total_requests = self._cache_hits + self._cache_misses
-        hit_rate = (self._cache_hits / total_requests * 100) if total_requests > 0 else 0.0
+    def get_cache_stats(self) -> Dict[str, Union[float, int, bool]]:
+        """Get cache statistics for observability and tuning."""
+        cache_info_fn = getattr(self._fast_path_encoder, "cache_info", None)
+        if cache_info_fn is None:
+            return {
+                'enabled': False,
+                'hits': 0,
+                'misses': 0,
+                'size': 0,
+                'maxsize': 0,
+                'hit_rate_percent': 0.0,
+            }
+
+        cache_info = cache_info_fn()
+        total_requests = cache_info.hits + cache_info.misses
+        hit_rate = (cache_info.hits / total_requests * 100.0) if total_requests > 0 else 0.0
 
         return {
+            'enabled': self._effective_cache_size > 0,
             'hits': cache_info.hits,
             'misses': cache_info.misses,
             'size': cache_info.currsize,

@@ -399,7 +399,7 @@ class MockCompressor:
         time.sleep(0.013)  # 13ms traditional decompression + processing
 
         compressed = message.encode('utf-8')  # Simple mock compression
-        method = CompressionMethod.AURA_LITE
+        method = CompressionMethod.AURALITE
         metadata = {'ratio': 1.5, 'method': 'traditional'}
 
         compression_time = (time.time() - start_time) * 1000
@@ -479,7 +479,7 @@ class MLMetadataAssigner:
         confidence = 0.85 + (hash(message) % 1000) / 10000  # 0.85-0.95 range
 
         return MessageMetadata(
-            compression_method=CompressionMethod.AURA_LITE,
+            compression_method=CompressionMethod.AURALITE,
             original_size=len(message),
             compressed_size=len(message) // 2,  # Mock compression
             template_id=template_id,

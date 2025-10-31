@@ -53,18 +53,18 @@ class TemplateDiscoveryWorker:
         # AI → AI: 0-49 (50 slots, universal)
         # Human → AI: 50-108 (59 slots, universal) [REDUCED by 20]
         # ML/AI Models: 109-148 (40 slots, universal) [NEW]
-        # Platform rolling: 149-208 (60 slots, shared) [SHIFTED]
-        # Reserved routing: 209-223 (15 slots, system) [SHIFTED]
-        # User-specific: 224-255 (32 slots per user, isolated) [REDUCED by 20]
+        # Platform rolling: 149-1000 (852 slots, shared) [INCREASED from 60 to 852]
+        # Reserved routing: 1001-1015 (15 slots, system) [SHIFTED]
+        # User-specific: 1016-1047 (32 slots per user, isolated) [SHIFTED]
 
         if discovery_mode == "user":
             if not user_id:
                 raise ValueError("user_id required for user-specific discovery")
-            starting_id = 224  # Changed from 204
-            max_id = 255       # 32 slots per user
+            starting_id = 1016  # Shifted from 224
+            max_id = 1047       # 32 slots per user
         else:  # platform mode
             starting_id = 149  # Changed from 129
-            max_id = 208       # Changed from 188
+            max_id = 1000      # Increased from 208 to 1000 for larger template storage
 
         self.discovery_engine = TemplateDiscoveryEngine(
             min_frequency=min_frequency,
@@ -80,9 +80,65 @@ class TemplateDiscoveryWorker:
         self.worker_thread: Optional[threading.Thread] = None
         self.last_discovery_run: Optional[datetime] = None
         self.total_templates_discovered = 0
+        
+        # Track processed messages to avoid re-analysis
+        self.processed_message_ids: set = set()
+        self._load_processed_message_ids()
 
         # Load existing template store
         self._load_template_store()
+
+    def _load_processed_message_ids(self):
+        """Load set of already processed message IDs"""
+        processed_file = Path(self.template_store_path).parent / "processed_messages.json"
+        if processed_file.exists():
+            try:
+                with open(processed_file, 'r') as f:
+                    data = json.load(f)
+                    self.processed_message_ids = set(data.get('processed_ids', []))
+                    print(f"Loaded {len(self.processed_message_ids)} processed message IDs")
+            except Exception as e:
+                print(f"Failed to load processed message IDs: {e}")
+                self.processed_message_ids = set()
+
+    def _save_processed_message_ids(self):
+        """Save set of processed message IDs"""
+        processed_file = Path(self.template_store_path).parent / "processed_messages.json"
+        try:
+            data = {
+                'processed_ids': list(self.processed_message_ids),
+                'last_updated': datetime.now().isoformat()
+            }
+            with open(processed_file, 'w') as f:
+                json.dump(data, f)
+        except Exception as e:
+            print(f"Failed to save processed message IDs: {e}")
+
+    def _load_template_store(self):
+        """Load set of already processed message IDs"""
+        processed_file = Path(self.template_store_path).parent / "processed_messages.json"
+        if processed_file.exists():
+            try:
+                with open(processed_file, 'r') as f:
+                    data = json.load(f)
+                    self.processed_message_ids = set(data.get('processed_ids', []))
+                    print(f"Loaded {len(self.processed_message_ids)} processed message IDs")
+            except Exception as e:
+                print(f"Failed to load processed message IDs: {e}")
+                self.processed_message_ids = set()
+
+    def _load_template_store_real(self):
+        """Save set of processed message IDs"""
+        processed_file = Path(self.template_store_path).parent / "processed_messages.json"
+        try:
+            data = {
+                'processed_ids': list(self.processed_message_ids),
+                'last_updated': datetime.now().isoformat()
+            }
+            with open(processed_file, 'w') as f:
+                json.dump(data, f)
+        except Exception as e:
+            print(f"Failed to save processed message IDs: {e}")
 
     def _load_template_store(self):
         """Load existing templates from disk (Claim 17)"""
@@ -182,7 +238,17 @@ class TemplateDiscoveryWorker:
                     template_dict['discovered_by'] = self.user_id
                 data['platform_templates'][str(template_id)] = template_dict
 
+            # Save cold storage templates
+            if 'cold_storage_templates' not in data:
+                data['cold_storage_templates'] = {}
+            
+            for template_id, candidate in self.discovery_engine.cold_storage.items():
+                template_dict = candidate.to_dict()
+                template_dict['retired_at'] = datetime.now().isoformat()
+                data['cold_storage_templates'][str(template_id)] = template_dict
+
             print(f"Saved {len(self.discovery_engine.promoted_templates)} platform-wide templates")
+            print(f"Saved {len(self.discovery_engine.cold_storage)} cold storage templates")
 
         # Keep audit log
         data['audit_log'] = self.discovery_engine.export_audit_log()
@@ -195,7 +261,7 @@ class TemplateDiscoveryWorker:
         temp_path.replace(store_path)
 
     def _get_recent_messages(self, hours: int = 24) -> List[str]:
-        """Get recent messages from audit logs for discovery"""
+        """Get recent messages from audit logs that haven't been processed yet"""
         messages = []
 
         # Read from client_delivered log
@@ -204,15 +270,21 @@ class TemplateDiscoveryWorker:
             limit=10000,  # Last 10k messages
         )
 
-        # Filter to recent messages (with timezone-aware comparison)
+        # Filter to recent messages and exclude already processed ones
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         for entry in entries:
             try:
                 entry_time = datetime.fromisoformat(entry.timestamp.replace('Z', '+00:00'))
-                if entry_time >= cutoff and entry.plaintext:
+                if entry_time >= cutoff and entry.plaintext and entry.entry_id not in self.processed_message_ids:
                     messages.append(entry.plaintext)
+                    # Mark as processed immediately
+                    self.processed_message_ids.add(entry.entry_id)
             except Exception:
                 continue
+
+        # Save updated processed message IDs
+        if messages:  # Only save if we found new messages
+            self._save_processed_message_ids()
 
         return messages
 
@@ -352,10 +424,17 @@ class TemplateSyncService:
         # Filter to only new templates if client has a version
         if client_version > 0:
             filtered_templates = {}
-            for tid, template_data in data['templates'].items():
+            # Handle both old and new template store formats
+            templates_dict = data.get('platform_templates', data.get('templates', {}))
+            for tid, template_data in templates_dict.items():
                 if template_data.get('version', 1) > client_version:
                     filtered_templates[tid] = template_data
             data['templates'] = filtered_templates
+        else:
+            # For full sync, merge platform and user templates
+            platform_templates = data.get('platform_templates', {})
+            # Note: user templates would need user_id context, so we only return platform templates
+            data['templates'] = platform_templates
 
         return {
             'version': data.get('version', 1),

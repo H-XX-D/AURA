@@ -181,6 +181,10 @@ class AuditLogger:
 
         return entry_id
 
+    def log_compression_event(self, *args, **kwargs):
+        """Alias for log_compression for backward compatibility"""
+        return self.log_compression(*args, **kwargs)
+
     def log_ai_output(
         self,
         pre_moderation_content: str,

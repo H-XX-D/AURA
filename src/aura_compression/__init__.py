@@ -34,6 +34,9 @@ from .function_parser import FunctionCallParser, FunctionCall, AItoAIOrchestrato
 from .router import ProductionRouter, LoadBalancer, RoutingMetrics
 from .streaming_harness import StreamingHarness
 from .metadata_sidechannel import MetadataSideChannel, MessageCategory, MessageMetadata, SecurityLevel
+from .brio import BrioEncoder, BrioCompressed, BrioDecoder, BrioDecompressed
+from .brio_full import BrioEncoder as BrioFullEncoder, BrioCompressed as BrioFullCompressed, BrioDecoder as BrioFullDecoder, BrioDecompressed as BrioFullDecompressed
+from .ml_algorithm_selector import MLAlgorithmSelector
 
 __all__ = [
     # Core compression (Claims 1-20)
@@ -82,4 +85,17 @@ __all__ = [
     "MessageCategory",
     "MessageMetadata",
     "SecurityLevel",
+
+    # BRIO entropy coding
+    "BrioEncoder",
+    "BrioCompressed",
+    "BrioDecoder",
+    "BrioDecompressed",
+    "BrioFullEncoder",
+    "BrioFullCompressed",
+    "BrioFullDecoder",
+    "BrioFullDecompressed",
+
+    # Machine learning algorithm selection
+    "MLAlgorithmSelector",
 ]

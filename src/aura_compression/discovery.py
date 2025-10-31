@@ -314,6 +314,11 @@ class TemplateDiscoveryEngine:
         # Promoted templates (Claim 17)
         self.promoted_templates: Dict[int, TemplateCandidate] = {}
         self.next_template_id = starting_template_id
+        
+        # Cold storage for retired templates
+        self.cold_storage: Dict[int, TemplateCandidate] = {}
+        self.min_usage_threshold = 10  # Minimum usage count to avoid retirement
+        self.max_days_unused = 30  # Maximum days without use before retirement
 
     def discover_templates(self, messages: List[str]) -> List[TemplateCandidate]:
         """
@@ -371,20 +376,95 @@ class TemplateDiscoveryEngine:
 
         return approved_candidates
 
+    def retire_unused_templates(self) -> List[int]:
+        """
+        Retire templates that haven't been used recently or have low usage
+        Returns list of retired template IDs that can be reused
+        """
+        retired_ids = []
+        current_time = datetime.now(timezone.utc)
+        
+        # Update days since used for all templates
+        for template in self.promoted_templates.values():
+            template.update_days_since_used()
+        
+        # Find templates to retire
+        templates_to_retire = []
+        for template_id, template in self.promoted_templates.items():
+            should_retire = (
+                template.usage_count < self.min_usage_threshold or
+                template.days_since_used > self.max_days_unused
+            )
+            if should_retire:
+                templates_to_retire.append((template_id, template))
+        
+        # Sort by usage (least used first) and retire
+        templates_to_retire.sort(key=lambda x: (x[1].usage_count, x[1].days_since_used), reverse=False)
+        
+        for template_id, template in templates_to_retire:
+            # Move to cold storage
+            self.cold_storage[template_id] = template
+            del self.promoted_templates[template_id]
+            retired_ids.append(template_id)
+            
+            print(f"RETIRED: Template {template_id} (usage: {template.usage_count}, days unused: {template.days_since_used})")
+            
+            # Limit cold storage size
+            if len(self.cold_storage) > 1000:
+                # Remove oldest from cold storage
+                oldest_id = min(self.cold_storage.keys(), 
+                              key=lambda x: self.cold_storage[x].last_used or "1970-01-01")
+                del self.cold_storage[oldest_id]
+        
+        return retired_ids
+
+    def find_available_template_id(self) -> Optional[int]:
+        """
+        Find an available template ID, either by incrementing or reusing retired IDs
+        Returns None if no IDs are available
+        """
+        # First try to reuse retired template IDs
+        if self.cold_storage:
+            # Prefer IDs that were recently retired (higher numbers = more recent)
+            available_id = max(self.cold_storage.keys())
+            return available_id
+        
+        # Otherwise increment if under limit
+        if self.next_template_id <= self.max_template_id:
+            return self.next_template_id
+        
+        # No IDs available
+        return None
+
     def promote_template(self, candidate: TemplateCandidate) -> int:
         """
         Promote template candidate to production (Claims 3, 17, 18)
+        Automatically retires unused templates to make room for new ones
 
         Returns:
             Template ID assigned to promoted template
         """
-        template_id = self.next_template_id
-        if template_id > self.max_template_id:
-            raise RuntimeError(
-                f"Discovered template ID capacity exhausted (>{self.max_template_id}). "
-                "Increase max_template_id or retire old templates."
-            )
-        self.next_template_id += 1
+        # Try to find an available template ID
+        template_id = self.find_available_template_id()
+        
+        if template_id is None:
+            # No IDs available, try retiring unused templates
+            retired_ids = self.retire_unused_templates()
+            if retired_ids:
+                template_id = retired_ids[0]  # Use the first retired ID
+            else:
+                raise RuntimeError(
+                    f"Template ID capacity exhausted and no templates available for retirement. "
+                    f"Max ID: {self.max_template_id}, Current templates: {len(self.promoted_templates)}"
+                )
+        
+        # If we're reusing a retired ID, remove it from cold storage
+        if template_id in self.cold_storage:
+            del self.cold_storage[template_id]
+        
+        # Update next_template_id if we're not reusing
+        if template_id >= self.next_template_id:
+            self.next_template_id = template_id + 1
 
         # Version and timestamp
         candidate.version = 1
@@ -400,6 +480,34 @@ class TemplateDiscoveryEngine:
         print(f"  Safety: {'APPROVED' if candidate.safety_approved else 'PENDING'}")
 
         return template_id
+
+    def record_template_usage(self, template_id: int) -> None:
+        """
+        Record that a template was used for usage tracking
+        """
+        if template_id in self.promoted_templates:
+            self.promoted_templates[template_id].record_usage()
+
+    def get_cold_storage_templates(self) -> Dict[int, TemplateCandidate]:
+        """
+        Get templates in cold storage
+        """
+        return self.cold_storage.copy()
+
+    def restore_from_cold_storage(self, template_id: int) -> bool:
+        """
+        Restore a template from cold storage if it becomes popular again
+        Returns True if restored successfully
+        """
+        if template_id in self.cold_storage:
+            template = self.cold_storage[template_id]
+            # Check if it should be restored (high recent usage)
+            if template.usage_count > self.min_usage_threshold * 2:
+                self.promoted_templates[template_id] = template
+                del self.cold_storage[template_id]
+                print(f"RESTORED: Template {template_id} from cold storage")
+                return True
+        return False
 
     def get_template_store(self) -> Dict[int, str]:
         """

@@ -24,6 +24,7 @@ The AURA Compression System provides a comprehensive suite of modules for high-p
   - **[auralite/](auralite/index.md)** - AURA-Lite compression variant
 
 ### ⚡ Performance & Acceleration
+- **[ml_algorithm_selector.py](ml_algorithm_selector.md)** - ML-based compression method selection
 - **[performance_optimizer.py](performance_optimizer.md)** - ML-based algorithm selection
 - **[simd_accelerator.py](simd_accelerator.md)** - SIMD processing acceleration
 - **[hardware_accelerated_compression.py](hardware_accelerated_compression.md)** - Hardware-specific optimizations
@@ -53,7 +54,6 @@ The AURA Compression System provides a comprehensive suite of modules for high-p
 ### 🔬 Advanced Features
 - **[ai_large_file.py](ai_large_file.md)** - Large file AI processing
 - **[function_parser.py](function_parser.md)** - Function parsing utilities
-- **[fuzzy_matcher.py](fuzzy_matcher.md)** - Fuzzy matching algorithms
 - **[ml_algorithm_selector.py](ml_algorithm_selector.md)** - ML-based selection logic
 
 ## Quick Start

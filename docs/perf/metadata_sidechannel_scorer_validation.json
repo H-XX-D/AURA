@@ -1,0 +1,46 @@
+{
+  "run_date": "2025-10-30",
+  "messages": 600,
+  "seed": 421,
+  "encode_metadata": {
+    "mean_ms": 0.001298
+  },
+  "extract_metadata": {
+    "mean_ms": 0.002260
+  },
+  "fast_path_processing": {
+    "mean_ms": 0.003417,
+    "median_ms": 0.003375,
+    "p95_ms": 0.003500,
+    "p99_ms": 0.003667
+  },
+  "baseline": {
+    "enable_scorer": false,
+    "total_original_bytes": 87944,
+    "total_compressed_bytes": 100106,
+    "total_time_ms": 30.646856,
+    "avg_time_ms": 0.051078,
+    "compression_ratio": 0.878509,
+    "method_counts": {
+      "UNCOMPRESSED": 171,
+      "AURALITE": 429
+    }
+  },
+  "scorer_enabled": {
+    "enable_scorer": true,
+    "total_original_bytes": 87944,
+    "total_compressed_bytes": 100106,
+    "total_time_ms": 34.245832,
+    "avg_time_ms": 0.057076,
+    "compression_ratio": 0.878509,
+    "method_counts": {
+      "UNCOMPRESSED": 171,
+      "AURALITE": 429
+    }
+  },
+  "delta": {
+    "compression_ratio_delta": 0.0,
+    "avg_latency_delta_ms": 0.005998,
+    "avg_latency_delta_pct": 11.7434
+  }
+}

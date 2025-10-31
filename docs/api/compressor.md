@@ -24,9 +24,13 @@ class ProductionHybridCompressor:
                  enable_normalization: bool = True,
                  tcp_brio_threshold: int = 1000,
                  enable_fast_path: bool = True,
-                 enable_gpu: bool = True,
                  enable_sidechain: Optional[bool] = None,
-                 sidechain_config: Optional[Dict[str, Any]] = None)
+                 sidechain_config: Optional[Dict[str, Any]] = None,
+                 enable_ml_selection: bool = False,
+                 enable_scorer: Optional[bool] = None,
+                 scorer_telemetry_path: Optional[str] = None,
+                 template_sync_interval_seconds: Optional[int] = 60,
+                 template_cache_dir: str = ".aura_cache")
 ```
 
 ## Parameters
@@ -47,12 +51,18 @@ class ProductionHybridCompressor:
 - **`template_store_path`** *(Optional[str])*: Path to persistent template storage
 - **`template_cache_size`** *(int, default=128)*: Maximum number of templates to cache in memory
 - **`enable_normalization`** *(bool, default=True)*: Enable text normalization for better template matching
+- **`template_sync_interval_seconds`** *(Optional[int], default=60)*: Period between automatic template store syncs (`None` disables periodic sync)
+- **`template_cache_dir`** *(str, default=".aura_cache")*: Directory used for persistent template cache storage
 
 ### Performance & Acceleration
 - **`tcp_brio_threshold`** *(int, default=1000)*: Size threshold for TCP-optimized BRIO vs full BRIO
 - **`enable_fast_path`** *(bool, default=True)*: Enable fast-path template matching cache
-- **`enable_gpu`** *(bool, default=True)*: Enable GPU acceleration when available
 - **`enable_sidechain`** *(Optional[bool])*: Enable metadata sidechannel routing (auto-detected from `AURA_ENABLE_SIDECHAIN` env var)
+
+### Learning & Telemetry
+- **`enable_ml_selection`** *(bool, default=False)*: Enable ML-based algorithm selection for borderline payloads
+- **`enable_scorer`** *(Optional[bool])*: Force-enable or disable the lightweight scorer (defaults to env/config)
+- **`scorer_telemetry_path`** *(Optional[str])*: Custom file path for scorer telemetry CSV output
 
 ## Methods
 

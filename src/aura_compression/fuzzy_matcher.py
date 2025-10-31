@@ -55,6 +55,19 @@ class FuzzyMatcher:
         """Calculate similarity ratio between two strings."""
         return difflib.SequenceMatcher(None, text1, text2).ratio()
 
+    def match(self, text1: str, text2: str) -> float:
+        """
+        Calculate similarity score between two strings.
+
+        Args:
+            text1: First string to compare
+            text2: Second string to compare
+
+        Returns:
+            Similarity score between 0.0 and 1.0
+        """
+        return self._calculate_similarity(text1, text2)
+
     def _calculate_distance(self, text1: str, text2: str) -> int:
         """Calculate Levenshtein distance between two strings."""
         cache_key = (min(text1, text2), max(text1, text2))
@@ -175,45 +188,28 @@ class FuzzyMatcher:
         }
 
 
-# GPU-accelerated fuzzy matcher integration
-try:
-    from .gpu_fuzzy_matcher import GPUFuzzyMatcher, create_gpu_fuzzy_matcher
-    GPU_FUZZY_AVAILABLE = True
-except ImportError:
-    GPU_FUZZY_AVAILABLE = False
-
-
 def create_fuzzy_matcher(min_similarity: float = 0.85,
                          max_distance: int = 50,
                          enable_caching: bool = True,
-                         use_gpu: bool = True,
-                         batch_size: int = 1000) -> FuzzyMatcher:
+                         cache_size: int = 1000) -> FuzzyMatcher:
     """
-    Factory function to create a FuzzyMatcher instance with optional GPU acceleration.
+    Factory function to create a FuzzyMatcher instance.
 
     Args:
         min_similarity: Minimum similarity ratio for matches
         max_distance: Maximum Levenshtein distance for matches
         enable_caching: Enable caching for performance
-        use_gpu: Use GPU acceleration if available
-        batch_size: Batch size for GPU processing
+        cache_size: Cache size for performance
 
     Returns:
-        Configured FuzzyMatcher instance (GPU or CPU)
+        Configured FuzzyMatcher instance
     """
-    if use_gpu and GPU_FUZZY_AVAILABLE:
-        return create_gpu_fuzzy_matcher(
-            min_similarity=min_similarity,
-            max_distance=max_distance,
-            batch_size=batch_size,
-            enable_caching=enable_caching
-        )
-    else:
-        return FuzzyMatcher(
-            min_similarity=min_similarity,
-            max_distance=max_distance,
-            enable_caching=enable_caching
-        )
+    return FuzzyMatcher(
+        min_similarity=min_similarity,
+        max_distance=max_distance,
+        enable_caching=enable_caching,
+        cache_size=cache_size,
+    )
 
 
 # Example usage and testing

@@ -292,7 +292,7 @@ class LoadBalancer:
         avg_load = total_load / self.worker_count if self.worker_count > 0 else 0
 
         # Calculate load variance (uniformity metric)
-        variance = sum((load - avg_load) ** 2 for load in self.worker_loads) / self.worker_count
+        variance = sum((load - avg_load) ** 2 for load in self.worker_loads) / self.worker_count if self.worker_count > 0 else 0
 
         return {
             'worker_count': self.worker_count,

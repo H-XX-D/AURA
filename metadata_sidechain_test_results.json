@@ -1,29 +1,21 @@
 {
-  "test_timestamp": 1761852425.833847,
+  "test_timestamp": 1761879518.108314,
   "total_messages": 12,
-  "fast_path_percentage": 58.333333333333336,
-  "avg_routing_time_ms": 6.794293721516927,
-  "avg_speedup_factor": 38.6994345882237,
-  "max_speedup_factor": 68.41399247176913,
+  "fast_path_percentage": 41.66666666666667,
+  "avg_routing_time_ms": 9.21541452407837,
+  "avg_speedup_factor": 28.74148311304307,
+  "max_speedup_factor": 68.49993969849247,
   "results": [
     {
       "message": "Hello, how are you today?",
       "handler": "fast_path",
       "category": 10,
       "security": 0,
-      "processing_time_ms": 0.20313262939453125,
-      "speedup_factor": 63.99759624413146
+      "processing_time_ms": 0.19693374633789062,
+      "speedup_factor": 66.01204842615012
     },
     {
       "message": "What is the weather like?",
-      "handler": "fast_path",
-      "category": 10,
-      "security": 0,
-      "processing_time_ms": 0.19288063049316406,
-      "speedup_factor": 67.39919901112485
-    },
-    {
-      "message": "Can you help me with this?",
       "handler": "fast_path",
       "category": 10,
       "security": 0,
@@ -31,19 +23,27 @@
       "speedup_factor": 68.07234956304619
     },
     {
+      "message": "Can you help me with this?",
+      "handler": "fast_path",
+      "category": 10,
+      "security": 0,
+      "processing_time_ms": 0.18978118896484375,
+      "speedup_factor": 68.49993969849247
+    },
+    {
       "message": "Show me the documentation please.",
       "handler": "fast_path",
       "category": 10,
       "security": 0,
-      "processing_time_ms": 0.1900196075439453,
-      "speedup_factor": 68.41399247176913
+      "processing_time_ms": 0.19025802612304688,
+      "speedup_factor": 68.32826065162907
     },
     {
       "message": "def calculate_average(numbers): return sum(numbers) / len(numbers)",
       "handler": "compressor",
       "category": 3,
       "security": 0,
-      "processing_time_ms": 15.675067901611328,
+      "processing_time_ms": 14.314889907836914,
       "speedup_factor": 1.0
     },
     {
@@ -51,7 +51,7 @@
       "handler": "compressor",
       "category": 0,
       "security": 1,
-      "processing_time_ms": 15.662193298339844,
+      "processing_time_ms": 15.762805938720703,
       "speedup_factor": 1.0
     },
     {
@@ -59,31 +59,31 @@
       "handler": "compressor",
       "category": 0,
       "security": 1,
-      "processing_time_ms": 16.270875930786133,
+      "processing_time_ms": 15.369176864624023,
       "speedup_factor": 1.0
     },
     {
       "message": "This content violates safety guidelines.",
-      "handler": "fast_path",
+      "handler": "compressor",
       "category": 99,
       "security": 0,
-      "processing_time_ms": 0.202178955078125,
-      "speedup_factor": 64.29947169811321
+      "processing_time_ms": 16.26110076904297,
+      "speedup_factor": 1.0
     },
     {
       "message": "MALWARE DETECTED in uploaded file.",
       "handler": "fast_path",
       "category": 99,
       "security": 0,
-      "processing_time_ms": 0.2009868621826172,
-      "speedup_factor": 64.68084460260972
+      "processing_time_ms": 0.19407272338867188,
+      "speedup_factor": 66.98519901719902
     },
     {
       "message": "Please explain quantum computing.",
       "handler": "compressor",
       "category": 4,
       "security": 0,
-      "processing_time_ms": 16.2661075592041,
+      "processing_time_ms": 16.261816024780273,
       "speedup_factor": 1.0
     },
     {
@@ -91,16 +91,16 @@
       "handler": "compressor",
       "category": 0,
       "security": 1,
-      "processing_time_ms": 16.269207000732422,
+      "processing_time_ms": 16.262054443359375,
       "speedup_factor": 1.0
     },
     {
       "message": "Write a function to sort a list in Python.",
-      "handler": "fast_path",
+      "handler": "compressor",
       "category": 3,
       "security": 0,
-      "processing_time_ms": 0.2079010009765625,
-      "speedup_factor": 62.529761467889905
+      "processing_time_ms": 15.391111373901367,
+      "speedup_factor": 1.0
     }
   ]
 }

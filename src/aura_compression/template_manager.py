@@ -43,10 +43,24 @@ class TemplateManager:
         """
         # Check cache first
         if text in self._template_cache:
-            return self._template_cache[text]
+            cached_match = self._template_cache[text]
+            if cached_match is None:
+                return None
+            if self.validate_template_match(text, cached_match):
+                return cached_match
+            # Stale cached entry - invalidate and fall through to fresh lookup
+            self.invalidate_text(text)
+            self.template_library.invalidate_text_cache(text)
 
         # Find best match
         best_match = self.template_library.match(text)
+
+        if best_match and not self.validate_template_match(text, best_match):
+            # Cached persistent entry may be stale; invalidate and retry once
+            self.template_library.invalidate_text_cache(text)
+            best_match = self.template_library.match(text)
+            if best_match and not self.validate_template_match(text, best_match):
+                best_match = None
 
         # Cache result
         self._add_to_cache(text, best_match)
@@ -63,6 +77,10 @@ class TemplateManager:
             del self._template_cache[oldest_key]
 
         self._template_cache[text] = match
+
+    def invalidate_text(self, text: str) -> None:
+        """Remove a cached match for specific text."""
+        self._template_cache.pop(text, None)
 
     def clear_cache(self):
         """

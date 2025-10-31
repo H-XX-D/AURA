@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 from enum import Enum
 
+from aura_compression.enums import CompressionMethod
+
 
 class MetadataKind(Enum):
     """Metadata entry types (Claim 9, 22)"""
@@ -120,16 +122,18 @@ class MetadataExtractor:
         method_byte = compressed_data[0]
         payload = compressed_data[1:]
 
+        # Legacy Aura_Lite payloads reuse the Auralite handler
+        if method_byte == 0x03:
+            method_byte = CompressionMethod.AURALITE.value
+
         # Detect compression method
-        if method_byte == 0x00:  # BINARY_SEMANTIC
+        if method_byte == CompressionMethod.BINARY_SEMANTIC.value:
             return MetadataExtractor._extract_binary_semantic(payload)
-        elif method_byte == 0x01:  # BRIO
+        elif method_byte == CompressionMethod.AURALITE.value:
+            return MetadataExtractor._extract_auralite(payload)
+        elif method_byte == CompressionMethod.BRIO.value:
             return MetadataExtractor._extract_brio(payload)
-        elif method_byte == 0x02:  # BRIO (AURA)
-            return MetadataExtractor._extract_brio(payload)
-        elif method_byte == 0x03:  # AURA_LITE
-            return MetadataExtractor._extract_aura_lite(payload)
-        elif method_byte == 0xFF:  # UNCOMPRESSED
+        elif method_byte == CompressionMethod.UNCOMPRESSED.value:
             return MetadataExtractor._extract_uncompressed(payload)
         else:
             raise ValueError(f"Unknown compression method: 0x{method_byte:02x}")
@@ -163,11 +167,11 @@ class MetadataExtractor:
         )
 
     @staticmethod
-    def _extract_aura_lite(payload: bytes) -> ExtractedMetadata:
-        """Extract metadata from Aura-Lite payloads."""
+    def _extract_auralite(payload: bytes) -> ExtractedMetadata:
+        """Extract metadata from Auralite payloads."""
         if len(payload) < 11 or payload[:4] != b"AUL1":
             return ExtractedMetadata(
-                compression_method="aura_lite",
+                compression_method="auralite",
                 compressed_size=len(payload),
             )
 
@@ -210,7 +214,7 @@ class MetadataExtractor:
                 break
 
         return ExtractedMetadata(
-            compression_method="aura_lite",
+            compression_method="auralite",
             compressed_size=len(payload),
             template_ids=template_ids or None,
             has_literals=has_literals,

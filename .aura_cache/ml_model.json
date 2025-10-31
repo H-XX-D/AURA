@@ -100,7 +100,125 @@
       "base_ratio": 1.0
     }
   },
-  "method_stats": {},
-  "performance_history": [],
-  "timestamp": 1761852645.556868
+  "method_stats": {
+    "aura_lite": {
+      "total_compressions": 5,
+      "avg_ratio": 1.5,
+      "avg_time": 0.01,
+      "success_rate": 1.0
+    }
+  },
+  "performance_history": [
+    {
+      "timestamp": 1761860676.528278,
+      "features": {
+        "length": 11,
+        "entropy": 2.8453509366224368,
+        "has_numbers": false,
+        "has_special_chars": false,
+        "word_count": 2,
+        "avg_word_length": 5,
+        "compression_potential": 0.6443311329221955,
+        "pattern_score": 0.6,
+        "fast_path_potential": 0.5,
+        "metadata_size_estimate": 101,
+        "template_match_score": 0.6
+      },
+      "method": "aura_lite",
+      "original_size": 11,
+      "compressed_size": 7,
+      "compression_time": 0.01,
+      "ratio": 1.5,
+      "message_hash": "3e25960a"
+    },
+    {
+      "timestamp": 1761860676.5284438,
+      "features": {
+        "length": 47,
+        "entropy": 3.889932873857903,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 5,
+        "avg_word_length": 8.6,
+        "compression_potential": 0.5137583907677621,
+        "pattern_score": 0.6,
+        "fast_path_potential": 0.5,
+        "metadata_size_estimate": 134,
+        "template_match_score": 0.7
+      },
+      "method": "aura_lite",
+      "original_size": 47,
+      "compressed_size": 31,
+      "compression_time": 0.01,
+      "ratio": 1.5,
+      "message_hash": "347db56a"
+    },
+    {
+      "timestamp": 1761860676.5285382,
+      "features": {
+        "length": 43,
+        "entropy": 4.268719696310996,
+        "has_numbers": true,
+        "has_special_chars": true,
+        "word_count": 7,
+        "avg_word_length": 5.285714285714286,
+        "compression_potential": 0.46641003796112546,
+        "pattern_score": 0.7,
+        "fast_path_potential": 0.8999999999999999,
+        "metadata_size_estimate": 184,
+        "template_match_score": 0.8999999999999999
+      },
+      "method": "aura_lite",
+      "original_size": 43,
+      "compressed_size": 28,
+      "compression_time": 0.01,
+      "ratio": 1.5,
+      "message_hash": "0bc55013"
+    },
+    {
+      "timestamp": 1761860676.528678,
+      "features": {
+        "length": 225,
+        "entropy": 4.441092818215359,
+        "has_numbers": false,
+        "has_special_chars": true,
+        "word_count": 45,
+        "avg_word_length": 4,
+        "compression_potential": 0.44486339772308015,
+        "pattern_score": 0.5,
+        "fast_path_potential": 0.2,
+        "metadata_size_estimate": 152,
+        "template_match_score": 0.7
+      },
+      "method": "aura_lite",
+      "original_size": 225,
+      "compressed_size": 150,
+      "compression_time": 0.01,
+      "ratio": 1.5,
+      "message_hash": "324f7616"
+    },
+    {
+      "timestamp": 1761860676.528755,
+      "features": {
+        "length": 60,
+        "entropy": 4.688233670962456,
+        "has_numbers": true,
+        "has_special_chars": true,
+        "word_count": 6,
+        "avg_word_length": 9.166666666666666,
+        "compression_potential": 0.41397079112969304,
+        "pattern_score": 0.7,
+        "fast_path_potential": 0.8999999999999999,
+        "metadata_size_estimate": 186,
+        "template_match_score": 0.9999999999999999
+      },
+      "method": "aura_lite",
+      "original_size": 60,
+      "compressed_size": 40,
+      "compression_time": 0.01,
+      "ratio": 1.5,
+      "message_hash": "2fb6b6cb"
+    }
+  ],
+  "timestamp": 1761863887.232397
 }

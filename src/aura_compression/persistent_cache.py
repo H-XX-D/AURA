@@ -104,6 +104,29 @@ class PersistentTemplateCache:
             self.hits = 0
             self.misses = 0
             self.evictions = 0
+        self._save_cache_async()
+
+    def clear_and_persist(self) -> None:
+        """Clear cache and immediately persist the empty state."""
+        with self._lock:
+            self._cache.clear()
+            self._access_order.clear()
+            self.hits = 0
+            self.misses = 0
+            self.evictions = 0
+        self._save_cache_sync()
+
+    def invalidate_text(self, text: str) -> None:
+        """Remove cached entry for specific text."""
+        cache_key = self._make_key(text)
+        with self._lock:
+            if cache_key in self._cache:
+                self._cache.pop(cache_key, None)
+                try:
+                    self._access_order.remove(cache_key)
+                except ValueError:
+                    pass
+        self._save_cache_async()
 
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""

@@ -80,6 +80,7 @@ class LRUPatternCache:
             # Update existing entry
             cached = self.cache.pop(signature_key)
             cached.touch()
+            cached.response = response  # Update the response
             self.cache[signature_key] = cached
         else:
             # Add new entry

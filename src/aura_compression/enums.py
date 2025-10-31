@@ -8,9 +8,8 @@ from enum import Enum
 
 class CompressionMethod(Enum):
     BINARY_SEMANTIC = 0x00
-    AURALITE = 0x01  # AuraLite fallback
+    AURALITE = 0x01  # AuraLite implementation (primary)
     BRIO = 0x02      # BRIO compression
-    AURA_LITE = 0x03  # Deprecated: use AURALITE instead
     AURA_HEAVY = 0x04  # High-compression AURA with rANS
     AI_SEMANTIC = 0x20  # AI-powered semantic compression for large files
     UNCOMPRESSED = 0xFF

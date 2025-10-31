@@ -16,17 +16,16 @@ classifiers = [
     "Topic :: System :: Archiving :: Compression",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 keywords = ["compression", "ai", "chat", "websocket", "auralite", "compliance"]
 dependencies = [
     "pytest>=7.0.0",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -57,18 +56,20 @@ Repository = "https://github.com/hendrixx-cnc/AURA"
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py310', 'py311', 'py312', 'py313']
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --cov=aura_compression --cov-report=html --cov-report=term"
+addopts = "-ra -q --strict-markers"
+# coverage options (requires pytest-cov: pip install pytest-cov)
+# addopts = "-ra -q --strict-markers --cov=src/aura_compression --cov-report=html --cov-report=term --cov-fail-under=80"
 testpaths = ["tests"]
 markers = [
     "asyncio: marks tests as async (using pytest-asyncio)",
 ]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

@@ -14,7 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from aura_compression.template_manager import TemplateManager
 from aura_compression.templates import TemplateLibrary
-from aura_compression.background_workers import TemplateDiscoveryWorker, TemplateSyncService
+from aura_compression.background_workers import TemplateDiscoveryWorker
+from aura_compression.persistent_cache import PersistentTemplateCache
 
 
 logger = logging.getLogger(__name__)
@@ -43,10 +44,10 @@ class TemplateService:
         self.audit_log_directory = audit_log_directory
         self.cache_dir = cache_dir
 
-        # Initialize components
+        # Initialize components with SQL-based persistent cache
         self.template_library = TemplateLibrary(cache_dir=cache_dir)
         self.template_manager = TemplateManager(self.template_library)
-        self.sync_service = TemplateSyncService(template_store_path)
+        self.persistent_cache = PersistentTemplateCache(cache_dir=cache_dir)
 
         # Discovery worker
         self.discovery_worker = None
@@ -61,8 +62,8 @@ class TemplateService:
         try:
             self.discovery_worker = TemplateDiscoveryWorker(
                 audit_log_directory=self.audit_log_directory,
-                template_store_path=self.template_store_path,
                 discovery_interval_seconds=self.discovery_interval,
+                cache_dir=self.cache_dir,
             )
             # Start the worker (it handles its own threading)
             self.discovery_worker.start()
@@ -73,27 +74,24 @@ class TemplateService:
 
     def sync_template_store(self):
         """
-        Synchronize template store - load latest templates into memory
+        Synchronize template store - load latest templates from SQL cache
         This is called before compression operations to ensure fresh templates
         """
         with self._lock:
             try:
-                # Reload templates from disk
-                store_data = self.sync_service.get_template_store()
-                if store_data and 'templates' in store_data:
-                    # Update template library with latest templates
-                    dynamic_templates = {}
-                    for tid, template_data in store_data['templates'].items():
-                        try:
-                            template_id = int(tid)
-                            pattern = template_data.get('pattern')
-                            if pattern:
+                # Reload templates from discovery worker if available
+                if self.discovery_worker:
+                    discovered = self.discovery_worker.get_discovered_templates()
+                    if discovered:
+                        # Update template library with latest templates
+                        dynamic_templates = {}
+                        for template_id, pattern in discovered.items():
+                            if isinstance(pattern, str):
                                 dynamic_templates[template_id] = pattern
-                        except (ValueError, KeyError):
-                            continue
-                    
-                    # Sync dynamic templates into the template library
-                    self.template_library.sync_dynamic_templates(dynamic_templates)
+                        
+                        # Sync dynamic templates into the template library
+                        if dynamic_templates:
+                            self.template_library.sync_dynamic_templates(dynamic_templates)
             except Exception as e:
                 # Sync is best-effort, don't fail operations
                 logger.warning("Template sync failed: %s", e)
@@ -132,15 +130,34 @@ class TemplateService:
 
     def get_template_store(self, client_version: int = 0) -> Dict[str, Any]:
         """
-        Get template store for client synchronization
+        Get template store for client synchronization from SQL cache
         """
-        return self.sync_service.get_template_store(client_version)
+        with self._lock:
+            templates = {}
+            if self.discovery_worker:
+                templates = self.discovery_worker.get_discovered_templates()
+            
+            return {
+                'version': 1,
+                'templates': templates,
+                'last_updated': datetime.now(timezone.utc).isoformat(),
+                'total_templates': len(templates),
+            }
 
     def get_template_by_id(self, template_id: int) -> Optional[Dict[str, Any]]:
         """
-        Get specific template by ID
+        Get specific template by ID from SQL cache
         """
-        return self.sync_service.get_template_by_id(template_id)
+        if self.discovery_worker:
+            templates = self.discovery_worker.get_discovered_templates()
+            pattern = templates.get(template_id)
+            if pattern:
+                return {
+                    'id': template_id,
+                    'pattern': pattern,
+                    'version': 1,
+                }
+        return None
 
     def get_stats(self) -> Dict[str, Any]:
         """

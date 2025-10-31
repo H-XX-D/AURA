@@ -52,7 +52,6 @@ def test_compressor_self_heals_stale_cache(tmp_path):
         enable_aura=False,
         enable_audit_logging=False,
         enable_sidechain=True,
-        template_store_path=str(store_path),
         audit_log_directory=str(audit_dir),
         template_cache_dir=str(cache_dir),
         template_sync_interval_seconds=None,

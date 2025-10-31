@@ -207,7 +207,7 @@ def run_simulation_with_learning(num_messages_per_phase: int = 300):
     print(f"\nSyncing {len(discovered_templates)} templates to SQLite...")
     compressor._template_service.sync_template_store()
 
-    print(f"Templates persisted to: {compressor._template_service.template_store_path}")
+    print(f"Templates persisted to: {compressor._template_service.cache_dir}")
 
     # ========================================================================
     # PHASE 3: WARM START (WITH TEMPLATES)

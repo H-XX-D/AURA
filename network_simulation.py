@@ -82,7 +82,7 @@ class NetworkSimulator:
         from aura_compression.background_workers import TemplateDiscoveryWorker
         self.discovery_worker = TemplateDiscoveryWorker(
             audit_log_directory="./simulation_audit_logs",
-            template_store_path="./template_store.json",
+            cache_dir=".aura_cache_simulation",
             discovery_interval_seconds=1800,  # Run every 30 minutes instead of 5 minutes
             min_messages_for_discovery=100,  # Higher threshold to avoid frequent runs
             min_frequency=5,  # Higher frequency requirement
@@ -695,7 +695,7 @@ def main(argv: Optional[List[str]] = None):
         size_dist = summary['performance_metrics']['size_distribution']
         print(f"Size Distribution: Small({size_dist['small']}) Medium({size_dist['medium']}) Large({size_dist['large']})")
         print(f"Template Match Rate: {summary['template_discovery']['template_match_rate']:.1%}")
-    print(f"Pattern Semantic Usage: {summary['ml_algorithm_performance']['pattern_semantic_rate']:.1%}")
+        print(f"Pattern Semantic Usage: {summary['ml_algorithm_performance']['pattern_semantic_rate']:.1%}")
         print(f"Binary Semantic Usage: {summary['ml_algorithm_performance']['binary_semantic_rate']:.1%}")
         # Removed fast_path and slow_path printing as these methods don't exist
         print(f"Error Rate: {summary['error_analysis']['error_rate']:.1%}")

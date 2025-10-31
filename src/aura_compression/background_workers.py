@@ -84,6 +84,9 @@ class TemplateDiscoveryWorker:
         self.last_discovery_run: Optional[datetime] = None
         self.total_templates_discovered = 0
         
+        # In-memory template store for quick access (points to SQL cache)
+        self.discovered_templates: Dict[int, str] = {}
+        
         # Track processed messages to avoid re-analysis
         self.processed_message_ids: set = set()
         self._load_processed_message_ids()
@@ -92,8 +95,8 @@ class TemplateDiscoveryWorker:
         self._load_template_store()
 
     def _load_processed_message_ids(self):
-        """Load set of already processed message IDs"""
-        processed_file = Path(self.template_store_path).parent / "processed_messages.json"
+        """Load set of already processed message IDs from cache directory"""
+        processed_file = Path(self.cache_dir) / "processed_messages.json"
         if processed_file.exists():
             try:
                 with open(processed_file, 'r') as f:
@@ -105,9 +108,11 @@ class TemplateDiscoveryWorker:
                 self.processed_message_ids = set()
 
     def _save_processed_message_ids(self):
-        """Save set of processed message IDs"""
-        processed_file = Path(self.template_store_path).parent / "processed_messages.json"
+        """Save set of processed message IDs to cache directory"""
+        processed_file = Path(self.cache_dir) / "processed_messages.json"
         try:
+            # Ensure cache directory exists
+            Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
             data = {
                 'processed_ids': list(self.processed_message_ids),
                 'last_updated': datetime.now().isoformat()
@@ -115,158 +120,145 @@ class TemplateDiscoveryWorker:
             with open(processed_file, 'w') as f:
                 json.dump(data, f)
         except Exception as e:
-            logger.info(f"Failed to save processed message IDs: {e}")
+            logger.warning(f"Failed to save processed message IDs: {e}")
 
     def _load_template_store(self):
-        """Load set of already processed message IDs"""
-        processed_file = Path(self.template_store_path).parent / "processed_messages.json"
-        if processed_file.exists():
-            try:
-                with open(processed_file, 'r') as f:
-                    data = json.load(f)
-                    self.processed_message_ids = set(data.get('processed_ids', []))
-                    logger.info(f"Loaded {len(self.processed_message_ids)} processed message IDs")
-            except Exception as e:
-                logger.info(f"Failed to load processed message IDs: {e}")
-                self.processed_message_ids = set()
-
-    def _load_template_store_real(self):
-        """Save set of processed message IDs"""
-        processed_file = Path(self.template_store_path).parent / "processed_messages.json"
+        """Load existing templates from SQL cache"""
         try:
-            data = {
-                'processed_ids': list(self.processed_message_ids),
-                'last_updated': datetime.now().isoformat()
-            }
-            with open(processed_file, 'w') as f:
-                json.dump(data, f)
+            # Load templates from the template cache metadata
+            cache_file = Path(self.cache_dir) / "discovered_templates.json"
+            if not cache_file.exists():
+                return
+
+            with open(cache_file, 'r') as f:
+                data = json.load(f)
+
+            # Load templates based on discovery mode
+            if self.discovery_mode == "user":
+                templates_dict = data.get('user_templates', {}).get(self.user_id, {})
+            else:
+                templates_dict = data.get('platform_templates', {})
+
+            # Restore promoted templates
+            for tid, template_data in templates_dict.items():
+                try:
+                    template_id = int(tid)
+                except ValueError:
+                    logger.info(f"Skipping template with non-integer id: {tid}")
+                    continue
+
+                if template_id < self.discovery_engine.starting_template_id or template_id > self.discovery_engine.max_template_id:
+                    continue
+
+                pattern = template_data.get('pattern')
+                if not pattern:
+                    continue
+
+                # Store in memory
+                self.discovered_templates[template_id] = pattern
+
+                candidate = TemplateCandidate(
+                    pattern=pattern,
+                    frequency=template_data.get('frequency', 0),
+                    compression_ratio=template_data.get('compression_ratio', 1.0),
+                    slot_count=template_data.get('slot_count', pattern.count('{')),
+                    safety_approved=template_data.get('safety_approved', True),
+                    version=template_data.get('version', 1),
+                    discovered_at=template_data.get('discovered_at'),
+                )
+                candidate.examples = template_data.get('examples', [])
+                self.discovery_engine.promoted_templates[template_id] = candidate
+                next_id = max(
+                    self.discovery_engine.next_template_id,
+                    template_id + 1
+                )
+                self.discovery_engine.next_template_id = min(
+                    next_id,
+                    self.discovery_engine.max_template_id + 1,
+                )
+
+            self.total_templates_discovered = len(self.discovery_engine.promoted_templates)
+
+            if self.discovery_mode == "user":
+                logger.info(f"Loaded {self.total_templates_discovered} user-specific templates for {self.user_id}")
+            else:
+                logger.info(f"Loaded {self.total_templates_discovered} platform-wide templates")
         except Exception as e:
-            logger.info(f"Failed to save processed message IDs: {e}")
-
-    def _load_template_store(self):
-        """Load existing templates from disk (Claim 17)"""
-        store_path = Path(self.template_store_path)
-        if not store_path.exists():
-            return
-
-        with open(store_path, 'r') as f:
-            data = json.load(f)
-
-        # Load templates based on discovery mode
-        if self.discovery_mode == "user":
-            # Load user-specific templates (204-255)
-            templates_dict = data.get('user_templates', {}).get(self.user_id, {})
-        else:
-            # Load platform-wide templates (129-188)
-            # Backwards compatibility: check both 'platform_templates' and old 'templates' key
-            templates_dict = data.get('platform_templates', data.get('templates', {}))
-
-        # Restore promoted templates
-        for tid, template_data in templates_dict.items():
-            try:
-                template_id = int(tid)
-            except ValueError:
-                logger.info(f"Skipping template with non-integer id: {tid}")
-                continue
-
-            if template_id < self.discovery_engine.starting_template_id or template_id > self.discovery_engine.max_template_id:
-                continue
-
-            pattern = template_data.get('pattern')
-            if not pattern:
-                continue
-
-            candidate = TemplateCandidate(
-                pattern=pattern,
-                frequency=template_data.get('frequency', 0),
-                compression_ratio=template_data.get('compression_ratio', 1.0),
-                slot_count=template_data.get('slot_count', pattern.count('{')),
-                safety_approved=template_data.get('safety_approved', True),
-                version=template_data.get('version', 1),
-                discovered_at=template_data.get('discovered_at'),
-            )
-            candidate.examples = template_data.get('examples', [])
-            self.discovery_engine.promoted_templates[template_id] = candidate
-            next_id = max(
-                self.discovery_engine.next_template_id,
-                template_id + 1
-            )
-            self.discovery_engine.next_template_id = min(
-                next_id,
-                self.discovery_engine.max_template_id + 1,
-            )
-
-        self.total_templates_discovered = len(self.discovery_engine.promoted_templates)
-
-        if self.discovery_mode == "user":
-            logger.info(f"Loaded {self.total_templates_discovered} user-specific templates for {self.user_id}")
-        else:
-            logger.info(f"Loaded {self.total_templates_discovered} platform-wide templates")
+            logger.warning(f"Failed to load template store: {e}")
 
     def _save_template_store(self):
-        """Save templates to disk for client synchronization (Claim 17)"""
-        store_path = Path(self.template_store_path)
+        """Save templates to SQL cache for persistence"""
+        try:
+            # Ensure cache directory exists
+            Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
+            cache_file = Path(self.cache_dir) / "discovered_templates.json"
 
-        # Load existing data
-        if store_path.exists():
-            with open(store_path, 'r') as f:
-                data = json.load(f)
-        else:
-            data = {
-                'version': 1,
-                'platform_templates': {},  # Shared 129-188
-                'user_templates': {},      # Per-user 204-255
-            }
+            # Load existing data
+            if cache_file.exists():
+                with open(cache_file, 'r') as f:
+                    data = json.load(f)
+            else:
+                data = {
+                    'version': 1,
+                    'platform_templates': {},
+                    'user_templates': {},
+                }
 
-        data['last_updated'] = datetime.now().isoformat()
+            data['last_updated'] = datetime.now().isoformat()
 
-        if self.discovery_mode == "user":
-            # User-specific templates (204-255)
-            if 'user_templates' not in data:
-                data['user_templates'] = {}
-            if self.user_id not in data['user_templates']:
-                data['user_templates'][self.user_id] = {}
+            if self.discovery_mode == "user":
+                # User-specific templates
+                if 'user_templates' not in data:
+                    data['user_templates'] = {}
+                if self.user_id not in data['user_templates']:
+                    data['user_templates'][self.user_id] = {}
 
-            for template_id, candidate in self.discovery_engine.promoted_templates.items():
-                template_dict = candidate.to_dict()
-                template_dict['user_id'] = self.user_id
-                data['user_templates'][self.user_id][str(template_id)] = template_dict
+                for template_id, candidate in self.discovery_engine.promoted_templates.items():
+                    template_dict = candidate.to_dict()
+                    template_dict['user_id'] = self.user_id
+                    data['user_templates'][self.user_id][str(template_id)] = template_dict
+                    # Update in-memory store
+                    self.discovered_templates[template_id] = candidate.pattern
 
-            logger.info(f"Saved {len(self.discovery_engine.promoted_templates)} user-specific templates for {self.user_id}")
+                logger.info(f"Saved {len(self.discovery_engine.promoted_templates)} user-specific templates for {self.user_id}")
 
-        else:  # platform mode
-            # Platform-wide templates (129-188)
-            if 'platform_templates' not in data:
-                data['platform_templates'] = {}
+            else:  # platform mode
+                # Platform-wide templates
+                if 'platform_templates' not in data:
+                    data['platform_templates'] = {}
 
-            for template_id, candidate in self.discovery_engine.promoted_templates.items():
-                template_dict = candidate.to_dict()
-                # Track who discovered it for analytics
-                if self.user_id:
-                    template_dict['discovered_by'] = self.user_id
-                data['platform_templates'][str(template_id)] = template_dict
+                for template_id, candidate in self.discovery_engine.promoted_templates.items():
+                    template_dict = candidate.to_dict()
+                    # Track who discovered it for analytics
+                    if self.user_id:
+                        template_dict['discovered_by'] = self.user_id
+                    data['platform_templates'][str(template_id)] = template_dict
+                    # Update in-memory store
+                    self.discovered_templates[template_id] = candidate.pattern
 
-            # Save cold storage templates
-            if 'cold_storage_templates' not in data:
-                data['cold_storage_templates'] = {}
-            
-            for template_id, candidate in self.discovery_engine.cold_storage.items():
-                template_dict = candidate.to_dict()
-                template_dict['retired_at'] = datetime.now().isoformat()
-                data['cold_storage_templates'][str(template_id)] = template_dict
+                # Save cold storage templates
+                if 'cold_storage_templates' not in data:
+                    data['cold_storage_templates'] = {}
+                
+                for template_id, candidate in self.discovery_engine.cold_storage.items():
+                    template_dict = candidate.to_dict()
+                    template_dict['retired_at'] = datetime.now().isoformat()
+                    data['cold_storage_templates'][str(template_id)] = template_dict
 
-            logger.info(f"Saved {len(self.discovery_engine.promoted_templates)} platform-wide templates")
-            logger.info(f"Saved {len(self.discovery_engine.cold_storage)} cold storage templates")
+                logger.info(f"Saved {len(self.discovery_engine.promoted_templates)} platform-wide templates")
+                logger.info(f"Saved {len(self.discovery_engine.cold_storage)} cold storage templates")
 
-        # Keep audit log
-        data['audit_log'] = self.discovery_engine.export_audit_log()
+            # Keep audit log
+            data['audit_log'] = self.discovery_engine.export_audit_log()
 
-        # Atomic write
-        temp_path = store_path.with_suffix('.tmp')
-        with open(temp_path, 'w') as f:
-            json.dump(data, f, indent=2)
+            # Atomic write to cache file
+            temp_path = cache_file.with_suffix('.tmp')
+            with open(temp_path, 'w') as f:
+                json.dump(data, f, indent=2)
 
-        temp_path.replace(store_path)
+            temp_path.replace(cache_file)
+        except Exception as e:
+            logger.error(f"Failed to save template store: {e}")
 
     def _get_recent_messages(self, hours: int = 24) -> List[str]:
         """Get recent messages from audit logs that haven't been processed yet"""
@@ -387,6 +379,10 @@ class TemplateDiscoveryWorker:
             self.worker_thread.join(timeout=5)
         logger.info("Template discovery worker stopped")
 
+    def get_discovered_templates(self) -> Dict[int, str]:
+        """Get all discovered templates (template_id -> pattern mapping) from SQL cache"""
+        return self.discovered_templates.copy()
+
     def get_status(self) -> Dict[str, Any]:
         """Get worker status for monitoring"""
         return {
@@ -394,67 +390,8 @@ class TemplateDiscoveryWorker:
             'last_discovery_run': self.last_discovery_run.isoformat() if self.last_discovery_run else None,
             'total_templates_discovered': self.total_templates_discovered,
             'discovery_interval_seconds': self.discovery_interval,
-            'template_store_path': self.template_store_path,
+            'cache_dir': self.cache_dir,
         }
-
-
-class TemplateSyncService:
-    """
-    Template synchronization service for clients (Claim 17)
-    Provides API for clients to fetch latest templates
-    """
-
-    def __init__(self, template_store_path: str = "./template_store.json"):
-        self.template_store_path = template_store_path
-
-    def get_template_store(self, client_version: int = 0) -> Dict[str, Any]:
-        """
-        Get template store for client synchronization (Claim 17)
-
-        Args:
-            client_version: Client's current template version (0 = get all)
-
-        Returns:
-            Dictionary with templates and metadata
-        """
-        store_path = Path(self.template_store_path)
-
-        if not store_path.exists():
-            return {
-                'version': 0,
-                'templates': {},
-                'last_updated': None,
-            }
-
-        with open(store_path, 'r') as f:
-            data = json.load(f)
-
-        # Filter to only new templates if client has a version
-        if client_version > 0:
-            filtered_templates = {}
-            # Handle both old and new template store formats
-            templates_dict = data.get('platform_templates', data.get('templates', {}))
-            for tid, template_data in templates_dict.items():
-                if template_data.get('version', 1) > client_version:
-                    filtered_templates[tid] = template_data
-            data['templates'] = filtered_templates
-        else:
-            # For full sync, merge platform and user templates
-            platform_templates = data.get('platform_templates', {})
-            # Note: user templates would need user_id context, so we only return platform templates
-            data['templates'] = platform_templates
-
-        return {
-            'version': data.get('version', 1),
-            'templates': data['templates'],
-            'last_updated': data.get('last_updated'),
-            'total_templates': len(data['templates']),
-        }
-
-    def get_template_by_id(self, template_id: int) -> Optional[Dict[str, Any]]:
-        """Get specific template by ID"""
-        store = self.get_template_store()
-        return store['templates'].get(str(template_id))
 
 
 # Global worker instance
@@ -463,7 +400,7 @@ _discovery_worker: Optional[TemplateDiscoveryWorker] = None
 
 def start_discovery_worker(
     audit_log_directory: str = "./audit_logs",
-    template_store_path: str = "./template_store.json",
+    cache_dir: str = ".aura_cache",
     discovery_interval_seconds: int = 3600,
 ) -> TemplateDiscoveryWorker:
     """
@@ -471,7 +408,7 @@ def start_discovery_worker(
 
     Args:
         audit_log_directory: Path to audit logs
-        template_store_path: Path to template store
+        cache_dir: Directory for SQL-based persistent cache
         discovery_interval_seconds: Discovery interval (default 1 hour)
 
     Returns:
@@ -482,7 +419,7 @@ def start_discovery_worker(
     if _discovery_worker is None:
         _discovery_worker = TemplateDiscoveryWorker(
             audit_log_directory=audit_log_directory,
-            template_store_path=template_store_path,
+            cache_dir=cache_dir,
             discovery_interval_seconds=discovery_interval_seconds,
         )
 

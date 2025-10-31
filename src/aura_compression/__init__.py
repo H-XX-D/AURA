@@ -18,7 +18,6 @@ from .discovery import TemplateDiscoveryEngine, TemplateCandidate
 from .acceleration import ConversationAccelerator, ConversationSession, PlatformWideAccelerator
 from .background_workers import (
     TemplateDiscoveryWorker,
-    TemplateSyncService,
     start_discovery_worker,
     stop_discovery_worker,
 )
@@ -52,7 +51,6 @@ __all__ = [
     "TemplateDiscoveryEngine",
     "TemplateCandidate",
     "TemplateDiscoveryWorker",
-    "TemplateSyncService",
     "start_discovery_worker",
     "stop_discovery_worker",
 

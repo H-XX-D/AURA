@@ -80,7 +80,6 @@ class ProductionHybridCompressor:
             audit_log_directory=audit_log_directory,
             session_id=session_id,
             user_id=user_id,
-            template_store_path=template_store_path,
             template_cache_size=template_cache_size,
             enable_normalization=enable_normalization,
             enable_sidechain=enable_sidechain,
@@ -105,7 +104,6 @@ class ProductionHybridCompressor:
                         audit_log_directory: str,
                         session_id: Optional[str],
                         user_id: Optional[str],
-                        template_store_path: Optional[str],
                         template_cache_size: int,
                         enable_normalization: bool,
                         enable_sidechain: Optional[bool],
@@ -123,7 +121,6 @@ class ProductionHybridCompressor:
 
         # Initialize template service first
         self._template_service = TemplateService(
-            template_store_path=template_store_path or "./template_store.json",
             enable_discovery=enable_aura,
             discovery_interval_seconds=3600,  # 1 hour
             audit_log_directory=audit_log_directory,
@@ -376,7 +373,7 @@ class ProductionHybridCompressor:
         compression_ratio = original_size / len(final_payload) if len(final_payload) > 0 else 1.0
         if compression_ratio <= 1.0 and optimal_strategy != CompressionMethod.UNCOMPRESSED:
             # Data expanded, fall back to UNCOMPRESSED
-            compressed, metadata = self._compression_engine.compress_uncompressed(text)
+            compressed, metadata = self._compression_engine.compress_uncompressed(text_str)
             final_payload = compressed
             optimal_strategy = CompressionMethod.UNCOMPRESSED
             metadata.update({

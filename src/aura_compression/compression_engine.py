@@ -238,12 +238,12 @@ class CompressionEngine:
         if use_tcp and original_size < self.tcp_brio_threshold:
             # Use TCP-optimized BRIO
             compressed = self._tcp_brio_encoder.compress(text)
-            compressed_bytes = compressed.to_bytes()
+            compressed_bytes = compressed.payload
             method = CompressionMethod.BRIO.name.lower()
         else:
             # Use full BRIO
             compressed = self._aura_encoder.compress(text)
-            compressed_bytes = compressed.to_bytes()
+            compressed_bytes = compressed.payload
             method = CompressionMethod.BRIO.name.lower()
 
         metadata = {

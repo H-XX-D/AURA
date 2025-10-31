@@ -1,0 +1,150 @@
+{
+  "simulation_info": {
+    "start_time": "2025-10-30T21:35:45.868919",
+    "end_time": "2025-10-30T21:35:47.872583",
+    "planned_duration_seconds": 2.0,
+    "actual_duration_seconds": 2.003487,
+    "total_messages_processed": 57,
+    "scorer_enabled": false,
+    "scorer_status": {
+      "requested": false,
+      "enabled": false,
+      "auto_disabled": false,
+      "disabled_reason": null,
+      "messages_seen": 57,
+      "borderline_messages": 5,
+      "global_borderline_ratio": 0.08771929824561403,
+      "evaluation_window": 500,
+      "window_threshold": 0.15,
+      "last_window_ratio": null,
+      "last_window_sample": 0,
+      "recommendation": null
+    }
+  },
+  "compression_performance": {
+    "methods_used": {
+      "1": 45,
+      "255": 12
+    },
+    "average_compression_ratio": 0.9664371752617152,
+    "median_compression_ratio": 0.9573170731707317,
+    "min_compression_ratio": 0.9247311827956989,
+    "max_compression_ratio": 1.0740740740740742,
+    "compression_ratio_stddev": 0.03470399091145715
+  },
+  "message_type_distribution": {
+    "api_request": 17,
+    "log_message": 14,
+    "repetitive_text": 3,
+    "structured_data": 11,
+    "binary_data": 6,
+    "chat_message": 6
+  },
+  "template_discovery": {
+    "template_matches": 0,
+    "template_match_rate": 0.0,
+    "template_discoveries": 0
+  },
+  "ml_algorithm_performance": {
+    "ai_semantic_usage": 0,
+    "ai_semantic_rate": 0.0,
+    "binary_semantic_usage": 0,
+    "binary_semantic_rate": 0.0
+  },
+  "performance_metrics": {
+    "average_processing_time": 0.0003849456184788754,
+    "median_processing_time": 0.00034999847412109375,
+    "messages_per_second": 28.450396733295502,
+    "processing_time_stddev": 0.00011421921650785521,
+    "average_message_size": 166.73684210526315,
+    "median_message_size": 117,
+    "min_message_size": 29,
+    "max_message_size": 908,
+    "size_distribution": {
+      "small": 22,
+      "medium": 34,
+      "large": 1
+    },
+    "latency_metrics": {
+      "average_latency_ms": 0.38494561847887543,
+      "median_latency_ms": 0.34999847412109375,
+      "min_latency_ms": 0.2090930938720703,
+      "max_latency_ms": 0.7989406585693359,
+      "latency_stddev_ms": 0.11421921650785521,
+      "p95_latency_ms": 0.618290901184082
+    },
+    "bandwidth_metrics": {
+      "average_bandwidth_bps": 393149.1509053763,
+      "median_bandwidth_bps": 325139.8449612403,
+      "min_bandwidth_bps": 76741.20883280758,
+      "max_bandwidth_bps": 1136504.9334527007,
+      "bandwidth_stddev_bps": 217194.32426995604,
+      "total_data_processed_mb": 0.009063720703125,
+      "effective_bandwidth_mbps": 0.2714383682986214
+    }
+  },
+  "error_analysis": {
+    "total_errors": 0,
+    "error_rate": 0.0,
+    "error_samples": []
+  },
+  "detailed_analysis": {
+    "template_matching_analysis": {
+      "total_attempts": 57,
+      "failure_rate": 1.0,
+      "success_rate": 0.0,
+      "reason_for_low_matches": "Very high template matching failure rate (100.0%). Possible issues: 1) Templates not diverse enough for message patterns, 2) Template discovery not finding good patterns, 3) Message variation too high for existing templates, 4) Template library not being updated properly"
+    },
+    "compression_method_analysis": {
+      "methods_available_distribution": {
+        "4": 57
+      },
+      "method_usage_breakdown": {
+        "1": {
+          "usage_count": 45,
+          "usage_rate": 0.7894736842105263,
+          "avg_compression_ratio": 0.9608653506708492,
+          "avg_message_size": 187.55555555555554,
+          "template_match_rate": 0.0,
+          "avg_available_methods": 4
+        },
+        "255": {
+          "usage_count": 12,
+          "usage_rate": 0.21052631578947367,
+          "avg_compression_ratio": 0.9873315174774625,
+          "avg_message_size": 88.66666666666667,
+          "template_match_rate": 0.0,
+          "avg_available_methods": 4
+        }
+      },
+      "why_other_methods_not_used": "Only 2 compression methods being used. ML selector may be preferring certain methods or other methods may not be available"
+    },
+    "ml_decision_analysis": {
+      "ml_selection_reasons": {},
+      "method_effectiveness": {
+        "1": {
+          "best_ratio": 1.0740740740740742,
+          "worst_ratio": 0.9247311827956989,
+          "avg_ratio": 0.9608653506708492,
+          "ratio_consistency": 0.03706304360301629,
+          "usage_efficiency": 0.0,
+          "avg_latency_ms": 0.4080401526557075,
+          "avg_bandwidth_bps": 419623.88208335225,
+          "latency_vs_ratio_tradeoff": 0.41296447533059083,
+          "bandwidth_efficiency": 401.5130651568238
+        },
+        "255": {
+          "best_ratio": 0.9931972789115646,
+          "worst_ratio": 0.9705882352941176,
+          "avg_ratio": 0.9873315174774625,
+          "ratio_consistency": 0.005777610108491004,
+          "usage_efficiency": 0.0,
+          "avg_latency_ms": 0.2983411153157552,
+          "avg_bandwidth_bps": 293868.90898796666,
+          "latency_vs_ratio_tradeoff": 0.6734056488961532,
+          "bandwidth_efficiency": 290.4791847682856
+        }
+      }
+    }
+  }
+}

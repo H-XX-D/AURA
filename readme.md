@@ -1,5 +1,6 @@
 # AURA Compression System
 
+[![Python Tests](https://github.com/hendrixx-cnc/AURA/workflows/Python%20Tests/badge.svg)](https://github.com/hendrixx-cnc/AURA/actions)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Tests: 168 passing](https://img.shields.io/badge/tests-168%20passing-brightgreen.svg)](tests/)

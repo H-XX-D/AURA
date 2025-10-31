@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Test that all compressors (except AI_SEMANTIC) use partial template matching
+Test that all compressors (except PATTERN_SEMANTIC) use partial template matching
 
 Validates:
 - BINARY_SEMANTIC uses partial matching
 - AURALITE uses partial matching
 - BRIO uses partial matching
-- AI_SEMANTIC does NOT use partial matching (as requested)
+- PATTERN_SEMANTIC does NOT use partial matching (as requested)
 - Leftover fallback works for all methods
 """
 
@@ -18,8 +18,8 @@ from aura_compression.compressor_refactored import ProductionHybridCompressor
 from aura_compression.enums import CompressionMethod
 
 
-def test_all_compressors_use_partial_matching():
-    """Test that all compressors (except AI_SEMANTIC) use partial template matching"""
+def _run_all_compressors_use_partial_matching() -> bool:
+    """Run partial matching checks across compressors and return success flag."""
 
     compressor = ProductionHybridCompressor(
         enable_aura=False,
@@ -44,7 +44,7 @@ def test_all_compressors_use_partial_matching():
         (CompressionMethod.BINARY_SEMANTIC, "Should use partial matching", True),
         (CompressionMethod.AURALITE, "Should use partial matching", True),
         (CompressionMethod.BRIO, "Should use partial matching", True),
-        (CompressionMethod.AI_SEMANTIC, "Should NOT use partial matching", False),
+        (CompressionMethod.PATTERN_SEMANTIC, "Should NOT use partial matching", False),
     ]
 
     results = []
@@ -118,24 +118,24 @@ def test_all_compressors_use_partial_matching():
     if all(results):
         print("✓ ALL TESTS PASSED")
         print()
-        print("All compressors (except AI_SEMANTIC) now use partial template matching:")
+        print("All compressors (except PATTERN_SEMANTIC) now use partial template matching:")
         print("  ✓ BINARY_SEMANTIC - uses partial matching")
         print("  ✓ AURALITE - uses partial matching")
         print("  ✓ BRIO - uses partial matching")
-        print("  ✓ AI_SEMANTIC - does NOT use partial matching (as requested)")
+        print("  ✓ PATTERN_SEMANTIC - does NOT use partial matching (as requested)")
         print()
         print("Benefits:")
         print("  - Better compression for messages with partial template matches")
         print("  - Leftover fallback prevents inefficient compression of small chunks")
         print("  - Consistent behavior across all template-aware methods")
         return True
-    else:
-        print("✗ SOME TESTS FAILED")
-        return False
+
+    print("✗ SOME TESTS FAILED")
+    return False
 
 
-def test_leftover_fallback_all_methods():
-    """Test that leftover fallback works for all methods"""
+def _run_leftover_fallback_all_methods() -> bool:
+    """Run leftover fallback verification across compressors and return flag."""
 
     compressor = ProductionHybridCompressor(
         enable_aura=False,
@@ -174,8 +174,18 @@ def test_leftover_fallback_all_methods():
         return True  # Not necessarily a failure
 
 
+def test_all_compressors_use_partial_matching():
+    """Pytest wrapper asserting partial matching behaviour across compressors."""
+    assert _run_all_compressors_use_partial_matching()
+
+
+def test_leftover_fallback_all_methods():
+    """Pytest wrapper asserting leftover fallback behaviour across compressors."""
+    assert _run_leftover_fallback_all_methods()
+
+
 if __name__ == "__main__":
-    success1 = test_all_compressors_use_partial_matching()
-    success2 = test_leftover_fallback_all_methods()
+    success1 = _run_all_compressors_use_partial_matching()
+    success2 = _run_leftover_fallback_all_methods()
 
     sys.exit(0 if (success1 and success2) else 1)

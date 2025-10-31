@@ -52,7 +52,7 @@ from aura_compression.auralite import (
     AuraLiteEncoded,
 )
 from aura_compression.templates import TemplateMatch
-from aura_compression.ai_large_file import AILargeFileCompressor
+from aura_compression.pattern_semantic_large_file import PatternSemanticCompressor
 
 
 class CompressionEngine:
@@ -70,7 +70,7 @@ class CompressionEngine:
                  auralite_encoder: Optional[AuraLiteEncoder] = None,
                  auralite_decoder: Optional[AuraLiteDecoder] = None,
                  tcp_brio_threshold: int = 1000,
-                 ai_semantic_compressor: Optional[AILargeFileCompressor] = None):
+                 pattern_semantic_compressor: Optional[PatternSemanticCompressor] = None):
         """
         Initialize compression engine with encoders/decoders
         """
@@ -88,7 +88,7 @@ class CompressionEngine:
         self._auralite_decoder = auralite_decoder or AuraLiteDecoder(template_library=template_library)
 
         # AI Semantic compressor
-        self._ai_semantic_compressor = ai_semantic_compressor or AILargeFileCompressor()
+        self._pattern_semantic_compressor = pattern_semantic_compressor or PatternSemanticCompressor()
 
     def compress_binary_semantic(self, text: str, template_match: TemplateMatch) -> Tuple[bytes, dict]:
         """Compress using binary semantic compression"""
@@ -281,15 +281,15 @@ class CompressionEngine:
 
         return text, metadata
 
-    def compress_ai_semantic(self, text: str) -> Tuple[bytes, dict]:
+    def compress_pattern_semantic(self, text: str) -> Tuple[bytes, dict]:
         """Compress using AI-powered semantic compression for large files"""
-        compressed, stats = self._ai_semantic_compressor.compress(text)
+        compressed, stats = self._pattern_semantic_compressor.compress(text)
 
         metadata = {
             'original_size': stats.original_size,
             'compressed_size': stats.compressed_size,
             'ratio': stats.ratio,
-            'method': CompressionMethod.AI_SEMANTIC.name.lower(),
+            'method': CompressionMethod.PATTERN_SEMANTIC.name.lower(),
             'patterns_found': stats.patterns_found,
             'dictionary_size': stats.dictionary_size,
             'semantic_chunks': stats.semantic_chunks,
@@ -298,17 +298,17 @@ class CompressionEngine:
 
         return compressed, metadata
 
-    def decompress_ai_semantic(self, data: bytes) -> Tuple[str, dict]:
+    def decompress_pattern_semantic(self, data: bytes) -> Tuple[str, dict]:
         """Decompress AI-powered semantic compression"""
         if len(data) < 1:
             raise ValueError("Invalid AI semantic data: no method byte")
 
         # Skip method byte
         payload = data[1:]
-        text = self._ai_semantic_compressor.decompress(payload)
+        text = self._pattern_semantic_compressor.decompress(payload)
 
         metadata = {
-            'method': CompressionMethod.AI_SEMANTIC.name.lower(),
+            'method': CompressionMethod.PATTERN_SEMANTIC.name.lower(),
         }
 
         return text, metadata
@@ -369,8 +369,8 @@ class CompressionEngine:
             return self.decompress_auralite(data)
         elif method == CompressionMethod.BRIO:
             return self.decompress_brio(data)
-        elif method == CompressionMethod.AI_SEMANTIC:
-            return self.decompress_ai_semantic(data)
+        elif method == CompressionMethod.PATTERN_SEMANTIC:
+            return self.decompress_pattern_semantic(data)
         elif method == CompressionMethod.UNCOMPRESSED:
             return self.decompress_uncompressed(data)
         else:

@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""
+AURA Compression CLI Tool
+Simple command-line interface for compressing and decompressing files.
+
+Usage:
+    ./aura compress input.txt output.aura
+    ./aura decompress output.aura restored.txt
+    ./aura info file.aura
+"""
+
+import sys
+import time
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent / 'src'))
+
+from aura_compression.compressor_refactored import ProductionHybridCompressor
+
+
+def compress_file(input_path, output_path):
+    """Compress a file."""
+    print(f"Compressing: {input_path} -> {output_path}")
+    
+    # Initialize compressor
+    compressor = ProductionHybridCompressor(
+        enable_aura=True,
+        template_store_path='./template_store.json'
+    )
+    
+    # Read input
+    start = time.time()
+    with open(input_path, 'rb') as f:
+        data = f.read()
+    
+    # Compress
+    compressed = compressor.compress(data)
+    
+    # Write output
+    with open(output_path, 'wb') as f:
+        f.write(compressed)
+    
+    elapsed = time.time() - start
+    ratio = len(data) / len(compressed) if len(compressed) > 0 else 0
+    
+    print(f"✓ Done in {elapsed:.2f}s")
+    print(f"  Original:   {len(data):,} bytes")
+    print(f"  Compressed: {len(compressed):,} bytes")
+    print(f"  Ratio:      {ratio:.2f}x")
+    print(f"  Saved:      {((len(data) - len(compressed)) / len(data) * 100):.1f}%")
+
+
+def decompress_file(input_path, output_path):
+    """Decompress a file."""
+    print(f"Decompressing: {input_path} -> {output_path}")
+    
+    # Initialize compressor
+    compressor = ProductionHybridCompressor(
+        enable_aura=True,
+        template_store_path='./template_store.json'
+    )
+    
+    # Read compressed
+    start = time.time()
+    with open(input_path, 'rb') as f:
+        compressed = f.read()
+    
+    # Decompress
+    data = compressor.decompress(compressed)
+    
+    # Write output
+    with open(output_path, 'wb') as f:
+        f.write(data)
+    
+    elapsed = time.time() - start
+    
+    print(f"✓ Done in {elapsed:.2f}s")
+    print(f"  Compressed:   {len(compressed):,} bytes")
+    print(f"  Decompressed: {len(data):,} bytes")
+
+
+def show_info(file_path):
+    """Show info about a compressed file."""
+    with open(file_path, 'rb') as f:
+        data = f.read()
+    
+    # Try to detect compression method from header
+    if len(data) < 1:
+        print("Empty file")
+        return
+    
+    method_byte = data[0]
+    method_names = {
+        0x00: "BINARY_SEMANTIC",
+        0x01: "AURALITE",
+        0x20: "PATTERN_SEMANTIC",
+        0xff: "UNCOMPRESSED"
+    }
+    
+    print(f"File: {file_path}")
+    print(f"Size: {len(data):,} bytes")
+    print(f"Method: {method_names.get(method_byte, f'Unknown (0x{method_byte:02x})')}")
+
+
+def show_usage():
+    """Show usage information."""
+    print("""
+AURA Compression CLI Tool
+========================
+
+Usage:
+    ./aura compress <input> <output>     Compress a file
+    ./aura decompress <input> <output>   Decompress a file
+    ./aura info <file>                   Show file info
+    ./aura help                          Show this help
+
+Examples:
+    ./aura compress document.txt document.aura
+    ./aura decompress document.aura restored.txt
+    ./aura info document.aura
+
+For large files, use:
+    python3 tools/compress_large_file.py input.txt output.aura
+""")
+
+
+def main():
+    if len(sys.argv) < 2:
+        show_usage()
+        sys.exit(1)
+    
+    command = sys.argv[1].lower()
+    
+    if command in ['help', '--help', '-h']:
+        show_usage()
+    
+    elif command == 'compress':
+        if len(sys.argv) < 4:
+            print("Error: compress requires input and output files")
+            print("Usage: ./aura compress <input> <output>")
+            sys.exit(1)
+        compress_file(sys.argv[2], sys.argv[3])
+    
+    elif command == 'decompress':
+        if len(sys.argv) < 4:
+            print("Error: decompress requires input and output files")
+            print("Usage: ./aura decompress <input> <output>")
+            sys.exit(1)
+        decompress_file(sys.argv[2], sys.argv[3])
+    
+    elif command == 'info':
+        if len(sys.argv) < 3:
+            print("Error: info requires a file path")
+            print("Usage: ./aura info <file>")
+            sys.exit(1)
+        show_info(sys.argv[2])
+    
+    else:
+        print(f"Error: Unknown command '{command}'")
+        show_usage()
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

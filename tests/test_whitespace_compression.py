@@ -12,8 +12,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from aura_compression.compressor_refactored import ProductionHybridCompressor
 
 
-def test_whitespace_preservation():
-    """Test that whitespace is preserved in compression/decompression"""
+def _run_whitespace_preservation() -> bool:
+    """Execute whitespace preservation checks and return success flag."""
 
     print("=" * 80)
     print("WHITESPACE-AWARE COMPRESSION TEST")
@@ -89,11 +89,16 @@ def test_whitespace_preservation():
         print("  - Whitespace restored during decompression")
         print("  - Template compression works with any whitespace pattern")
         return True
-    else:
-        print(f"⚠ {failed} test(s) failed")
-        return False
+
+    print(f"⚠ {failed} test(s) failed")
+    return False
+
+
+def test_whitespace_preservation():
+    """Pytest wrapper that asserts the whitespace checks succeed."""
+    assert _run_whitespace_preservation()
 
 
 if __name__ == "__main__":
-    success = test_whitespace_preservation()
+    success = _run_whitespace_preservation()
     sys.exit(0 if success else 1)

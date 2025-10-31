@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import string
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Pattern, Any
 from functools import lru_cache
@@ -70,11 +71,18 @@ class TemplateLibrary:
 
     _SLOT_RE = re.compile(r"\{(\d+)\}")
 
-    # Template ID Ranges (reorganized for better distribution):
-    # 0-127:   DEFAULT_TEMPLATES (most common patterns)
-    # 128-191: DYNAMIC_RANGE (discovered templates - 64 slots)
-    # 192-255: CLIENT_SYNC_RANGE (client-discovered - 64 slots)
-    # 256-383: WHITESPACE_VARIANTS (auto-generated leading/trailing whitespace variants)
+    # Template ID Ranges (domain-specific allocation):
+    # 0-127:       DEFAULT_TEMPLATES (built-in common patterns - 128 slots)
+    # 128-2127:    AI_TO_AI (AI-to-AI communication patterns - 2,000 slots)
+    # 2128-4999:   RESERVED_1 (reserved for future AI patterns - 2,872 slots)
+    # 5000-6999:   HUMAN_TO_AI_HEALTHCARE (healthcare domain - 2,000 slots)
+    # 7000-9999:   FINANCIAL (financial domain - 3,000 slots)
+    # 10000-11999: LEGAL (legal domain - 2,000 slots)
+    # 12000-13999: SMALL_SENTENCES (short messages - 2,000 slots)
+    # 14000-16383: DYNAMIC_RANGE (general discovered templates - 2,384 slots)
+    # 16384-32767: CLIENT_SYNC_RANGE (client-discovered - 16,384 slots)
+    # 32768-49151: WHITESPACE_VARIANTS (auto-generated - 16,384 slots)
+    # 49152-65535: RESERVED_FUTURE (future features - 16,384 slots)
 
     DEFAULT_TEMPLATES: Dict[int, str] = {
         # Common responses (0-19)
@@ -179,23 +187,40 @@ class TemplateLibrary:
     145: "Hello {0}, how are you today? {1}",
     }
 
-    # Dynamic templates: discovered at runtime (64 slots)
-    DYNAMIC_RANGE = range(128, 192)
+    # Domain-specific template ranges
+    AI_TO_AI_RANGE = range(128, 2128)              # 2,000 slots for AI-to-AI patterns
+    RESERVED_1_RANGE = range(2128, 5000)           # 2,872 slots reserved
+    HUMAN_TO_AI_HEALTHCARE_RANGE = range(5000, 7000)  # 2,000 slots for healthcare
+    FINANCIAL_RANGE = range(7000, 10000)           # 3,000 slots for financial
+    LEGAL_RANGE = range(10000, 12000)              # 2,000 slots for legal
+    SMALL_SENTENCES_RANGE = range(12000, 14000)    # 2,000 slots for small sentences
+    DYNAMIC_RANGE = range(14000, 16384)            # 2,384 slots for general discovery
 
-    # Client-synced templates: discovered on client side (64 slots)
-    CLIENT_SYNC_RANGE = range(192, 256)
-
-    WHITESPACE_RANGE = range(256, 384)
+    # System ranges (backward compatible)
+    CLIENT_SYNC_RANGE = range(16384, 32768)        # 16,384 slots for client-discovered
+    WHITESPACE_RANGE = range(32768, 49152)         # 16,384 slots for whitespace variants
+    RESERVED_FUTURE = range(49152, 65536)          # 16,384 slots for future features
 
     def __init__(self, custom_templates: Optional[Dict[int, str]] = None, enable_fast_matching: bool = True,
                  enable_persistent_cache: bool = True, cache_dir: str = ".aura_cache"):
         self._templates: Dict[int, str] = {}
         self._records: Dict[int, TemplateRecord] = {}
         self._static_ids = set(self.DEFAULT_TEMPLATES.keys())
+
+        # Track next ID for each domain range
+        self._next_ai_to_ai_id = self.AI_TO_AI_RANGE.start
+        self._next_human_to_ai_id = self.RESERVED_1_RANGE.start  # Human-to-AI uses reserved range
+        self._next_healthcare_id = self.HUMAN_TO_AI_HEALTHCARE_RANGE.start
+        self._next_financial_id = self.FINANCIAL_RANGE.start
+        self._next_legal_id = self.LEGAL_RANGE.start
+        self._next_small_sentences_id = self.SMALL_SENTENCES_RANGE.start
         self._next_dynamic_id = self.DYNAMIC_RANGE.start
         self._next_client_sync_id = self.CLIENT_SYNC_RANGE.start
         self._next_whitespace_id = self.WHITESPACE_RANGE.start
         self._whitespace_variants: Dict[tuple[int, str, str], int] = {}
+
+        # Add HUMAN_TO_AI_RANGE as alias for RESERVED_1 for human-to-ai templates
+        self.HUMAN_TO_AI_RANGE = self.RESERVED_1_RANGE
 
         # Fast matching optimization
         self.enable_fast_matching = enable_fast_matching
@@ -595,7 +620,84 @@ class TemplateLibrary:
         self._next_whitespace_id += 1
         return allocated
 
+    # Domain-specific ID allocation methods
+    def allocate_ai_to_ai_id(self) -> int:
+        """Allocate template ID from AI-to-AI range (128-2127)"""
+        while self._next_ai_to_ai_id in self._templates and self._next_ai_to_ai_id < self.AI_TO_AI_RANGE.stop:
+            self._next_ai_to_ai_id += 1
+        if self._next_ai_to_ai_id >= self.AI_TO_AI_RANGE.stop:
+            raise RuntimeError("AI-to-AI template ID range exhausted (128-2127)")
+        allocated = self._next_ai_to_ai_id
+        self._next_ai_to_ai_id += 1
+        return allocated
+
+    def allocate_human_to_ai_id(self) -> int:
+        """Allocate template ID from Human-to-AI range (2128-4999)"""
+        while self._next_human_to_ai_id in self._templates and self._next_human_to_ai_id < self.RESERVED_1_RANGE.stop:
+            self._next_human_to_ai_id += 1
+        if self._next_human_to_ai_id >= self.RESERVED_1_RANGE.stop:
+            raise RuntimeError("Human-to-AI template ID range exhausted (2128-4999)")
+        allocated = self._next_human_to_ai_id
+        self._next_human_to_ai_id += 1
+        return allocated
+
+    def allocate_healthcare_id(self) -> int:
+        """Allocate template ID from Healthcare range (5000-6999)"""
+        while self._next_healthcare_id in self._templates and self._next_healthcare_id < self.HUMAN_TO_AI_HEALTHCARE_RANGE.stop:
+            self._next_healthcare_id += 1
+        if self._next_healthcare_id >= self.HUMAN_TO_AI_HEALTHCARE_RANGE.stop:
+            raise RuntimeError("Healthcare template ID range exhausted (5000-6999)")
+        allocated = self._next_healthcare_id
+        self._next_healthcare_id += 1
+        return allocated
+
+    def allocate_financial_id(self) -> int:
+        """Allocate template ID from Financial range (7000-9999)"""
+        while self._next_financial_id in self._templates and self._next_financial_id < self.FINANCIAL_RANGE.stop:
+            self._next_financial_id += 1
+        if self._next_financial_id >= self.FINANCIAL_RANGE.stop:
+            raise RuntimeError("Financial template ID range exhausted (7000-9999)")
+        allocated = self._next_financial_id
+        self._next_financial_id += 1
+        return allocated
+
+    def allocate_legal_id(self) -> int:
+        """Allocate template ID from Legal range (10000-11999)"""
+        while self._next_legal_id in self._templates and self._next_legal_id < self.LEGAL_RANGE.stop:
+            self._next_legal_id += 1
+        if self._next_legal_id >= self.LEGAL_RANGE.stop:
+            raise RuntimeError("Legal template ID range exhausted (10000-11999)")
+        allocated = self._next_legal_id
+        self._next_legal_id += 1
+        return allocated
+
+    def allocate_small_sentences_id(self) -> int:
+        """Allocate template ID from Small Sentences range (12000-13999)"""
+        while self._next_small_sentences_id in self._templates and self._next_small_sentences_id < self.SMALL_SENTENCES_RANGE.stop:
+            self._next_small_sentences_id += 1
+        if self._next_small_sentences_id >= self.SMALL_SENTENCES_RANGE.stop:
+            raise RuntimeError("Small Sentences template ID range exhausted (12000-13999)")
+        allocated = self._next_small_sentences_id
+        self._next_small_sentences_id += 1
+        return allocated
+
     def _advance_counters(self, template_id: int) -> None:
+        """Advance counters for all ranges based on template_id"""
+        # Domain-specific ranges
+        if template_id in self.AI_TO_AI_RANGE and template_id >= self._next_ai_to_ai_id:
+            self._next_ai_to_ai_id = template_id + 1
+        if template_id in self.RESERVED_1_RANGE and template_id >= self._next_human_to_ai_id:
+            self._next_human_to_ai_id = template_id + 1
+        if template_id in self.HUMAN_TO_AI_HEALTHCARE_RANGE and template_id >= self._next_healthcare_id:
+            self._next_healthcare_id = template_id + 1
+        if template_id in self.FINANCIAL_RANGE and template_id >= self._next_financial_id:
+            self._next_financial_id = template_id + 1
+        if template_id in self.LEGAL_RANGE and template_id >= self._next_legal_id:
+            self._next_legal_id = template_id + 1
+        if template_id in self.SMALL_SENTENCES_RANGE and template_id >= self._next_small_sentences_id:
+            self._next_small_sentences_id = template_id + 1
+
+        # System ranges
         if template_id in self.DYNAMIC_RANGE and template_id >= self._next_dynamic_id:
             self._next_dynamic_id = template_id + 1
         if template_id in self.CLIENT_SYNC_RANGE and template_id >= self._next_client_sync_id:
@@ -661,21 +763,31 @@ class TemplateLibrary:
 
     @classmethod
     def _compile_pattern(cls, pattern: str) -> tuple[Pattern[str], Pattern[str], List[int]]:
+        formatter = string.Formatter()
         slot_order: List[int] = []
-        parts: List[str] = []
-        literal = True
+        regex_parts: List[str] = []
         counter = 0
-        for part in cls._SLOT_RE.split(pattern):
-            if literal:
-                parts.append(re.escape(part))
-            else:
-                slot_idx = int(part)
-                if slot_idx not in slot_order:
-                    slot_order.append(slot_idx)
-                parts.append(rf"(?P<slot_{slot_idx}_{counter}>.+?)")
-                counter += 1
-            literal = not literal
-        regex_body = "".join(parts)
+
+        for literal_text, field_name, _, _ in formatter.parse(pattern):
+            if literal_text:
+                normalized = literal_text.replace("{{", "{").replace("}}", "}")
+                regex_parts.append(re.escape(normalized))
+
+            if field_name is None:
+                continue
+
+            try:
+                slot_idx = int(field_name)
+            except (TypeError, ValueError):
+                continue
+
+            if slot_idx not in slot_order:
+                slot_order.append(slot_idx)
+
+            regex_parts.append(rf"(?P<slot_{slot_idx}_{counter}>.+?)")
+            counter += 1
+
+        regex_body = "".join(regex_parts)
         compiled_full = re.compile(rf"^{regex_body}$", re.IGNORECASE)
         compiled_partial = re.compile(regex_body, re.IGNORECASE)
         return compiled_full, compiled_partial, slot_order

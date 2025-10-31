@@ -30,7 +30,7 @@ from aura_compression.template_service import TemplateService
 from aura_compression.performance_optimizer import PerformanceOptimizer
 from aura_compression.storage_manager import StorageManager
 from aura_compression.metadata_sidechannel import MessageCategory
-from aura_compression.ai_large_file import AILargeFileCompressor
+from aura_compression.pattern_semantic_large_file import PatternSemanticCompressor
 
 
 class ProductionHybridCompressor:
@@ -47,7 +47,6 @@ class ProductionHybridCompressor:
                  audit_log_directory: str = "./audit_logs",
                  session_id: Optional[str] = None,
                  user_id: Optional[str] = None,
-                 template_store_path: Optional[str] = None,
                  template_cache_size: int = 128,
                  enable_normalization: bool = True,
                  tcp_brio_threshold: int = 1000,
@@ -181,7 +180,7 @@ class ProductionHybridCompressor:
             auralite_encoder=auralite_encoder,
             auralite_decoder=auralite_decoder,
             tcp_brio_threshold=self.tcp_brio_threshold,
-            ai_semantic_compressor=AILargeFileCompressor(),
+            pattern_semantic_compressor=PatternSemanticCompressor(),
         )
 
         # Template manager (for compatibility) - now handled in _init_components
@@ -194,7 +193,7 @@ class ProductionHybridCompressor:
         self._ml_selector = None
         if enable_ml_selection:
             self._ml_selector = MLAlgorithmSelector(
-                ai_compressor=AILargeFileCompressor(),
+                ai_compressor=PatternSemanticCompressor(),
                 template_service=self._template_service,
                 enable_expensive_features=False,  # Disable expensive AI features for better performance
                 enable_learning=True,  # Enable ML learning from compression results
@@ -240,11 +239,19 @@ class ProductionHybridCompressor:
 
         # Hardware acceleration removed - focus on core compression
 
-    def compress(self, text: str, template_id: Optional[int] = None,
+    def compress(self, text, template_id: Optional[int] = None,
                  slots: Optional[List[str]] = None) -> Tuple[bytes, CompressionMethod, dict]:
         """
         Compress text using best method with modular architecture
         """
+        # Handle both str and bytes input (backward compatible)
+        if isinstance(text, bytes):
+            text_str = text.decode('utf-8', errors='ignore')
+            text_bytes = text
+        else:
+            text_str = text
+            text_bytes = text.encode('utf-8')
+        
         # Sync template store before compression
         current_time = time.time()
         if (
@@ -254,28 +261,28 @@ class ProductionHybridCompressor:
             self._template_service.sync_template_store()
             self._last_template_sync = current_time
 
-        original_size = len(text.encode('utf-8'))
+        original_size = len(text_bytes)
 
         if original_size < 25:
-            return self._compress_uncompressed(text)
+            return self._compress_uncompressed(text_str)
 
         # Fast path 1: Early exit for tiny messages
         if original_size < self.min_compression_size:
-            return self._compress_uncompressed(text)
+            return self._compress_uncompressed(text_str)
 
         healing_attempted = False
         template_match = None
 
         while True:
-            template_match = self._find_template_match(text, template_id, slots)
+            template_match = self._find_template_match(text_str, template_id, slots)
             if template_match and self.enable_fast_path:
-                result = self._try_fast_path_compression(text, template_match)
+                result = self._try_fast_path_compression(text_str, template_match)
                 if result:
                     return result
 
             available_strategies = self._strategy_manager.get_available_strategies()
             optimal_strategy = self._strategy_manager.select_optimal_strategy(
-                text, available_strategies, template_match
+                text_str, available_strategies, template_match
             )
 
             if (
@@ -284,7 +291,7 @@ class ProductionHybridCompressor:
                 and self.template_library.get_entry(template_match.template_id) is None
             ):
                 self._template_service.heal_template_cache(
-                    text=text,
+                    text=text_str,
                     template_id=template_match.template_id,
                     force_full_reset=True,
                 )
@@ -294,7 +301,7 @@ class ProductionHybridCompressor:
                     slots = None
                     available_strategies = self._strategy_manager.get_available_strategies()
                     optimal_strategy = self._strategy_manager.select_optimal_strategy(
-                        text, available_strategies, None
+                        text_str, available_strategies, None
                     )
                     break
                 healing_attempted = True
@@ -307,15 +314,15 @@ class ProductionHybridCompressor:
         # Compress with optimal strategy
         try:
             if optimal_strategy == CompressionMethod.BINARY_SEMANTIC and template_match:
-                compressed, metadata = self._compression_engine.compress_binary_semantic(text, template_match)
+                compressed, metadata = self._compression_engine.compress_binary_semantic(text_str, template_match)
             elif optimal_strategy == CompressionMethod.AURALITE:
-                compressed, metadata = self._compression_engine.compress_auralite(text)
+                compressed, metadata = self._compression_engine.compress_auralite(text_str)
             elif optimal_strategy == CompressionMethod.BRIO:
-                compressed, metadata = self._compression_engine.compress_brio(text)
-            elif optimal_strategy == CompressionMethod.AI_SEMANTIC:
-                compressed, metadata = self._compression_engine.compress_ai_semantic(text)
+                compressed, metadata = self._compression_engine.compress_brio(text_str)
+            elif optimal_strategy == CompressionMethod.PATTERN_SEMANTIC:
+                compressed, metadata = self._compression_engine.compress_pattern_semantic(text_str)
             else:
-                compressed, metadata = self._compression_engine.compress_uncompressed(text)
+                compressed, metadata = self._compression_engine.compress_uncompressed(text_str)
         except ValueError as exc:
             if (
                 optimal_strategy == CompressionMethod.BINARY_SEMANTIC
@@ -323,21 +330,21 @@ class ProductionHybridCompressor:
                 and not healing_attempted
             ):
                 self._template_service.heal_template_cache(
-                    text=text,
+                    text=text_str,
                     template_id=template_match.template_id if template_match else None,
                     force_full_reset=True,
                 )
                 template_match = None
                 available_strategies = self._strategy_manager.get_available_strategies()
                 optimal_strategy = self._strategy_manager.select_optimal_strategy(
-                    text, available_strategies, None
+                    text_str, available_strategies, None
                 )
                 if optimal_strategy == CompressionMethod.AURALITE:
                     compressed, metadata = self._compression_engine.compress_auralite(text)
                 elif optimal_strategy == CompressionMethod.BRIO:
                     compressed, metadata = self._compression_engine.compress_brio(text)
-                elif optimal_strategy == CompressionMethod.AI_SEMANTIC:
-                    compressed, metadata = self._compression_engine.compress_ai_semantic(text)
+                elif optimal_strategy == CompressionMethod.PATTERN_SEMANTIC:
+                    compressed, metadata = self._compression_engine.compress_pattern_semantic(text)
                 else:
                     compressed, metadata = self._compression_engine.compress_uncompressed(text)
             else:
@@ -364,6 +371,22 @@ class ProductionHybridCompressor:
             'method': optimal_strategy.name.lower(),
             'attempted_methods': [s.name.lower() for s in available_strategies],
         })
+
+        # Fallback to UNCOMPRESSED if compression expanded data
+        compression_ratio = original_size / len(final_payload) if len(final_payload) > 0 else 1.0
+        if compression_ratio <= 1.0 and optimal_strategy != CompressionMethod.UNCOMPRESSED:
+            # Data expanded, fall back to UNCOMPRESSED
+            compressed, metadata = self._compression_engine.compress_uncompressed(text)
+            final_payload = compressed
+            optimal_strategy = CompressionMethod.UNCOMPRESSED
+            metadata.update({
+                'original_size': original_size,
+                'compressed_size': len(final_payload),
+                'ratio': original_size / len(final_payload) if len(final_payload) > 0 else 1.0,
+                'method': CompressionMethod.UNCOMPRESSED.name.lower(),
+                'attempted_methods': [s.name.lower() for s in available_strategies],
+                'fallback_reason': 'expansion_detected',
+            })
 
         # Encode inline metadata for fast-path processing (Claims 21-30)
         if self.enable_sidechain:
@@ -509,8 +532,8 @@ class ProductionHybridCompressor:
             text, metadata = self._compression_engine.decompress_auralite(data)
         elif method == CompressionMethod.BRIO:
             text, metadata = self._compression_engine.decompress_brio(data)
-        elif method == CompressionMethod.AI_SEMANTIC:
-            text, metadata = self._compression_engine.decompress_ai_semantic(data)
+        elif method == CompressionMethod.PATTERN_SEMANTIC:
+            text, metadata = self._compression_engine.decompress_pattern_semantic(data)
         elif method == CompressionMethod.UNCOMPRESSED:
             text, metadata = self._compression_engine.decompress_uncompressed(data)  # Keep full data for uncompressed
         else:

@@ -26,7 +26,6 @@ class TemplateService:
     """
 
     def __init__(self,
-                 template_store_path: str = "./template_store.json",
                  enable_discovery: bool = True,
                  discovery_interval_seconds: int = 3600,
                  audit_log_directory: str = "./audit_logs",
@@ -35,12 +34,10 @@ class TemplateService:
         Initialize the template service
 
         Args:
-            template_store_path: Path to template store JSON file
             enable_discovery: Whether to enable background template discovery
             discovery_interval_seconds: How often to run discovery
             audit_log_directory: Path to audit logs for discovery
         """
-        self.template_store_path = template_store_path
         self.enable_discovery = enable_discovery
         self.discovery_interval = discovery_interval_seconds
         self.audit_log_directory = audit_log_directory

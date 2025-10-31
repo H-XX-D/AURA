@@ -14,8 +14,8 @@ from aura_compression.compressor_refactored import ProductionHybridCompressor
 from aura_compression.enums import CompressionMethod
 
 
-def test_small_leftover_fallback():
-    """Test that small leftover data causes fallback to UNCOMPRESSED"""
+def _run_small_leftover_fallback() -> bool:
+    """Execute small-leftover fallback scenarios and return success flag."""
 
     compressor = ProductionHybridCompressor(
         enable_aura=False,
@@ -118,8 +118,8 @@ def test_small_leftover_fallback():
     return True
 
 
-def test_leftover_threshold():
-    """Test the 50-byte leftover threshold specifically"""
+def _run_leftover_threshold() -> bool:
+    """Exercise the leftover threshold behaviour and return success flag."""
 
     compressor = ProductionHybridCompressor(
         enable_aura=False,
@@ -172,8 +172,18 @@ def test_leftover_threshold():
     return True
 
 
+def test_small_leftover_fallback():
+    """Pytest wrapper asserting small-leftover fallback passes."""
+    assert _run_small_leftover_fallback()
+
+
+def test_leftover_threshold():
+    """Pytest wrapper asserting leftover threshold behaviour passes."""
+    assert _run_leftover_threshold()
+
+
 if __name__ == "__main__":
-    success1 = test_small_leftover_fallback()
-    success2 = test_leftover_threshold()
+    success1 = _run_small_leftover_fallback()
+    success2 = _run_leftover_threshold()
 
     sys.exit(0 if (success1 and success2) else 1)

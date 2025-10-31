@@ -22,7 +22,7 @@ class TestCompressionMethod:
         assert CompressionMethod.AURALITE.value == 0x01
         assert CompressionMethod.BRIO.value == 0x02
         assert CompressionMethod.AURA_HEAVY.value == 0x04
-        assert CompressionMethod.AI_SEMANTIC.value == 0x20
+        assert CompressionMethod.PATTERN_SEMANTIC.value == 0x20
         assert CompressionMethod.UNCOMPRESSED.value == 0xFF
 
     def test_enum_names(self):
@@ -31,20 +31,20 @@ class TestCompressionMethod:
         assert CompressionMethod.AURALITE.name == "AURALITE"
         assert CompressionMethod.BRIO.name == "BRIO"
         assert CompressionMethod.AURA_HEAVY.name == "AURA_HEAVY"
-        assert CompressionMethod.AI_SEMANTIC.name == "AI_SEMANTIC"
+        assert CompressionMethod.PATTERN_SEMANTIC.name == "PATTERN_SEMANTIC"
         assert CompressionMethod.UNCOMPRESSED.name == "UNCOMPRESSED"
 
     def test_enum_string_representation(self):
         """Test string representation of enums"""
         assert str(CompressionMethod.BINARY_SEMANTIC) == "CompressionMethod.BINARY_SEMANTIC"
-        assert str(CompressionMethod.AI_SEMANTIC) == "CompressionMethod.AI_SEMANTIC"
+        assert str(CompressionMethod.PATTERN_SEMANTIC) == "CompressionMethod.PATTERN_SEMANTIC"
 
     def test_enum_iteration(self):
         """Test that we can iterate over enum values"""
         methods = list(CompressionMethod)
         assert len(methods) == 6
         assert CompressionMethod.BINARY_SEMANTIC in methods
-        assert CompressionMethod.AI_SEMANTIC in methods
+        assert CompressionMethod.PATTERN_SEMANTIC in methods
         assert CompressionMethod.UNCOMPRESSED in methods
 
     def test_enum_uniqueness(self):
@@ -55,5 +55,5 @@ class TestCompressionMethod:
     def test_enum_name_lower(self):
         """Test the name.lower() method used in serialization"""
         assert CompressionMethod.BINARY_SEMANTIC.name.lower() == "binary_semantic"
-        assert CompressionMethod.AI_SEMANTIC.name.lower() == "ai_semantic"
+        assert CompressionMethod.PATTERN_SEMANTIC.name.lower() == "pattern_semantic"
         assert CompressionMethod.UNCOMPRESSED.name.lower() == "uncompressed"

@@ -1,0 +1,185 @@
+{
+  "simulation_info": {
+    "start_time": "2025-10-31T04:19:32.694689",
+    "end_time": "2025-10-31T04:20:32.723211",
+    "planned_duration_seconds": 60.0,
+    "actual_duration_seconds": 60.028488,
+    "total_messages_processed": 0,
+    "scorer_enabled": false,
+    "scorer_status": {
+      "requested": false,
+      "enabled": false,
+      "auto_disabled": false,
+      "disabled_reason": null,
+      "messages_seen": 1549,
+      "borderline_messages": 146,
+      "global_borderline_ratio": 0.09425435765009683,
+      "evaluation_window": 500,
+      "window_threshold": 0.15,
+      "last_window_ratio": null,
+      "last_window_sample": 0,
+      "recommendation": null
+    }
+  },
+  "compression_performance": {
+    "methods_used": {},
+    "average_compression_ratio": 0,
+    "median_compression_ratio": 0,
+    "min_compression_ratio": 0,
+    "max_compression_ratio": 0,
+    "compression_ratio_stddev": 0
+  },
+  "message_type_distribution": {},
+  "template_discovery": {
+    "template_matches": 0,
+    "template_match_rate": 0.0,
+    "template_discoveries": 0
+  },
+  "ml_algorithm_performance": {
+    "ai_semantic_usage": 0,
+    "ai_semantic_rate": 0.0,
+    "binary_semantic_usage": 0,
+    "binary_semantic_rate": 0.0
+  },
+  "performance_metrics": {
+    "average_processing_time": 0,
+    "median_processing_time": 0,
+    "messages_per_second": 0.0,
+    "processing_time_stddev": 0,
+    "average_message_size": 0,
+    "median_message_size": 0,
+    "min_message_size": 0,
+    "max_message_size": 0,
+    "size_distribution": {
+      "small": 0,
+      "medium": 0,
+      "large": 0
+    },
+    "latency_metrics": {
+      "average_latency_ms": 1.1808787926408075,
+      "median_latency_ms": 0.9970664978027344,
+      "min_latency_ms": 0.1709461212158203,
+      "max_latency_ms": 5.193233489990234,
+      "latency_stddev_ms": 0.646347419563417,
+      "p95_latency_ms": 2.4630069732666016
+    },
+    "bandwidth_metrics": {
+      "average_bandwidth_bps": 176356.55500217926,
+      "median_bandwidth_bps": 141243.0336749634,
+      "min_bandwidth_bps": 9391.19950586782,
+      "max_bandwidth_bps": 1333753.5732217573,
+      "bandwidth_stddev_bps": 127814.99311210455,
+      "total_data_processed_mb": 0,
+      "effective_bandwidth_mbps": 0.0
+    }
+  },
+  "error_analysis": {
+    "total_errors": 1697,
+    "error_rate": 1.0,
+    "error_samples": [
+      {
+        "message_type": "chat_message",
+        "error": "AI_SEMANTIC",
+        "timestamp": "2025-10-31T04:19:32.695764"
+      },
+      {
+        "message_type": "api_request",
+        "error": "AI_SEMANTIC",
+        "timestamp": "2025-10-31T04:19:32.724057"
+      },
+      {
+        "message_type": "api_request",
+        "error": "AI_SEMANTIC",
+        "timestamp": "2025-10-31T04:19:32.770408"
+      },
+      {
+        "message_type": "structured_data",
+        "error": "AI_SEMANTIC",
+        "timestamp": "2025-10-31T04:19:32.801377"
+      },
+      {
+        "message_type": "chat_message",
+        "error": "AI_SEMANTIC",
+        "timestamp": "2025-10-31T04:19:32.831642"
+      }
+    ]
+  },
+  "detailed_analysis": {
+    "template_matching_analysis": {
+      "total_attempts": 1697,
+      "failure_rate": 0.9127872716558633,
+      "success_rate": 0.08721272834413671,
+      "reason_for_low_matches": "Very high template matching failure rate (91.3%). Possible issues: 1) Templates not diverse enough for message patterns, 2) Template discovery not finding good patterns, 3) Message variation too high for existing templates, 4) Template library not being updated properly"
+    },
+    "compression_method_analysis": {
+      "methods_available_distribution": {
+        "4": 1697
+      },
+      "method_usage_breakdown": {
+        "1": {
+          "usage_count": 1341,
+          "usage_rate": 1341.0,
+          "avg_compression_ratio": 0.9604924578535908,
+          "avg_message_size": 214.0917225950783,
+          "template_match_rate": 0.0,
+          "avg_available_methods": 4
+        },
+        "0": {
+          "usage_count": 148,
+          "usage_rate": 148.0,
+          "avg_compression_ratio": 2.291033453813108,
+          "avg_message_size": 56.722972972972975,
+          "template_match_rate": 1.0,
+          "avg_available_methods": 4
+        },
+        "255": {
+          "usage_count": 208,
+          "usage_rate": 208.0,
+          "avg_compression_ratio": 0.988659463440925,
+          "avg_message_size": 101.52884615384616,
+          "template_match_rate": 0.0,
+          "avg_available_methods": 4
+        }
+      },
+      "why_other_methods_not_used": "AI semantic compression not being used despite being available. May be due to: 1) AI compressor not initialized, 2) ML selector preferring other methods, 3) AI method not meeting quality thresholds"
+    },
+    "ml_decision_analysis": {
+      "ml_selection_reasons": {},
+      "method_effectiveness": {
+        "1": {
+          "best_ratio": 1.1940298507462686,
+          "worst_ratio": 0.9239130434782609,
+          "avg_ratio": 0.9604924578535908,
+          "ratio_consistency": 0.032130029491409695,
+          "usage_efficiency": 0.009694258016405667,
+          "avg_latency_ms": 1.248546005806578,
+          "avg_bandwidth_bps": 193310.523812735,
+          "latency_vs_ratio_tradeoff": 0.38108552367675946,
+          "bandwidth_efficiency": 186.04365537581455
+        },
+        "0": {
+          "best_ratio": 3.2222222222222223,
+          "worst_ratio": 1.119496855345912,
+          "avg_ratio": 2.291033453813108,
+          "ratio_consistency": 0.5977238932844865,
+          "usage_efficiency": 1.0,
+          "avg_latency_ms": 1.0621724901972591,
+          "avg_bandwidth_bps": 66361.05925302822,
+          "latency_vs_ratio_tradeoff": 0.6693697197159503,
+          "bandwidth_efficiency": 144.42599392429173
+        },
+        "255": {
+          "best_ratio": 0.9974619289340102,
+          "worst_ratio": 0.9772727272727273,
+          "avg_ratio": 0.988659463440925,
+          "ratio_consistency": 0.0038533365272889943,
+          "usage_efficiency": 0.0,
+          "avg_latency_ms": 0.829084561421321,
+          "avg_bandwidth_bps": 145318.38767486735,
+          "latency_vs_ratio_tradeoff": 0.6188715017516967,
+          "bandwidth_efficiency": 143.86068333161447
+        }
+      }
+    }
+  }
+}

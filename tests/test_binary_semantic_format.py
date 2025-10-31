@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from aura_compression.compressor_refactored import ProductionHybridCompressor
 
 
-def test_binary_semantic_roundtrip():
-    """Test basic compression and decompression"""
+def _run_binary_semantic_roundtrip() -> bool:
+    """Execute binary semantic roundtrip checks and return success flag."""
 
     compressor = ProductionHybridCompressor(
         enable_aura=False,
@@ -61,6 +61,11 @@ def test_binary_semantic_roundtrip():
     return True
 
 
+def test_binary_semantic_roundtrip():
+    """Pytest wrapper ensuring binary semantic roundtrip passes."""
+    assert _run_binary_semantic_roundtrip()
+
+
 if __name__ == "__main__":
-    success = test_binary_semantic_roundtrip()
+    success = _run_binary_semantic_roundtrip()
     sys.exit(0 if success else 1)

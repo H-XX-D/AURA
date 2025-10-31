@@ -1,0 +1,66 @@
+{
+  "runs": [
+    {
+      "run_id": 1,
+      "duration_seconds": 4.4226531982421875,
+      "total_messages": 3600,
+      "templates_discovered": 0,
+      "templates_used": 0,
+      "phase1_messages": 1800,
+      "phase1_compression_ratio": 0.9950573620592128,
+      "phase1_bandwidth_saved": -0.49671889573870376,
+      "phase1_matches": 0,
+      "phase2_messages": 1800,
+      "phase2_compression_ratio": 0.9950919174787726,
+      "phase2_bandwidth_saved": -0.49322906105627745,
+      "phase2_matches": 0,
+      "improvement_ratio": 1.0000347270628582,
+      "improvement_bandwidth": 0.003489834682426307
+    },
+    {
+      "run_id": 2,
+      "duration_seconds": 6.151094198226929,
+      "total_messages": 3600,
+      "templates_discovered": 0,
+      "templates_used": 0,
+      "phase1_messages": 1800,
+      "phase1_compression_ratio": 0.9950089976680928,
+      "phase1_bandwidth_saved": -0.5016037386198652,
+      "phase1_matches": 0,
+      "phase2_messages": 1800,
+      "phase2_compression_ratio": 0.9950954480308224,
+      "phase2_bandwidth_saved": -0.49287251578561136,
+      "phase2_matches": 0,
+      "improvement_ratio": 1.0000868840009811,
+      "improvement_bandwidth": 0.008731222834253816
+    },
+    {
+      "run_id": 3,
+      "duration_seconds": 5.168318033218384,
+      "total_messages": 3600,
+      "templates_discovered": 1,
+      "templates_used": 0,
+      "phase1_messages": 1800,
+      "phase1_compression_ratio": 0.99509794576694,
+      "phase1_bandwidth_saved": -0.4926202746084353,
+      "phase1_matches": 0,
+      "phase2_messages": 1800,
+      "phase2_compression_ratio": 0.9951129319964487,
+      "phase2_bandwidth_saved": -0.4911068730406882,
+      "phase2_matches": 0,
+      "improvement_ratio": 1.0000150600547137,
+      "improvement_bandwidth": 0.0015134015677471524
+    }
+  ],
+  "summary": {
+    "total_messages": 10800,
+    "avg_templates_discovered": 0.3333333333333333,
+    "avg_phase1_ratio": 0.9950547684980818,
+    "avg_phase1_bandwidth": -0.49698096965566807,
+    "avg_phase2_ratio": 0.9951000991686813,
+    "avg_phase2_bandwidth": -0.49240281662752566,
+    "avg_improvement_ratio": 1.0000455570395177,
+    "avg_improvement_bandwidth": 0.004578153028142425,
+    "avg_template_usage_percent": 0.0
+  }
+}

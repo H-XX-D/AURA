@@ -1,0 +1,217 @@
+{
+  "summary": {
+    "total_tests": 3,
+    "total_messages_all_tests": 3002,
+    "total_conversations_all_tests": 1501,
+    "messages_per_test": {
+      "avg": 1000.6666666666666,
+      "min": 980,
+      "max": 1022,
+      "stddev": 21.007935008784973,
+      "consistency_percent": 97.90060609505812
+    },
+    "conversations_per_test": {
+      "avg": 500.3333333333333,
+      "min": 490,
+      "max": 511,
+      "stddev": 10.503967504392486
+    },
+    "compression_performance": {
+      "avg_ratio_across_tests": 1.0324394316097376,
+      "min_ratio": 1.0321740730628248,
+      "max_ratio": 1.0327642692821855,
+      "ratio_stddev": 0.0002995600425919529,
+      "ratio_consistency_percent": 99.97098521875274
+    },
+    "network_performance": {
+      "avg_latency_ms_across_tests": 0.9455362370069513,
+      "min_avg_latency_ms": 0.8358449152071182,
+      "max_avg_latency_ms": 1.0168986320495605,
+      "latency_stddev": 0.09642065165402218,
+      "avg_throughput_kbps_across_tests": 320.60843777331814,
+      "min_throughput_kbps": 310.25880660259975,
+      "max_throughput_kbps": 330.73032886763707,
+      "total_bandwidth_saved_mb_all_tests": -4.38690185546875e-05,
+      "avg_bandwidth_saved_mb_per_test": -1.4623006184895834e-05
+    },
+    "consistency_analysis": {
+      "message_count_variance": 441.3333333333333,
+      "compression_ratio_variance": 8.973621911769262e-08,
+      "latency_variance": 0.009296942065386291,
+      "overall_consistency_score": 89.5046227502017
+    }
+  },
+  "individual_tests": [
+    {
+      "test_number": 1,
+      "start_time": "2025-10-31T05:06:24.738884",
+      "end_time": "2025-10-31T05:06:54.759687",
+      "duration_seconds": 30.020803,
+      "total_messages": 1022,
+      "human_messages": 511,
+      "ai_messages": 511,
+      "conversations": 511,
+      "errors": 0,
+      "messages_per_second": 34.04306007404266,
+      "conversations_per_second": 17.02153003702133,
+      "compression_stats": {
+        "total_original_bytes": 128070,
+        "total_compressed_bytes": 128206,
+        "total_bandwidth_saved_bytes": -136,
+        "total_bandwidth_saved_mb": -0.00012969970703125,
+        "overall_compression_ratio": 0.9989392072133909,
+        "avg_compression_ratio": 1.0321740730628248,
+        "median_compression_ratio": 0.9902912621359223,
+        "min_compression_ratio": 0.8064516129032258,
+        "max_compression_ratio": 2.3076923076923075,
+        "compression_ratio_stddev": 0.20328669397945834,
+        "methods_used": {
+          "1": 511,
+          "255": 254,
+          "0": 257
+        }
+      },
+      "network_performance": {
+        "avg_latency_ms": 0.8358449152071182,
+        "median_latency_ms": 0.5390644073486328,
+        "min_latency_ms": 0.0030994415283203125,
+        "max_latency_ms": 5.557060241699219,
+        "p95_latency_ms": 2.66420841217041,
+        "latency_stddev_ms": 0.8457493508631376,
+        "avg_throughput_bps": 338667.85676046036,
+        "avg_throughput_kbps": 330.73032886763707,
+        "avg_throughput_mbps": 0.3229788367848018,
+        "median_throughput_bps": 135255.43020788702,
+        "total_bandwidth_saved_bytes": -136,
+        "total_bandwidth_saved_kb": -0.1328125,
+        "total_bandwidth_saved_mb": -0.00012969970703125,
+        "avg_bandwidth_saved_per_message": -0.13307240704500978,
+        "bandwidth_efficiency_percent": -0.10619192629030998
+      },
+      "message_stats": {
+        "avg_message_size_bytes": 125.31311154598826,
+        "median_message_size_bytes": 79.0,
+        "min_message_size_bytes": 19,
+        "max_message_size_bytes": 553,
+        "total_data_processed_mb": 0.12213706970214844,
+        "total_data_compressed_mb": 0.12226676940917969
+      }
+    },
+    {
+      "test_number": 2,
+      "start_time": "2025-10-31T05:06:56.770396",
+      "end_time": "2025-10-31T05:07:26.779065",
+      "duration_seconds": 30.008669,
+      "total_messages": 980,
+      "human_messages": 490,
+      "ai_messages": 490,
+      "conversations": 490,
+      "errors": 0,
+      "messages_per_second": 32.657229815824216,
+      "conversations_per_second": 16.328614907912108,
+      "compression_stats": {
+        "total_original_bytes": 125098,
+        "total_compressed_bytes": 125088,
+        "total_bandwidth_saved_bytes": 10,
+        "total_bandwidth_saved_mb": 9.5367431640625e-06,
+        "overall_compression_ratio": 1.0000799437196213,
+        "avg_compression_ratio": 1.0323799524842028,
+        "median_compression_ratio": 0.9919393102853322,
+        "min_compression_ratio": 0.8064516129032258,
+        "max_compression_ratio": 2.3076923076923075,
+        "compression_ratio_stddev": 0.1971499426025091,
+        "methods_used": {
+          "1": 494,
+          "255": 221,
+          "0": 265
+        }
+      },
+      "network_performance": {
+        "avg_latency_ms": 0.9838651637641751,
+        "median_latency_ms": 0.5208253860473633,
+        "min_latency_ms": 0.0030994415283203125,
+        "max_latency_ms": 8.591890335083008,
+        "p95_latency_ms": 3.7471652030944824,
+        "latency_stddev_ms": 1.23030537400987,
+        "avg_throughput_bps": 328536.24611811084,
+        "avg_throughput_kbps": 320.8361778497176,
+        "avg_throughput_mbps": 0.31331657993136486,
+        "median_throughput_bps": 134777.44641458377,
+        "total_bandwidth_saved_bytes": 10,
+        "total_bandwidth_saved_kb": 0.009765625,
+        "total_bandwidth_saved_mb": 9.5367431640625e-06,
+        "avg_bandwidth_saved_per_message": 0.01020408163265306,
+        "bandwidth_efficiency_percent": 0.007993732913395899
+      },
+      "message_stats": {
+        "avg_message_size_bytes": 127.65102040816326,
+        "median_message_size_bytes": 82.0,
+        "min_message_size_bytes": 19,
+        "max_message_size_bytes": 534,
+        "total_data_processed_mb": 0.11930274963378906,
+        "total_data_compressed_mb": 0.119293212890625
+      }
+    },
+    {
+      "test_number": 3,
+      "start_time": "2025-10-31T05:07:28.787059",
+      "end_time": "2025-10-31T05:07:58.789961",
+      "duration_seconds": 30.002902,
+      "total_messages": 1000,
+      "human_messages": 500,
+      "ai_messages": 500,
+      "conversations": 500,
+      "errors": 0,
+      "messages_per_second": 33.33010920076998,
+      "conversations_per_second": 16.66505460038499,
+      "compression_stats": {
+        "total_original_bytes": 126754,
+        "total_compressed_bytes": 126674,
+        "total_bandwidth_saved_bytes": 80,
+        "total_bandwidth_saved_mb": 7.62939453125e-05,
+        "overall_compression_ratio": 1.0006315423843883,
+        "avg_compression_ratio": 1.0327642692821855,
+        "median_compression_ratio": 0.990467102871683,
+        "min_compression_ratio": 0.8064516129032258,
+        "max_compression_ratio": 2.3076923076923075,
+        "compression_ratio_stddev": 0.19991520245822836,
+        "methods_used": {
+          "1": 537,
+          "255": 222,
+          "0": 241
+        }
+      },
+      "network_performance": {
+        "avg_latency_ms": 1.0168986320495605,
+        "median_latency_ms": 0.5289316177368164,
+        "min_latency_ms": 0.00286102294921875,
+        "max_latency_ms": 9.727001190185547,
+        "p95_latency_ms": 4.502689838409424,
+        "latency_stddev_ms": 1.416925839499606,
+        "avg_throughput_bps": 317705.01796106214,
+        "avg_throughput_kbps": 310.25880660259975,
+        "avg_throughput_mbps": 0.3029871158228513,
+        "median_throughput_bps": 134833.52144440924,
+        "total_bandwidth_saved_bytes": 80,
+        "total_bandwidth_saved_kb": 0.078125,
+        "total_bandwidth_saved_mb": 7.62939453125e-05,
+        "avg_bandwidth_saved_per_message": 0.08,
+        "bandwidth_efficiency_percent": 0.06311437903340328
+      },
+      "message_stats": {
+        "avg_message_size_bytes": 126.754,
+        "median_message_size_bytes": 84.0,
+        "min_message_size_bytes": 19,
+        "max_message_size_bytes": 524,
+        "total_data_processed_mb": 0.12088203430175781,
+        "total_data_compressed_mb": 0.12080574035644531
+      }
+    }
+  ],
+  "configuration": {
+    "duration_seconds": 30.0,
+    "num_tests": 3,
+    "scorer_enabled": null,
+    "timestamp": "2025-10-31T05:07:58.795714"
+  }
+}

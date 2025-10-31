@@ -9,13 +9,14 @@ Automatically derives compression templates from historical audit logs using:
 """
 import logging
 import re
-import logging
 import hashlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import List, Dict, Optional, Set, Tuple
 from difflib import SequenceMatcher
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -116,10 +117,10 @@ class ClusteringEngine:
     Edit-distance clustering to identify paraphrased variations (Claims 3, 15)
     """
 
-    def __init__(self, similarity_threshold: float = 0.7):
+    def __init__(self, similarity_threshold: float = 0.6):
         """
         Args:
-            similarity_threshold: Minimum similarity (0-1) to cluster messages
+            similarity_threshold: Minimum similarity (0-1) to cluster messages (default: 0.6)
         """
         self.similarity_threshold = similarity_threshold
 
@@ -186,8 +187,8 @@ class PatternExtractor:
         if not pattern:
             return None
 
-        # Count slots in pattern
-        slot_count = pattern.count('{')
+        # Count slots in pattern (only count our placeholders, not escaped braces)
+        slot_count = pattern.count('{0}') if pattern else 0
 
         # Estimate compression ratio
         avg_message_len = sum(len(m) for m in messages) / len(messages)
@@ -206,41 +207,83 @@ class PatternExtractor:
     def _find_common_structure(self, messages: List[str]) -> Optional[str]:
         """
         Find common structure across messages, marking variations as {0}, {1}, etc.
+        Properly handles JSON by escaping literal braces.
         """
         if len(messages) < 2:
             return messages[0] if messages else None
 
-        # Start with first message as reference
+        # Use character-level comparison for better JSON handling
         reference = messages[0]
-        tokens = reference.split()
 
-        # Find token positions that vary across messages
-        variable_positions = set()
-        for i, token in enumerate(tokens):
-            # Check if this token varies in other messages
-            for other_msg in messages[1:]:
-                other_tokens = other_msg.split()
-                if i >= len(other_tokens) or other_tokens[i] != token:
-                    variable_positions.add(i)
-                    break
+        # Find common prefix and suffix
+        common_prefix = reference
+        for msg in messages[1:]:
+            common_prefix = self._longest_common_prefix(common_prefix, msg)
+            if not common_prefix:
+                break
 
-        # Build pattern with slots
-        pattern_tokens = []
-        slot_index = 0
-        for i, token in enumerate(tokens):
-            if i in variable_positions:
-                pattern_tokens.append(f'{{{slot_index}}}')
-                slot_index += 1
-            else:
-                pattern_tokens.append(token)
+        common_suffix = reference
+        for msg in messages[1:]:
+            common_suffix = self._longest_common_suffix(common_suffix, msg)
+            if not common_suffix:
+                break
 
-        pattern = ' '.join(pattern_tokens)
+        # Avoid overlap between prefix and suffix
+        if len(common_prefix) + len(common_suffix) >= len(reference):
+            # Messages are too similar or prefix/suffix overlap
+            # Use simpler approach
+            common_suffix = ""
+
+        # Build pattern with escaped braces
+        if common_prefix and common_suffix:
+            # Pattern: prefix + {0} + suffix
+            pattern = common_prefix + "{0}" + common_suffix
+        elif common_prefix:
+            # Pattern: prefix + {0}
+            pattern = common_prefix + "{0}"
+        elif common_suffix:
+            # Pattern: {0} + suffix
+            pattern = "{0}" + common_suffix
+        else:
+            # No common structure
+            return None
+
+        # Escape literal braces for Python .format()
+        # Replace { with {{ and } with }}, but preserve our placeholders
+        slot_count = pattern.count('{0}')
+
+        # Temporarily replace our placeholders
+        for i in range(slot_count):
+            pattern = pattern.replace(f'{{{i}}}', f'__SLOT{i}__')
+
+        # Escape all remaining braces
+        pattern = pattern.replace('{', '{{').replace('}', '}}')
+
+        # Restore our placeholders
+        for i in range(slot_count):
+            pattern = pattern.replace(f'__SLOT{i}__', f'{{{i}}}')
 
         # Only return pattern if it has some fixed structure
-        if pattern.count('{') >= len(tokens):
-            return None  # Too generic
+        # Pattern should have both literal content and at least one slot
+        literal_content = pattern.replace('{0}', '')
+        if len(literal_content) < 10:  # Need at least 10 chars of fixed content
+            return None
 
         return pattern
+
+    def _longest_common_prefix(self, s1: str, s2: str) -> str:
+        """Find longest common prefix of two strings"""
+        i = 0
+        while i < len(s1) and i < len(s2) and s1[i] == s2[i]:
+            i += 1
+        return s1[:i]
+
+    def _longest_common_suffix(self, s1: str, s2: str) -> str:
+        """Find longest common suffix of two strings"""
+        i = 0
+        while i < len(s1) and i < len(s2) and s1[-(i+1)] == s2[-(i+1)]:
+            i += 1
+        return s1[-i:] if i > 0 else ""
 
 
 class SafetyScreener:
@@ -289,17 +332,17 @@ class TemplateDiscoveryEngine:
 
     def __init__(
         self,
-        min_frequency: int = 5,
-        compression_threshold: float = 2.0,
-        similarity_threshold: float = 0.7,
+        min_frequency: int = 2,  # Reduced from 5 to 2 for faster discovery
+        compression_threshold: float = 1.5,  # Reduced from 2.0 to 1.5 for more lenient promotion
+        similarity_threshold: float = 0.6,  # Reduced from 0.7 to 0.6 for broader clustering
         starting_template_id: int = 200,
         max_template_id: int = 255,
     ):
         """
         Args:
-            min_frequency: Minimum pattern occurrences for promotion (Claim 16)
-            compression_threshold: Minimum compression advantage (Claim 16)
-            similarity_threshold: Clustering similarity threshold (Claim 15)
+            min_frequency: Minimum pattern occurrences for promotion (default: 2, Claim 16)
+            compression_threshold: Minimum compression advantage (default: 1.5 = 50% better, Claim 16)
+            similarity_threshold: Clustering similarity threshold (default: 0.6 = 60%, Claim 15)
             starting_template_id: First ID to assign to discovered templates
             max_template_id: Highest ID allowed for discovered templates (fits 1 byte)
         """

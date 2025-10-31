@@ -11,7 +11,7 @@ class CompressionMethod(Enum):
     AURALITE = 0x01  # AuraLite implementation (primary)
     BRIO = 0x02      # BRIO compression
     AURA_HEAVY = 0x04  # High-compression AURA with rANS
-    AI_SEMANTIC = 0x20  # AI-powered semantic compression for large files
+    PATTERN_SEMANTIC = 0x20  # Pattern-based semantic compression for large files (regex + dictionary + zlib)
     UNCOMPRESSED = 0xFF
 
 

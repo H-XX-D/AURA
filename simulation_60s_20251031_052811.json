@@ -1,0 +1,67 @@
+{
+  "timestamp": "20251031_052811",
+  "duration_per_run": "60 seconds (30s cold + 30s warm)",
+  "num_runs": 3,
+  "summary": {
+    "total_messages": 1800,
+    "avg_templates_discovered": 11.666666666666666,
+    "avg_phase1_ratio": 0.9954615299054964,
+    "avg_phase2_ratio": 1.028896277279541,
+    "avg_improvement_ratio": 1.033587089797787,
+    "avg_improvement_bandwidth": 3.263967951940455,
+    "avg_template_usage_percent": 49.55555555555555
+  },
+  "runs": [
+    {
+      "run_id": 1,
+      "duration_seconds": 1.6615700721740723,
+      "total_messages": 600,
+      "templates_discovered": 12,
+      "templates_used": 143,
+      "phase1_messages": 300,
+      "phase1_compression_ratio": 0.9954006071198602,
+      "phase1_bandwidth_saved": -0.462064504204787,
+      "phase1_matches": 0,
+      "phase2_messages": 300,
+      "phase2_compression_ratio": 1.0258684748281628,
+      "phase2_bandwidth_saved": 2.521617094481416,
+      "phase2_matches": 143,
+      "improvement_ratio": 1.0306086489101707,
+      "improvement_bandwidth": 2.983681598686203
+    },
+    {
+      "run_id": 2,
+      "duration_seconds": 1.8002731800079346,
+      "total_messages": 600,
+      "templates_discovered": 12,
+      "templates_used": 152,
+      "phase1_messages": 300,
+      "phase1_compression_ratio": 0.9955235906771315,
+      "phase1_bandwidth_saved": -0.4496537665997182,
+      "phase1_matches": 0,
+      "phase2_messages": 300,
+      "phase2_compression_ratio": 1.030483119815596,
+      "phase2_bandwidth_saved": 2.9581386855760305,
+      "phase2_matches": 152,
+      "improvement_ratio": 1.0351167259780212,
+      "improvement_bandwidth": 3.4077924521757486
+    },
+    {
+      "run_id": 3,
+      "duration_seconds": 2.0520122051239014,
+      "total_messages": 600,
+      "templates_discovered": 11,
+      "templates_used": 151,
+      "phase1_messages": 300,
+      "phase1_compression_ratio": 0.9954603919194976,
+      "phase1_bandwidth_saved": -0.4560310101086874,
+      "phase1_matches": 0,
+      "phase2_messages": 300,
+      "phase2_compression_ratio": 1.0303372371948638,
+      "phase2_bandwidth_saved": 2.9443987948507258,
+      "phase2_matches": 151,
+      "improvement_ratio": 1.0350358945051694,
+      "improvement_bandwidth": 3.4004298049594133
+    }
+  ]
+}

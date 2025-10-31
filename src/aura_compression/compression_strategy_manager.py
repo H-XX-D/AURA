@@ -187,9 +187,9 @@ class CompressionStrategyManager:
                         # Full template match available
                         compressed, metadata = self.compression_engine.compress_binary_semantic(text, template_match)
 
-                elif strategy == CompressionMethod.AI_SEMANTIC:
-                    # AI_SEMANTIC does NOT use partial template matching (as requested)
-                    compressed, metadata = self.compression_engine.compress_ai_semantic(text)
+                elif strategy == CompressionMethod.PATTERN_SEMANTIC:
+                    # PATTERN_SEMANTIC does NOT use partial template matching (as requested)
+                    compressed, metadata = self.compression_engine.compress_pattern_semantic(text)
 
                 else:
                     continue
@@ -236,7 +236,7 @@ class CompressionStrategyManager:
                             template_match: Optional[TemplateMatch] = None) -> Tuple[bytes, dict]:
         """
         Compress using a specific method
-        All methods (except AI_SEMANTIC) now try partial template matching first
+        All methods (except PATTERN_SEMANTIC) now try partial template matching first
         """
         import time
 
@@ -275,9 +275,9 @@ class CompressionStrategyManager:
             else:
                 result = self.compression_engine.compress_binary_semantic(text, template_match)
 
-        elif method == CompressionMethod.AI_SEMANTIC:
-            # AI_SEMANTIC does NOT use partial template matching (as requested)
-            result = self.compression_engine.compress_ai_semantic(text)
+        elif method == CompressionMethod.PATTERN_SEMANTIC:
+            # PATTERN_SEMANTIC does NOT use partial template matching (as requested)
+            result = self.compression_engine.compress_pattern_semantic(text)
 
         elif method == CompressionMethod.UNCOMPRESSED:
             result = self.compression_engine.compress_uncompressed(text)
@@ -298,7 +298,7 @@ class CompressionStrategyManager:
                 CompressionMethod.BINARY_SEMANTIC: "binary_semantic",
                 CompressionMethod.AURALITE: "auralite",
                 CompressionMethod.BRIO: "brio",
-                CompressionMethod.AI_SEMANTIC: "ai_semantic",
+                CompressionMethod.PATTERN_SEMANTIC: "pattern_semantic",
                 CompressionMethod.UNCOMPRESSED: "uncompressed"
             }.get(method, str(method))
             
@@ -338,7 +338,7 @@ class CompressionStrategyManager:
         message_byte_length = len(text.encode('utf-8'))
         self._record_message_statistics(message_byte_length)
         if message_byte_length < 1_048_576:
-            filtered_strategies = [s for s in filtered_strategies if s != CompressionMethod.AI_SEMANTIC]
+            filtered_strategies = [s for s in filtered_strategies if s != CompressionMethod.PATTERN_SEMANTIC]
 
         if not filtered_strategies:
             return CompressionMethod.UNCOMPRESSED
@@ -399,9 +399,9 @@ class CompressionStrategyManager:
             pass
 
         try:
-            # AI_SEMANTIC requires AI semantic compressor
-            if hasattr(self.compression_engine, '_ai_semantic_compressor') and self.compression_engine._ai_semantic_compressor:
-                strategies.append(CompressionMethod.AI_SEMANTIC)
+            # PATTERN_SEMANTIC requires AI semantic compressor
+            if hasattr(self.compression_engine, '_pattern_semantic_compressor') and self.compression_engine._pattern_semantic_compressor:
+                strategies.append(CompressionMethod.PATTERN_SEMANTIC)
         except (AttributeError, TypeError):
             pass
 
@@ -490,8 +490,8 @@ class CompressionStrategyManager:
             return CompressionMethod.UNCOMPRESSED, scorer_score
 
         # Only consider AI semantic for truly large payloads
-        if CompressionMethod.AI_SEMANTIC in available_strategies:
-            return CompressionMethod.AI_SEMANTIC, scorer_score
+        if CompressionMethod.PATTERN_SEMANTIC in available_strategies:
+            return CompressionMethod.PATTERN_SEMANTIC, scorer_score
 
         if CompressionMethod.BRIO in available_strategies:
             return CompressionMethod.BRIO, scorer_score

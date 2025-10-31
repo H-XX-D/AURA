@@ -26,27 +26,27 @@ class TemplateDiscoveryWorker:
     def __init__(
         self,
         audit_log_directory: str = "./audit_logs",
-        template_store_path: str = "./template_store.json",
         discovery_interval_seconds: int = 3600,  # Run every hour
         min_messages_for_discovery: int = 100,
-        min_frequency: int = 5,
-        compression_threshold: float = 1.1,
+        min_frequency: int = 2,  # Reduced from 5 to 2 for faster discovery
+        compression_threshold: float = 1.05,  # Reduced from 1.1 to 1.05 (5% compression advantage)
         user_id: Optional[str] = None,  # For user-specific discovery (204-255)
         discovery_mode: str = "platform",  # "platform" or "user"
+        cache_dir: str = ".aura_cache",  # SQL cache directory
     ):
         """
         Args:
             audit_log_directory: Path to audit logs
-            template_store_path: Path to template store JSON file
             discovery_interval_seconds: How often to run discovery (default 1 hour)
             min_messages_for_discovery: Minimum messages needed to run discovery
-            min_frequency: Minimum pattern occurrences for promotion (Claim 16)
-            compression_threshold: Minimum compression advantage (1.1 = 10% better, Claim 16)
+            min_frequency: Minimum pattern occurrences for promotion (default: 2, Claim 16)
+            compression_threshold: Minimum compression advantage (default: 1.05 = 5% better, Claim 16)
             user_id: User ID for user-specific templates (mode="user", IDs 204-255)
             discovery_mode: "platform" (129-188, shared) or "user" (204-255, per-user)
+            cache_dir: Directory for SQL-based persistent cache
         """
         self.audit_log_directory = audit_log_directory
-        self.template_store_path = template_store_path
+        self.cache_dir = cache_dir
         self.discovery_interval = discovery_interval_seconds
         self.min_messages_for_discovery = min_messages_for_discovery
         self.user_id = user_id

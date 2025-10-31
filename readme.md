@@ -17,7 +17,7 @@ This is an **alpha-stage** research project. While the core functionality works 
 - ✅ Core compression/decompression with 5 methods
 - ✅ Template discovery and pattern matching
 - ✅ Metadata sidechannel for fast-path processing
-- ✅ AI-powered semantic compression for large files (>1MB)
+- ✅ Pattern-based semantic compression for large files (>1MB)
 - ✅ 168 passing tests with good coverage
 - ✅ Zero external dependencies
 
@@ -105,10 +105,10 @@ compressor = ProductionHybridCompressor(
    - Best for: Maximum compression regardless of speed
    - Typical ratio: 5:1 to 20:1
 
-5. **AI_SEMANTIC** - AI-powered semantic compression for large files (>1MB)
+5. **PATTERN_SEMANTIC** - Pattern-based semantic compression for large files (>1MB)
    - Best for: Large files with patterns (code, logs, JSON, XML)
    - Typical ratio: 5:1 to 50:1+ (highly data-dependent)
-   - Uses semantic chunking, pattern recognition, and context-aware encoding
+   - Uses semantic chunking, regex patterns, dictionary compression, and context-aware encoding
 
 ### Advanced Features
 
@@ -141,6 +141,29 @@ best_method = selector.select_method(data_characteristics)
 # Selector learns from performance over time
 selector.record_performance(result)
 ```
+
+**Built-in Compliance & Audit Layer** - Production-ready from day one
+```python
+from aura_compression import ProductionHybridCompressor
+
+# Enable compliance logging (GDPR, HIPAA, SOC2 compatible)
+compressor = ProductionHybridCompressor(
+    enable_audit_logging=True,
+    audit_log_directory="./audit_logs",
+    session_id="session_123",
+    user_id="user_456"
+)
+
+# All operations automatically logged with:
+# - Cryptographic integrity (SHA-256 chain)
+# - Immutable append-only logs
+# - GDPR Article 15 compliance (right to access)
+# - HIPAA 45 CFR 164.312(b) audit trails
+# - SOC2 CC6.1 control compliance
+# - Separate logs for: client-delivered, AI-generated, metadata, safety alerts
+```
+
+The audit system was architected with compliance requirements from the beginning, not bolted on later. Every compression operation can be traced, verified, and exported for regulatory compliance.
 
 ## Performance Characteristics
 

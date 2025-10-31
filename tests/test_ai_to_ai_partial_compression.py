@@ -157,9 +157,12 @@ def test_ai_to_ai_compression():
     print("Note: Partial compression is now connected to the pipeline.")
     print("For production AI-to-AI use, add more templates via discovery.")
 
-    return successful == len(results)
+    assert successful == len(results), f"Only {successful}/{len(results)} tests passed"
 
 
 if __name__ == "__main__":
-    success = test_ai_to_ai_compression()
-    sys.exit(0 if success else 1)
+    try:
+        test_ai_to_ai_compression()
+        sys.exit(0)
+    except AssertionError:
+        sys.exit(1)

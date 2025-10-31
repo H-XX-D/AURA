@@ -54,7 +54,7 @@ class NetworkSimulator:
             'size_distribution': {'small': 0, 'medium': 0, 'large': 0},  # Size categories
             'errors': [],
             'template_matches': 0,
-            'ai_semantic_usage': 0,
+            'pattern_semantic_usage': 0,
             'binary_semantic_usage': 0,
             'available_methods_count': Counter(),  # Track how many methods are available per message
             'template_matching_attempts': 0,  # Total template matching attempts
@@ -282,7 +282,7 @@ class NetworkSimulator:
                 'compression_ratio': compression_ratio,
                 'processing_time': processing_time,
                 'template_matched': template_match is not None,
-                'ai_semantic_used': compression_method == CompressionMethod.AI_SEMANTIC,
+                'pattern_semantic_used': compression_method == CompressionMethod.PATTERN_SEMANTIC,
                 'binary_semantic_used': compression_method == CompressionMethod.BINARY_SEMANTIC,
                 'fast_path_used': False,  # No fast path method in current enum
                 'slow_path_used': False,  # No slow path method in current enum
@@ -366,8 +366,8 @@ class NetworkSimulator:
 
                     if result['template_matched']:
                         self.stats['template_matches'] += 1
-                    if result['ai_semantic_used']:
-                        self.stats['ai_semantic_usage'] += 1
+                    if result['pattern_semantic_used']:
+                        self.stats['pattern_semantic_usage'] += 1
                     if result['binary_semantic_used']:
                         self.stats['binary_semantic_usage'] += 1
                     # Removed fast_path and slow_path counters as these methods don't exist
@@ -426,8 +426,8 @@ class NetworkSimulator:
                 'template_discoveries': len(self.stats['template_discoveries'])
             },
             'ml_algorithm_performance': {
-                'ai_semantic_usage': self.stats['ai_semantic_usage'],
-                'ai_semantic_rate': self.stats['ai_semantic_usage'] / max(self.stats['total_messages'], 1),
+                'pattern_semantic_usage': self.stats['pattern_semantic_usage'],
+                'pattern_semantic_rate': self.stats['pattern_semantic_usage'] / max(self.stats['total_messages'], 1),
                 'binary_semantic_usage': self.stats['binary_semantic_usage'],
                 'binary_semantic_rate': self.stats['binary_semantic_usage'] / max(self.stats['total_messages'], 1),
                 # Removed fast_path and slow_path as these methods don't exist in the current enum
@@ -544,8 +544,9 @@ class NetworkSimulator:
             return f"Only {total_methods} compression methods being used. ML selector may be preferring certain methods or other methods may not be available"
         
         # Check if AI semantic is available but not used
-        if 'ai_semantic' not in method_usage and most_common_available >= 4:
-            return "AI semantic compression not being used despite being available. May be due to: 1) AI compressor not initialized, 2) ML selector preferring other methods, 3) AI method not meeting quality thresholds"
+        pattern_method_value = CompressionMethod.PATTERN_SEMANTIC.value
+        if pattern_method_value not in method_usage and most_common_available >= 4:
+            return "Pattern semantic compression not being used despite being available. May be due to: 1) Pattern semantic compressor not initialized, 2) ML selector preferring other methods, 3) Pattern semantic method not meeting quality thresholds"
         
         # Check if BRIO/AuraLite are available but not used
         aura_methods = [m for m in method_usage.keys() if 'aura' in m.lower() or 'brio' in m.lower()]
@@ -694,7 +695,7 @@ def main(argv: Optional[List[str]] = None):
         size_dist = summary['performance_metrics']['size_distribution']
         print(f"Size Distribution: Small({size_dist['small']}) Medium({size_dist['medium']}) Large({size_dist['large']})")
         print(f"Template Match Rate: {summary['template_discovery']['template_match_rate']:.1%}")
-        print(f"AI Semantic Usage: {summary['ml_algorithm_performance']['ai_semantic_rate']:.1%}")
+    print(f"Pattern Semantic Usage: {summary['ml_algorithm_performance']['pattern_semantic_rate']:.1%}")
         print(f"Binary Semantic Usage: {summary['ml_algorithm_performance']['binary_semantic_rate']:.1%}")
         # Removed fast_path and slow_path printing as these methods don't exist
         print(f"Error Rate: {summary['error_analysis']['error_rate']:.1%}")

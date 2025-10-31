@@ -17,8 +17,8 @@ from aura_compression.compressor_refactored import ProductionHybridCompressor
 from aura_compression.enums import CompressionMethod
 
 
-def test_binary_semantic_details():
-    """Test binary semantic compression in detail"""
+def _run_binary_semantic_details() -> bool:
+    """Execute detailed binary semantic checks and return success flag."""
 
     compressor = ProductionHybridCompressor(
         enable_aura=False,
@@ -142,6 +142,11 @@ def test_binary_semantic_details():
     return True
 
 
+def test_binary_semantic_details():
+    """Pytest wrapper ensuring detailed binary semantic checks pass."""
+    assert _run_binary_semantic_details()
+
+
 if __name__ == "__main__":
-    success = test_binary_semantic_details()
+    success = _run_binary_semantic_details()
     sys.exit(0 if success else 1)

@@ -1,0 +1,69 @@
+{
+  "timestamp": "20251031_045230",
+  "num_runs": 3,
+  "duration_seconds": 30,
+  "summary": {
+    "total_messages": 796,
+    "total_uncompressed_bytes": 305273,
+    "total_compressed_bytes": 305561,
+    "total_transferred_bytes": 369241,
+    "avg_compression_ratio": 0.9991833901475191,
+    "avg_bandwidth_saved_percent": -20.93167844518383,
+    "avg_compression_time_ms": 0.7551879794631472,
+    "avg_decompression_time_ms": 1.902483391307477,
+    "avg_network_latency_ms": 29.770382143682948,
+    "method_usage": {
+      "AURALITE": 796
+    }
+  },
+  "individual_runs": [
+    {
+      "total_messages": 237,
+      "total_bytes_uncompressed": 95697,
+      "total_bytes_compressed": 94976,
+      "total_bytes_transferred": 113936,
+      "compression_ratio": 1.0075913915094339,
+      "bandwidth_saved_percent": -19.059113660825314,
+      "avg_latency_ms": 29.722089727023736,
+      "avg_compression_time_ms": 0.7512907709784901,
+      "avg_decompression_time_ms": 1.848904860661744,
+      "method_usage": {
+        "AURALITE": 237
+      },
+      "errors": 1,
+      "duration_seconds": 29.60181498527527
+    },
+    {
+      "total_messages": 264,
+      "total_bytes_uncompressed": 97336,
+      "total_bytes_compressed": 98161,
+      "total_bytes_transferred": 119281,
+      "compression_ratio": 0.9915954401442528,
+      "bandwidth_saved_percent": -22.545615188624968,
+      "avg_latency_ms": 29.602358084604568,
+      "avg_compression_time_ms": 0.8036546827166934,
+      "avg_decompression_time_ms": 2.0233927870955966,
+      "method_usage": {
+        "AURALITE": 264
+      },
+      "errors": 0,
+      "duration_seconds": 30.049226999282837
+    },
+    {
+      "total_messages": 295,
+      "total_bytes_uncompressed": 112240,
+      "total_bytes_compressed": 112424,
+      "total_bytes_transferred": 136024,
+      "compression_ratio": 0.9983633387888707,
+      "bandwidth_saved_percent": -21.190306486101214,
+      "avg_latency_ms": 29.98669861942054,
+      "avg_compression_time_ms": 0.7106184846942581,
+      "avg_decompression_time_ms": 1.8351525261650903,
+      "method_usage": {
+        "AURALITE": 295
+      },
+      "errors": 0,
+      "duration_seconds": 29.155267238616943
+    }
+  ]
+}

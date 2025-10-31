@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Import AI and template components for enhanced feature extraction
 try:
-    from aura_compression.ai_large_file import AILargeFileCompressor
+    from aura_compression.pattern_semantic_large_file import PatternSemanticCompressor
     AI_AVAILABLE = True
 except ImportError:
     AI_AVAILABLE = False
@@ -37,7 +37,7 @@ class CompressionMethod:
     GZIP = "gzip"
     BZ2 = "bz2"
     LZMA = "lzma"
-    AI_SEMANTIC = "ai_semantic"  # AI-powered semantic compression
+    PATTERN_SEMANTIC = "pattern_semantic"  # AI-powered semantic compression
     # Routing methods
     FAST_PATH = "fast_path"      # Route using metadata only (no decompression)
     SLOW_PATH = "slow_path"      # Route requiring full decompression
@@ -66,7 +66,7 @@ class MessageFeatures(NamedTuple):
     metadata_size_estimate: int  # Estimated metadata size for routing decisions
     template_match_score: float  # How well message matches existing templates (0-1)
     # AI semantic features
-    ai_semantic_score: float  # AI semantic understanding score (0-1)
+    pattern_semantic_score: float  # AI semantic understanding score (0-1)
     semantic_chunks: int  # Number of semantic chunks identified
     ai_patterns_found: int  # Number of AI-discovered patterns
     semantic_complexity: float  # Semantic complexity score (0-1)
@@ -105,7 +105,7 @@ class MLAlgorithmSelector:
         self.enable_learning = enable_learning
 
         # AI and template service integration
-        self.ai_compressor = ai_compressor if ai_compressor else (AILargeFileCompressor() if AI_AVAILABLE else None)
+        self.ai_compressor = ai_compressor if ai_compressor else (PatternSemanticCompressor() if AI_AVAILABLE else None)
         self.template_service = template_service if template_service else (TemplateService() if TEMPLATE_AVAILABLE else None)
         self.enable_expensive_features = enable_expensive_features
 
@@ -204,7 +204,7 @@ class MLAlgorithmSelector:
                 viable_methods.append(method)
 
         if message_bytes < 1_048_576:
-            viable_methods = [m for m in viable_methods if m != CompressionMethod.AI_SEMANTIC]
+            viable_methods = [m for m in viable_methods if m != CompressionMethod.PATTERN_SEMANTIC]
 
         if not viable_methods:
             viable_methods = [CompressionMethod.UNCOMPRESSED] if CompressionMethod.UNCOMPRESSED in available_methods else available_methods
@@ -511,7 +511,7 @@ class MLAlgorithmSelector:
                 template_match_score += 0.1
 
         # AI semantic analysis features
-        ai_semantic_score = 0.0
+        pattern_semantic_score = 0.0
         semantic_chunks = 0
         ai_patterns_found = 0
         semantic_complexity = 0.5  # Default medium complexity
@@ -526,7 +526,7 @@ class MLAlgorithmSelector:
                 semantic_chunks = len(chunks)
 
                 # Calculate AI semantic score based on pattern discovery
-                ai_semantic_score = min(1.0, ai_patterns_found / 10.0)  # Normalize to 0-1
+                pattern_semantic_score = min(1.0, ai_patterns_found / 10.0)  # Normalize to 0-1
 
                 # Estimate semantic complexity
                 if semantic_chunks > 0:
@@ -536,12 +536,12 @@ class MLAlgorithmSelector:
                     semantic_complexity = 0.8  # High complexity if no chunks found
             except Exception:
                 # Fallback if AI analysis fails
-                ai_semantic_score = pattern_score * 0.7
+                pattern_semantic_score = pattern_score * 0.7
                 semantic_chunks = max(1, word_count // 5)
                 ai_patterns_found = max(0, word_count // 10)
         else:
             # Fast heuristic when AI features are disabled
-            ai_semantic_score = pattern_score * 0.6
+            pattern_semantic_score = pattern_score * 0.6
             semantic_chunks = max(1, word_count // 6)
             ai_patterns_found = max(0, word_count // 12)
             semantic_complexity = 0.5
@@ -586,7 +586,7 @@ class MLAlgorithmSelector:
             fast_path_potential=max(0.0, min(1.0, fast_path_potential)),
             metadata_size_estimate=metadata_size_estimate,
             template_match_score=min(1.0, template_match_score),
-            ai_semantic_score=min(1.0, ai_semantic_score),
+            pattern_semantic_score=min(1.0, pattern_semantic_score),
             semantic_chunks=semantic_chunks,
             ai_patterns_found=ai_patterns_found,
             semantic_complexity=max(0.0, min(1.0, semantic_complexity)),
@@ -676,7 +676,7 @@ class MLAlgorithmSelector:
             weights.get('metadata_size_estimate', 0.0) * (features.metadata_size_estimate / 500.0) +
             weights.get('template_match_score', 0.0) * features.template_match_score +
             # AI semantic features
-            weights.get('ai_semantic_score', 0.0) * features.ai_semantic_score +
+            weights.get('pattern_semantic_score', 0.0) * features.pattern_semantic_score +
             weights.get('semantic_chunks', 0.0) * (features.semantic_chunks / 10.0) +
             weights.get('ai_patterns_found', 0.0) * (features.ai_patterns_found / 5.0) +
             weights.get('semantic_complexity', 0.0) * features.semantic_complexity +
@@ -721,7 +721,7 @@ class MLAlgorithmSelector:
                 'word_count': 0.0,
                 'compression_potential': -0.5,  # Prefers incompressible content
                 'pattern_score': 0.0,
-                'ai_semantic_score': 0.0,
+                'pattern_semantic_score': 0.0,
                 'semantic_chunks': 0.0,
                 'ai_patterns_found': 0.0,
                 'semantic_complexity': 0.0,
@@ -741,7 +741,7 @@ class MLAlgorithmSelector:
                 'fast_path_potential': 0.6,
                 'metadata_size_estimate': -0.2,
                 'template_match_score': 0.8,  # Excellent for template matching
-                'ai_semantic_score': 0.2,
+                'pattern_semantic_score': 0.2,
                 'semantic_chunks': 0.3,
                 'ai_patterns_found': 0.2,
                 'semantic_complexity': -0.2,  # Prefers less complex structures
@@ -750,7 +750,7 @@ class MLAlgorithmSelector:
                 'repetitive_pattern_score': 0.4,
                 'base_ratio': 1.8
             },
-            CompressionMethod.AI_SEMANTIC: {
+            CompressionMethod.PATTERN_SEMANTIC: {
                 'length': 0.4,  # Good for longer files
                 'entropy': -0.4,  # Prefers patterned data
                 'has_numbers': 0.3,
@@ -761,7 +761,7 @@ class MLAlgorithmSelector:
                 'fast_path_potential': 0.3,
                 'metadata_size_estimate': 0.1,
                 'template_match_score': 0.5,
-                'ai_semantic_score': 0.9,  # Requires high AI semantic understanding
+                'pattern_semantic_score': 0.9,  # Requires high AI semantic understanding
                 'semantic_chunks': 0.8,  # Benefits from semantic chunking
                 'ai_patterns_found': 0.9,  # Loves AI-discovered patterns
                 'semantic_complexity': -0.3,  # Prefers simpler semantic structures
@@ -781,7 +781,7 @@ class MLAlgorithmSelector:
                 'fast_path_potential': 0.2,
                 'metadata_size_estimate': -0.1,
                 'template_match_score': 0.3,
-                'ai_semantic_score': 0.4,
+                'pattern_semantic_score': 0.4,
                 'semantic_chunks': 0.5,
                 'ai_patterns_found': 0.6,  # Good for pattern-based compression
                 'semantic_complexity': 0.0,
@@ -801,7 +801,7 @@ class MLAlgorithmSelector:
                 'fast_path_potential': 0.1,
                 'metadata_size_estimate': -0.1,
                 'template_match_score': 0.2,
-                'ai_semantic_score': 0.2,
+                'pattern_semantic_score': 0.2,
                 'semantic_chunks': 0.3,
                 'ai_patterns_found': 0.2,
                 'semantic_complexity': 0.0,
@@ -821,7 +821,7 @@ class MLAlgorithmSelector:
                 'fast_path_potential': 0.3,
                 'metadata_size_estimate': -0.2,
                 'template_match_score': 0.4,
-                'ai_semantic_score': 0.5,
+                'pattern_semantic_score': 0.5,
                 'semantic_chunks': 0.6,
                 'ai_patterns_found': 0.7,
                 'semantic_complexity': -0.1,
@@ -842,7 +842,7 @@ class MLAlgorithmSelector:
                 'fast_path_potential': 0.8,  # High fast-path potential
                 'metadata_size_estimate': -0.3,  # Smaller metadata preferred
                 'template_match_score': 0.7,  # Template matches enable fast-path
-                'ai_semantic_score': 0.3,
+                'pattern_semantic_score': 0.3,
                 'semantic_chunks': 0.2,
                 'ai_patterns_found': 0.2,
                 'semantic_complexity': -0.2,  # Simpler structures route faster
@@ -862,7 +862,7 @@ class MLAlgorithmSelector:
                 'fast_path_potential': -0.6,  # Low fast-path potential
                 'metadata_size_estimate': 0.2,  # Larger metadata OK for slow path
                 'template_match_score': -0.4,  # No template match = slow path
-                'ai_semantic_score': 0.1,
+                'pattern_semantic_score': 0.1,
                 'semantic_chunks': 0.0,
                 'ai_patterns_found': -0.1,
                 'semantic_complexity': 0.4,  # Complex structures need slow path
@@ -882,7 +882,7 @@ class MLAlgorithmSelector:
                 'fast_path_potential': 0.0,
                 'metadata_size_estimate': 0.0,
                 'template_match_score': 0.0,
-                'ai_semantic_score': 0.0,
+                'pattern_semantic_score': 0.0,
                 'semantic_chunks': 0.0,
                 'ai_patterns_found': 0.0,
                 'semantic_complexity': 0.0,
@@ -918,7 +918,7 @@ class MLAlgorithmSelector:
                         'has_special_chars': 0.0, 'word_count': 0.0,
                         'compression_potential': 0.0, 'pattern_score': 0.0,
                         'fast_path_potential': 0.0, 'metadata_size_estimate': 0.0,
-                        'template_match_score': 0.0, 'ai_semantic_score': 0.0,
+                        'template_match_score': 0.0, 'pattern_semantic_score': 0.0,
                         'semantic_chunks': 0.0, 'ai_patterns_found': 0.0,
                         'semantic_complexity': 0.0, 'binary_semantic_potential': 0.0,
                         'structured_data_score': 0.0, 'repetitive_pattern_score': 0.0,
@@ -936,8 +936,8 @@ class MLAlgorithmSelector:
                         features['fast_path_potential'] = 0.0
                     if 'template_match_score' not in features:
                         features['template_match_score'] = 0.0
-                    if 'ai_semantic_score' not in features:
-                        features['ai_semantic_score'] = 0.0
+                    if 'pattern_semantic_score' not in features:
+                        features['pattern_semantic_score'] = 0.0
                     if 'semantic_chunks' not in features:
                         features['semantic_chunks'] = 0
                     if 'ai_patterns_found' not in features:
@@ -962,7 +962,7 @@ class MLAlgorithmSelector:
                     weights['pattern_score'] += adjustment * features.get('pattern_score', 0)
                     weights['fast_path_potential'] += adjustment * features.get('fast_path_potential', 0.0)
                     weights['template_match_score'] += adjustment * features.get('template_match_score', 0.0)
-                    weights['ai_semantic_score'] += adjustment * features.get('ai_semantic_score', 0.0)
+                    weights['pattern_semantic_score'] += adjustment * features.get('pattern_semantic_score', 0.0)
                     weights['semantic_chunks'] += adjustment * (features.get('semantic_chunks', 0) / 10.0)
                     weights['ai_patterns_found'] += adjustment * (features.get('ai_patterns_found', 0) / 5.0)
                     weights['semantic_complexity'] += adjustment * features.get('semantic_complexity', 0.0)

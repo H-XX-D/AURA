@@ -1,0 +1,42 @@
+{
+  "timestamp": "20251031_051151",
+  "num_messages_per_phase": 300,
+  "phases": {
+    "phase1_cold": {
+      "phase_name": "Phase 1",
+      "total_messages": 300,
+      "total_bytes_uncompressed": 71141,
+      "total_bytes_compressed": 73178,
+      "compression_ratio": 0.9721637650660034,
+      "bandwidth_saved_percent": -2.8633277575519043,
+      "avg_compression_time_ms": 0.1476554434824114,
+      "method_usage": {
+        "AURALITE": 300
+      },
+      "templates_in_library": 131,
+      "partial_match_count": 0,
+      "full_match_count": 0
+    },
+    "phase3_warm": {
+      "phase_name": "Phase 3",
+      "total_messages": 300,
+      "total_bytes_uncompressed": 70075,
+      "total_bytes_compressed": 68719,
+      "compression_ratio": 1.0197325339425778,
+      "bandwidth_saved_percent": 1.9350695683196577,
+      "avg_compression_time_ms": 0.2381113994245728,
+      "method_usage": {
+        "AURALITE": 174,
+        "BINARY_SEMANTIC": 126
+      },
+      "templates_in_library": 131,
+      "partial_match_count": 0,
+      "full_match_count": 126
+    }
+  },
+  "improvement": {
+    "compression_ratio_multiplier": 1.048930818639743,
+    "bandwidth_saved_improvement_percent": 4.798397325871562
+  },
+  "templates_discovered": 20
+}

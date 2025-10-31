@@ -12,8 +12,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from aura_compression.templates import TemplateLibrary
 
 
-def test_partial_matching_exists():
-    """Verify partial matching code exists and works"""
+def _run_partial_matching_exists() -> bool:
+    """Execute partial matching checks and return success flag."""
 
     print("=" * 80)
     print("PARTIAL COMPRESSION: VERIFICATION TEST")
@@ -86,12 +86,17 @@ def test_partial_matching_exists():
         print("Impact: Messages with partial template matches will now use")
         print("        BINARY_SEMANTIC compression instead of falling back to AURALITE")
         return True
-    else:
-        print("✗ FAIL: No partial matches found")
-        print("  (This might be expected if message doesn't contain any templates)")
-        return False
+
+    print("✗ FAIL: No partial matches found")
+    print("  (This might be expected if message doesn't contain any templates)")
+    return False
+
+
+def test_partial_matching_exists():
+    """Pytest wrapper asserting partial matching check succeeds."""
+    assert _run_partial_matching_exists()
 
 
 if __name__ == "__main__":
-    success = test_partial_matching_exists()
+    success = _run_partial_matching_exists()
     sys.exit(0 if success else 1)

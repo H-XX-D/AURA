@@ -163,3 +163,4 @@ training_data/
 *.temp
 .cache/
 .tmp/
+.test_cache/

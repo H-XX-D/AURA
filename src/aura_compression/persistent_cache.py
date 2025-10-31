@@ -2,7 +2,8 @@
 
 The implementation now stores cache entries in a lightweight SQLite database
 so the cache survives process restarts while remaining resilient to partial
-writes or concurrent updates."""
+writes or concurrent updates. Legacy JSON caches are migrated automatically
+to keep backwards compatibility."""
 
 import json
 import hashlib
@@ -70,6 +71,7 @@ class PersistentTemplateCache:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._initialize_database()
+        self._migrate_legacy_cache()
 
         # Load existing cache
         self._load_cache()
@@ -83,10 +85,7 @@ class PersistentTemplateCache:
 
         with self._lock:
             if cache_key in self._cache:
-                # Update access order for LRU
-                self._access_order.remove(cache_key)
-                self._access_order.append(cache_key)
-
+                self._mark_access(cache_key)
                 self.hits += 1
                 return self._cache[cache_key].copy()  # Return copy to avoid modification
             else:
@@ -104,7 +103,7 @@ class PersistentTemplateCache:
 
             # Store the match data
             self._cache[cache_key] = match_data.copy()
-            self._access_order.append(cache_key)
+            self._mark_access(cache_key)
 
         # Save immediately for testing/debugging
         self._save_cache_sync()
@@ -162,6 +161,7 @@ class PersistentTemplateCache:
         self._shutdown = True
         self._executor.shutdown(wait=True)
         self._save_cache_sync()
+        self._close_connection()
 
     def _make_key(self, text: str) -> str:
         """Create cache key from text using SHA-256 hash."""
@@ -187,6 +187,53 @@ class PersistentTemplateCache:
                 """
             )
 
+    def _migrate_legacy_cache(self) -> None:
+        """Import legacy JSON cache data into SQLite if present."""
+        legacy_file = self.cache_dir / "template_cache.json"
+        if not legacy_file.exists():
+            return
+
+        try:
+            raw = json.loads(legacy_file.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.info("Skipping legacy cache migration due to read error: %s", exc)
+            legacy_file.unlink(missing_ok=True)
+            return
+
+        if not raw:
+            legacy_file.unlink(missing_ok=True)
+            return
+
+        records = []
+        if isinstance(raw, dict):
+            records = list(raw.items())
+        elif isinstance(raw, list):
+            for entry in raw:
+                if isinstance(entry, dict) and "cache_key" in entry and "payload" in entry:
+                    records.append((entry["cache_key"], entry["payload"]))
+
+        if not records:
+            legacy_file.unlink(missing_ok=True)
+            return
+
+        with self._conn:
+            for idx, (cache_key, payload) in enumerate(records):
+                try:
+                    serialized = json.dumps(payload)
+                except (TypeError, ValueError):
+                    continue
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO template_cache (cache_key, payload, last_access) VALUES (?, ?, ?)",
+                    (cache_key, serialized, float(idx)),
+                )
+
+        logger.info("Migrated %d legacy cache entries into SQLite store", len(records))
+        target = legacy_file.with_suffix(".json.migrated")
+        try:
+            legacy_file.rename(target)
+        except OSError:
+            legacy_file.unlink(missing_ok=True)
+
     def _load_cache(self) -> None:
         """Load cache from disk."""
         if not self.cache_file.exists():
@@ -208,6 +255,8 @@ class PersistentTemplateCache:
                 self._access_order.append(cache_key)
                 loaded_count += 1
 
+            self._normalize_access_order()
+
             if loaded_count:
                 logger.info(f"Loaded {loaded_count} cached template matches from {self.cache_file}")
 
@@ -220,6 +269,11 @@ class PersistentTemplateCache:
         """Synchronously save cache to disk."""
         try:
             with self._lock:
+                if self._conn is None:
+                    return
+
+                self._normalize_access_order()
+
                 with self._conn:
                     self._conn.execute("DELETE FROM template_cache")
                     rows = [
@@ -232,9 +286,10 @@ class PersistentTemplateCache:
                     ]
                     if rows:
                         self._conn.executemany(
-                            "INSERT INTO template_cache (cache_key, payload, last_access) VALUES (?, ?, ?)",
+                            "INSERT OR REPLACE INTO template_cache (cache_key, payload, last_access) VALUES (?, ?, ?)",
                             rows,
                         )
+                self._last_save = time.time()
 
         except sqlite3.Error as exc:
             logger.info(f"Warning: Failed to save template cache: {exc}")
@@ -260,3 +315,31 @@ class PersistentTemplateCache:
         """Ensure cache is saved on destruction."""
         if hasattr(self, '_shutdown') and not self._shutdown:
             self.shutdown()
+
+    def _mark_access(self, cache_key: str) -> None:
+        """Update LRU ordering for a cache key, removing duplicates."""
+        try:
+            self._access_order.remove(cache_key)
+        except ValueError:
+            pass
+        self._access_order.append(cache_key)
+
+    def _normalize_access_order(self) -> None:
+        """Ensure the LRU list contains unique keys in access order."""
+        seen = set()
+        deduped: List[str] = []
+        for key in self._access_order:
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(key)
+        self._access_order = deduped
+
+    def _close_connection(self) -> None:
+        if getattr(self, '_conn', None) is not None:
+            try:
+                self._conn.close()
+            except sqlite3.Error:
+                pass
+            finally:
+                self._conn = None

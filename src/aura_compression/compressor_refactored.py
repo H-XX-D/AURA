@@ -53,7 +53,7 @@ class ProductionHybridCompressor:
                  enable_fast_path: bool = True,
                  enable_sidechain: Optional[bool] = True,
                  sidechain_config: Optional[Dict[str, Any]] = None,
-                 enable_ml_selection: bool = False,  # Enable ML by default for better compression
+                 enable_ml_selection: bool = True,  # Enable ML by default for better compression
                  enable_scorer: Optional[bool] = None,
                  scorer_telemetry_path: Optional[str] = None,
                  template_sync_interval_seconds: Optional[int] = 120,  # Less frequent syncs for speed

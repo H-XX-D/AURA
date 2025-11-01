@@ -47,7 +47,7 @@ class ProductionHybridCompressor:
                  audit_log_directory: str = "./audit_logs",
                  session_id: Optional[str] = None,
                  user_id: Optional[str] = None,
-                 template_cache_size: int = 512,  # Increased from 128 for better performance
+                 template_cache_size: int = 10000,  # Increased from 128 for better performance
                  enable_normalization: bool = True,
                  tcp_brio_threshold: int = 1000,
                  enable_fast_path: bool = True,

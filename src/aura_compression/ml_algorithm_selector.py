@@ -34,9 +34,6 @@ class CompressionMethod:
     AURALITE = "auralite"
     BRIO = "brio"
     AURA_HEAVY = "aura_heavy"
-    GZIP = "gzip"
-    BZ2 = "bz2"
-    LZMA = "lzma"
     PATTERN_SEMANTIC = "pattern_semantic"  # AI-powered semantic compression
     # Routing methods
     FAST_PATH = "fast_path"      # Route using metadata only (no decompression)

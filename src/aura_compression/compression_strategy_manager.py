@@ -52,7 +52,7 @@ class CompressionStrategyManager:
     """
     Manages compression strategies and method selection
     """
-    _METRIC_CACHE_LIMIT = 256
+    _METRIC_CACHE_LIMIT = 10000
     _PARTIAL_UNCOMPRESSED_THRESHOLD = 16  # bytes
 
     def __init__(self,

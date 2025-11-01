@@ -96,7 +96,7 @@ class CompressionEngine:
                 self._persistent_cache = PersistentTemplateCache(
                     cache_dir=cache_dir,
                     max_size=10000,  # Large cache for aggressive performance
-                    save_interval=30.0,  # Frequent saves for data persistence
+                    save_interval=300.0,  # Save every 5 minutes to avoid overhead
                     compression_enabled=True  # Compress cache data
                 )
                 logger.info(f"SQL-backed persistent cache enabled in {cache_dir}")

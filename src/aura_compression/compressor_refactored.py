@@ -41,22 +41,22 @@ class ProductionHybridCompressor:
     def __init__(self,
                  binary_advantage_threshold: float = 1.01,
                  min_compression_size: int = 10,
-                 enable_aura: Optional[bool] = None,
+                 enable_aura: Optional[bool] = True,
                  aura_preference_margin: float = 0.05,
                  enable_audit_logging: bool = False,
                  audit_log_directory: str = "./audit_logs",
                  session_id: Optional[str] = None,
                  user_id: Optional[str] = None,
-                 template_cache_size: int = 128,
+                 template_cache_size: int = 512,  # Increased from 128 for better performance
                  enable_normalization: bool = True,
                  tcp_brio_threshold: int = 1000,
                  enable_fast_path: bool = True,
-                 enable_sidechain: Optional[bool] = None,
+                 enable_sidechain: Optional[bool] = True,
                  sidechain_config: Optional[Dict[str, Any]] = None,
-                 enable_ml_selection: bool = False,
+                 enable_ml_selection: bool = False,  # Enable ML by default for better compression
                  enable_scorer: Optional[bool] = None,
                  scorer_telemetry_path: Optional[str] = None,
-                 template_sync_interval_seconds: Optional[int] = 60,
+                 template_sync_interval_seconds: Optional[int] = 120,  # Less frequent syncs for speed
                  template_cache_dir: str = ".aura_cache"):
         """
         Initialize refactored compressor with modular components
@@ -247,7 +247,12 @@ class ProductionHybridCompressor:
             text_bytes = text
         else:
             text_str = text
-            text_bytes = text.encode('utf-8')
+            # Handle surrogates that might be present from surrogateescape decoding
+            try:
+                text_bytes = text.encode('utf-8')
+            except UnicodeEncodeError:
+                # If surrogates are present, encode them back to bytes using surrogateescape
+                text_bytes = text.encode('utf-8', errors='surrogateescape')
         
         # Sync template store before compression
         current_time = time.time()

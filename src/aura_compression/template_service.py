@@ -10,7 +10,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from aura_compression.template_manager import TemplateManager
 from aura_compression.templates import TemplateLibrary
@@ -26,11 +26,13 @@ class TemplateService:
     Unified template service that manages templates, synchronization, and discovery
     """
 
-    def __init__(self,
-                 enable_discovery: bool = True,
-                 discovery_interval_seconds: int = 3600,
-                 audit_log_directory: str = "./audit_logs",
-                 cache_dir: str = ".aura_cache"):
+    def __init__(
+        self,
+        enable_discovery: bool = True,
+        discovery_interval_seconds: int = 3600,
+        audit_log_directory: str = "./audit_logs",
+        cache_dir: str = ".aura_cache",
+    ) -> None:
         """
         Initialize the template service
 

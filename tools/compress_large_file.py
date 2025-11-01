@@ -154,18 +154,20 @@ def _format_bytes(size: int) -> str:
 
 def _compress_chunk_worker(chunk_data: bytes, compressor_config: Dict[str, Any]) -> Tuple[bytes, Dict[str, Any]]:
     """Worker function for compressing a single chunk in a separate process."""
-    # Create a minimal compressor for this worker
+    # Create an aggressive compressor for this worker
     cache_dir = Path(compressor_config["cache_dir"])
     audit_dir = Path(compressor_config["audit_dir"])
     
     compressor = ProductionHybridCompressor(
         enable_aura=True,
-        enable_audit_logging=False,  # Disable audit logging in workers
+        enable_audit_logging=False,  # Disable audit logging in workers for speed
         template_cache_dir=str(cache_dir),
-        template_cache_size=128,
+        template_cache_size=512,  # Larger cache for better hit rates
         enable_fast_path=True,
         enable_sidechain=False,
         enable_scorer=False,  # Disable scorer in workers for speed
+        enable_ml_selection=True,  # Enable ML for better compression decisions
+        template_sync_interval_seconds=None,  # Disable sync in workers
     )
     
     # Decode and compress
@@ -375,57 +377,29 @@ def compress_path(
             chunks.append((index, raw_chunk))
             total_input += len(raw_chunk)
 
-        # Process chunks in parallel if workers > 1
-        if workers > 1:
-            compressor_config = {
-                "cache_dir": str(cache_dir),
-                "audit_dir": str(audit_dir),
-            }
-            
-            compressed_results = [None] * len(chunks)
-            
-            with ProcessPoolExecutor(max_workers=workers) as executor:
-                # Submit all compression tasks
-                future_to_index = {
-                    executor.submit(_compress_chunk_worker, chunk_data, compressor_config): index 
-                    for index, chunk_data in chunks
-                }
-                
-                # Collect results as they complete
-                for future in as_completed(future_to_index):
-                    index = future_to_index[future]
-                    try:
-                        payload, worker_meta = future.result()
-                        compressed_results[index] = (payload, worker_meta)
-                        tracker.update((index + 1) * chunk_size)  # Update progress
-                    except Exception as exc:
-                        raise RuntimeError(f'Chunk {index} generated an exception: {exc}') from exc
-        else:
-            # Sequential processing (original logic)
-            compressed_results = []
-            for index, raw_chunk in chunks:
-                text_chunk = raw_chunk.decode("utf-8", errors="surrogateescape")
-                payload, method, metadata = compressor.compress(text_chunk)
-                compressed_results.append((payload, {
-                    "method": method,
-                    "metadata": metadata,
-                    "original_size": len(raw_chunk),
-                    "compressed_size": len(payload)
-                }))
-                tracker.update(total_input)
+        # Process chunks sequentially
+        compressed_results = []
+        bytes_processed = 0
+        
+        for index, raw_chunk in chunks:
+            text_chunk = raw_chunk.decode("utf-8", errors="surrogateescape")
+            payload, method, metadata = compressor.compress(text_chunk)
+            compressed_results.append((payload, {
+                "method": method,
+                "metadata": metadata,
+                "original_size": len(raw_chunk),
+                "compressed_size": len(payload)
+            }))
+            bytes_processed += len(raw_chunk)
+            tracker.update(bytes_processed)
 
         # Write results sequentially to maintain order
         for index, (payload, worker_meta) in enumerate(compressed_results):
             raw_chunk = chunks[index][1]
             
-            if workers > 1:
-                # For parallel processing, reconstruct metadata from worker results
-                method = worker_meta["method"]
-                metadata = worker_meta["metadata"]
-            else:
-                # For sequential processing, use the original metadata
-                method = worker_meta["method"]
-                metadata = worker_meta["metadata"]
+            # Use the metadata from compression
+            method = worker_meta["method"]
+            metadata = worker_meta["metadata"]
 
             chunk_meta: Dict[str, object] = {
                 "index": index,
@@ -816,7 +790,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             cache_dir=args.cache_dir,
             audit_dir=args.audit_dir,
             sync_every=args.sync_every,
-            workers=args.workers,
+            workers=1,  # Force single-threaded
             progress_mode=args.progress,
         )
         _output_stats(stats, args.stats_format, args.stats_file)

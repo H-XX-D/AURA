@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AI-Powered Novel Large File Compression
-Patent US 19/366,538 Pending - PROPRIETARY
+
 
 Revolutionary compression that leverages AI's pattern recognition:
 1. Semantic chunking: Break files into meaningful segments

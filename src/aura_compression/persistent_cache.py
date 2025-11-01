@@ -12,7 +12,7 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional, Any, List, Tuple
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ class PersistentTemplateCache:
         # In-memory cache with access tracking for LRU
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._access_order: List[str] = []
+        self._last_access_times: Dict[str, float] = {}
         self._lock = threading.RLock()
 
         # Statistics
@@ -98,35 +99,40 @@ class PersistentTemplateCache:
 
         with self._lock:
             # Check if we need to evict
+            evicted_key: Optional[str] = None
             if cache_key not in self._cache and len(self._cache) >= self.max_size:
-                self._evict_lru()
+                evicted_key = self._evict_lru()
+                if evicted_key:
+                    self._delete_entry(evicted_key)
 
             # Store the match data
             self._cache[cache_key] = match_data.copy()
             self._mark_access(cache_key)
 
         # Save immediately for testing/debugging
-        self._save_cache_sync()
+        self._save_entry(cache_key)
 
     def clear(self) -> None:
         """Clear all cached entries."""
         with self._lock:
             self._cache.clear()
             self._access_order.clear()
+            self._last_access_times.clear()
             self.hits = 0
             self.misses = 0
             self.evictions = 0
-        self._save_cache_async()
+            self._clear_persistent_storage()
 
     def clear_and_persist(self) -> None:
         """Clear cache and immediately persist the empty state."""
         with self._lock:
             self._cache.clear()
             self._access_order.clear()
+            self._last_access_times.clear()
             self.hits = 0
             self.misses = 0
             self.evictions = 0
-        self._save_cache_sync()
+            self._clear_persistent_storage()
 
     def invalidate_text(self, text: str) -> None:
         """Remove cached entry for specific text."""
@@ -138,7 +144,8 @@ class PersistentTemplateCache:
                     self._access_order.remove(cache_key)
                 except ValueError:
                     pass
-        self._save_cache_async()
+                self._last_access_times.pop(cache_key, None)
+                self._delete_entry(cache_key)
 
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""
@@ -165,14 +172,21 @@ class PersistentTemplateCache:
 
     def _make_key(self, text: str) -> str:
         """Create cache key from text using SHA-256 hash."""
-        return hashlib.sha256(text.encode('utf-8')).hexdigest()
+        try:
+            return hashlib.sha256(text.encode('utf-8')).hexdigest()
+        except UnicodeEncodeError:
+            # Handle surrogates from surrogateescape decoding
+            return hashlib.sha256(text.encode('utf-8', errors='surrogateescape')).hexdigest()
 
-    def _evict_lru(self) -> None:
+    def _evict_lru(self) -> Optional[str]:
         """Evict least recently used entry."""
         if self._access_order:
             lru_key = self._access_order.pop(0)
-            del self._cache[lru_key]
+            self._cache.pop(lru_key, None)
+            self._last_access_times.pop(lru_key, None)
             self.evictions += 1
+            return lru_key
+        return None
 
     def _initialize_database(self) -> None:
         """Ensure the SQLite backing store is ready for use."""
@@ -242,9 +256,9 @@ class PersistentTemplateCache:
         loaded_count = 0
         try:
             cursor = self._conn.execute(
-                "SELECT cache_key, payload FROM template_cache ORDER BY last_access"
+                "SELECT cache_key, payload, last_access FROM template_cache ORDER BY last_access"
             )
-            for cache_key, payload in cursor:
+            for cache_key, payload, last_access in cursor:
                 if len(self._cache) >= self.max_size:
                     break
                 try:
@@ -253,6 +267,10 @@ class PersistentTemplateCache:
                     continue
                 self._cache[cache_key] = value
                 self._access_order.append(cache_key)
+                try:
+                    self._last_access_times[cache_key] = float(last_access)
+                except (TypeError, ValueError):
+                    self._last_access_times[cache_key] = time.time()
                 loaded_count += 1
 
             self._normalize_access_order()
@@ -268,31 +286,92 @@ class PersistentTemplateCache:
     def _save_cache_sync(self) -> None:
         """Synchronously save cache to disk."""
         try:
-            with self._lock:
-                if self._conn is None:
-                    return
+            if self._conn is None:
+                return
 
+            with self._lock:
                 self._normalize_access_order()
+                desired_keys = set(self._cache.keys())
+                rows: List[Tuple[str, str, float]] = []
+                for cache_key in self._access_order:
+                    data = self._cache.get(cache_key)
+                    if data is None:
+                        continue
+                    try:
+                        payload = json.dumps(data)
+                    except (TypeError, ValueError):
+                        continue
+                    last_access = self._last_access_times.get(cache_key, time.time())
+                    rows.append((cache_key, payload, last_access))
 
                 with self._conn:
-                    self._conn.execute("DELETE FROM template_cache")
-                    rows = [
-                        (
-                            cache_key,
-                            json.dumps(self._cache[cache_key]),
-                            idx,
-                        )
-                        for idx, cache_key in enumerate(self._access_order)
-                    ]
                     if rows:
                         self._conn.executemany(
                             "INSERT OR REPLACE INTO template_cache (cache_key, payload, last_access) VALUES (?, ?, ?)",
                             rows,
                         )
-                self._last_save = time.time()
+                    existing_keys = {
+                        row[0] for row in self._conn.execute("SELECT cache_key FROM template_cache")
+                    }
+                    stale_keys = existing_keys - desired_keys
+                    if stale_keys:
+                        self._conn.executemany(
+                            "DELETE FROM template_cache WHERE cache_key = ?",
+                            ((key,) for key in stale_keys),
+                        )
+            self._last_save = time.time()
 
         except sqlite3.Error as exc:
             logger.info(f"Warning: Failed to save template cache: {exc}")
+
+    def _save_entry(self, cache_key: str) -> None:
+        """Persist a single cache entry to disk."""
+        if not cache_key or self._conn is None:
+            return
+
+        try:
+            with self._lock:
+                data = self._cache.get(cache_key)
+                if data is None:
+                    return
+                try:
+                    payload = json.dumps(data)
+                except (TypeError, ValueError):
+                    return
+                last_access = self._last_access_times.get(cache_key, time.time())
+
+            with self._conn:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO template_cache (cache_key, payload, last_access) VALUES (?, ?, ?)",
+                    (cache_key, payload, last_access),
+                )
+            self._last_save = time.time()
+        except sqlite3.Error as exc:
+            logger.info("Warning: Failed to save template cache entry: %s", exc)
+
+    def _delete_entry(self, cache_key: Optional[str]) -> None:
+        """Remove a single cache entry from disk."""
+        if not cache_key or self._conn is None:
+            return
+        try:
+            with self._conn:
+                self._conn.execute(
+                    "DELETE FROM template_cache WHERE cache_key = ?",
+                    (cache_key,),
+                )
+        except sqlite3.Error as exc:
+            logger.info("Warning: Failed to delete template cache entry: %s", exc)
+
+    def _clear_persistent_storage(self) -> None:
+        """Remove all entries from the persistent cache store."""
+        if self._conn is None:
+            return
+        try:
+            with self._conn:
+                self._conn.execute("DELETE FROM template_cache")
+            self._last_save = time.time()
+        except sqlite3.Error as exc:
+            logger.info("Warning: Failed to clear template cache: %s", exc)
 
     def _save_cache_async(self) -> None:
         """Asynchronously save cache to disk."""
@@ -323,6 +402,7 @@ class PersistentTemplateCache:
         except ValueError:
             pass
         self._access_order.append(cache_key)
+        self._last_access_times[cache_key] = time.time()
 
     def _normalize_access_order(self) -> None:
         """Ensure the LRU list contains unique keys in access order."""

@@ -6,12 +6,15 @@ Extracted from the monolithic ProductionHybridCompressor
 import os
 import re
 import struct
+import logging
 from pathlib import Path
 import json
 from typing import Dict, List, Tuple, Optional, Any
 from enum import Enum
 from datetime import datetime
 from collections import Counter
+
+logger = logging.getLogger(__name__)
 
 from aura_compression.enums import (
     CompressionMethod,
@@ -61,24 +64,57 @@ class CompressionEngine:
                  auralite_encoder: Optional[AuraLiteEncoder] = None,
                  auralite_decoder: Optional[AuraLiteDecoder] = None,
                  tcp_brio_threshold: int = 1000,
-                 pattern_semantic_compressor: Optional[PatternSemanticCompressor] = None):
+                 pattern_semantic_compressor: Optional[PatternSemanticCompressor] = None,
+                 cache_dir: str = ".aura_cache",
+                 enable_sql_cache: bool = True):
         """
-        Initialize compression engine with encoders/decoders
+        Initialize compression engine with encoders/decoders and SQL-backed caching
+        
+        Args:
+            template_library: Template library instance
+            aura_encoder: BRIO encoder (auto-created if None)
+            aura_decoder: BRIO decoder (auto-created if None)
+            tcp_brio_encoder: TCP BRIO encoder (auto-created if None)
+            tcp_brio_decoder: TCP BRIO decoder (auto-created if None)
+            auralite_encoder: AuraLite encoder (auto-created if None)
+            auralite_decoder: AuraLite decoder (auto-created if None)
+            tcp_brio_threshold: Size threshold for TCP optimization
+            pattern_semantic_compressor: AI semantic compressor (auto-created if None)
+            cache_dir: Directory for SQL cache and pattern discovery
+            enable_sql_cache: Enable SQL-backed persistent caching (default: True)
         """
         self.template_library = template_library
         self.tcp_brio_threshold = tcp_brio_threshold
+        self.cache_dir = cache_dir
+        self.enable_sql_cache = enable_sql_cache
 
-        # BRIO encoders/decoders
-        self._aura_encoder = aura_encoder
-        self._aura_decoder = aura_decoder
-        self._tcp_brio_encoder = tcp_brio_encoder
-        self._tcp_brio_decoder = tcp_brio_decoder
+        # Initialize SQL-backed persistent cache for pattern discovery
+        from aura_compression.persistent_cache import PersistentTemplateCache
+        self._persistent_cache = None
+        if enable_sql_cache:
+            try:
+                self._persistent_cache = PersistentTemplateCache(
+                    cache_dir=cache_dir,
+                    max_size=10000,  # Large cache for aggressive performance
+                    save_interval=30.0,  # Frequent saves for data persistence
+                    compression_enabled=True  # Compress cache data
+                )
+                logger.info(f"SQL-backed persistent cache enabled in {cache_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize SQL cache: {e}, continuing without cache")
+                self._persistent_cache = None
 
-        # Auralite encoders/decoders
+        # BRIO encoders/decoders - Create by default if not provided
+        self._aura_encoder = aura_encoder or BrioEncoder()
+        self._aura_decoder = aura_decoder or BrioDecoder()
+        self._tcp_brio_encoder = tcp_brio_encoder or TcpBrioEncoder()
+        self._tcp_brio_decoder = tcp_brio_decoder or TcpBrioDecoder()
+
+        # Auralite encoders/decoders - Always created
         self._auralite_encoder = auralite_encoder or AuraLiteEncoder(template_library=template_library)
         self._auralite_decoder = auralite_decoder or AuraLiteDecoder(template_library=template_library)
 
-        # AI Semantic compressor
+        # AI Semantic compressor - Always created
         self._pattern_semantic_compressor = pattern_semantic_compressor or PatternSemanticCompressor()
 
     def compress_binary_semantic(self, text: str, template_match: TemplateMatch) -> Tuple[bytes, dict]:

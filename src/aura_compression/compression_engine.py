@@ -402,7 +402,12 @@ class CompressionEngine:
 
         # Skip method byte
         text_bytes = data[1:]
-        text = text_bytes.decode('utf-8')
+        # Handle potential surrogate bytes from metadata sidechannel or other sources
+        try:
+            text = text_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            # If standard UTF-8 fails, try with surrogateescape to handle invalid bytes
+            text = text_bytes.decode('utf-8', errors='surrogateescape')
 
         metadata = {
             'method': CompressionMethod.UNCOMPRESSED.name.lower(),

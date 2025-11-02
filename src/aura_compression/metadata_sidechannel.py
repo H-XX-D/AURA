@@ -17,12 +17,8 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import IntEnum
 
-
-class CompressionMethod(IntEnum):
-    """Compression method identifiers"""
-    BINARY_SEMANTIC = 0  # Template-based compression
-    BRIO = 1  # Dictionary + LZ77 + rANS
-    AURALITE = 2  # Lightweight template compression
+# Import CompressionMethod from the main enums module to stay in sync
+from aura_compression.enums import CompressionMethod
 
 
 class MessageCategory(IntEnum):

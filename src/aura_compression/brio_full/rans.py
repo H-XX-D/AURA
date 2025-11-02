@@ -37,6 +37,27 @@ def normalise_frequencies(freqs: Sequence[int]) -> List[int]:
                 adjust += 1
                 if adjust == 0:
                     break
+    
+    # Final safety check: ensure sum equals ANS_SCALE exactly
+    final_sum = sum(scaled)
+    if final_sum != ANS_SCALE:
+        # Adjust the most frequent symbol to fix any rounding errors
+        most_frequent_idx = max(range(256), key=lambda i: freqs[i])
+        scaled[most_frequent_idx] += (ANS_SCALE - final_sum)
+        # Ensure we don't go negative
+        if scaled[most_frequent_idx] < 1:
+            scaled[most_frequent_idx] = 1
+            # Redistribute from other symbols
+            diff = ANS_SCALE - sum(scaled)
+            for idx in sorted(range(256), key=lambda i: freqs[i], reverse=True):
+                if idx != most_frequent_idx and scaled[idx] > 1:
+                    adjustment = min(diff, scaled[idx] - 1)
+                    scaled[most_frequent_idx] += adjustment
+                    scaled[idx] -= adjustment
+                    diff -= adjustment
+                    if diff == 0:
+                        break
+    
     return scaled
 
 
@@ -57,6 +78,9 @@ def build_symbol_lookup(freqs: Sequence[int], cumfreq: Sequence[int]) -> List[in
         if f == 0:
             continue
         start = cumfreq[sym]
+        # Safety check: ensure we don't exceed table bounds
+        if start + f > ANS_SCALE:
+            raise ValueError(f"Symbol {sym}: cumfreq[{sym}]={start} + freq={f} exceeds ANS_SCALE={ANS_SCALE}")
         for x in range(f):
             table[start + x] = sym
     return table

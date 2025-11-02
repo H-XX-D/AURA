@@ -178,7 +178,8 @@ class BrioEncoder:
                 buf.append(token.value & 0xFF)
             elif isinstance(token, DictionaryToken):
                 buf.append(_DICT_TAG)
-                buf.append(token.entry_id & 0xFF)
+                # Store entry_id as 2 bytes to support dictionary entries > 255
+                buf.extend(token.entry_id.to_bytes(2, "big"))
             elif isinstance(token, MatchToken):
                 buf.append(_MATCH_TAG)
                 buf += token.distance.to_bytes(2, "big")

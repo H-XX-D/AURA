@@ -87,8 +87,10 @@ class BrioDecoder:
                 tokens.append(LiteralToken(payload[i]))
                 i += 1
             elif tag == 0x01:
-                tokens.append(DictionaryToken(payload[i]))
-                i += 1
+                # Read entry_id as 2 bytes to support dictionary entries > 255
+                entry_id = (payload[i] << 8) | payload[i + 1]
+                tokens.append(DictionaryToken(entry_id))
+                i += 2
             elif tag == 0x02:
                 distance = (payload[i] << 8) | payload[i + 1]
                 length = payload[i + 2]

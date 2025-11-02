@@ -2,7 +2,7 @@
 """Comprehensive tests for acceleration module"""
 
 import sys
-sys.path.insert(0, '/Users/hendrixx./AURA/src')
+import time
 
 from aura_compression.acceleration import (
     MetadataSignature,
@@ -10,7 +10,7 @@ from aura_compression.acceleration import (
     LRUPatternCache,
     ConversationAccelerator,
 )
-import time
+
 
 def test_metadata_signature():
     """Test MetadataSignature creation and key generation"""

@@ -2,7 +2,6 @@
 """Comprehensive tests for brio_full module"""
 
 import sys
-sys.path.insert(0, '/Users/hendrixx./AURA/src')
 
 from aura_compression.brio_full import BrioEncoder, BrioDecoder
 

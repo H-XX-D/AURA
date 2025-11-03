@@ -200,8 +200,8 @@ class MLAlgorithmSelector:
                 # Compression methods are always viable
                 viable_methods.append(method)
 
-        if message_bytes < 1_048_576:
-            viable_methods = [m for m in viable_methods if m != CompressionMethod.PATTERN_SEMANTIC]
+        # PATTERN_SEMANTIC is now enabled for all message sizes
+        # (Previously disabled for messages < 1MB, now available for all)
 
         if not viable_methods:
             viable_methods = [CompressionMethod.UNCOMPRESSED] if CompressionMethod.UNCOMPRESSED in available_methods else available_methods

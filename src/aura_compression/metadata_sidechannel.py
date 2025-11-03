@@ -72,6 +72,7 @@ class MessageMetadata:
     security_level: SecurityLevel  # Security screening result
     contains_code: bool  # Contains code snippets
     contains_urls: bool  # Contains URLs
+    is_binary: bool  # Whether data is binary (non-UTF-8)
 
     # Analytics metadata
     timestamp: float  # Message timestamp
@@ -144,20 +145,24 @@ class MetadataSideChannel:
                         template_id: Optional[int] = None,
                         category: Optional[MessageCategory] = None,
                         slot_count: int = 0,
-                        original_text: Optional[str] = None) -> bytes:
+                        original_text: Optional[str] = None,
+                        is_binary: bool = False) -> bytes:
         """
         Encode inline metadata into compressed payload (Claim 21a)
 
         Metadata Format (12-byte header):
         [0] Compression method (1 byte)
-        [1-2] Original size (2 bytes, big-endian)
-        [3-4] Compressed size (2 bytes, big-endian)
+        [1-2] Original size (2 bytes, big-endian, capped at 65535 for large files)
+        [3-4] Compressed size (2 bytes, big-endian, capped at 65535 for large files)
         [5-6] Template ID (2 bytes, 0xFFFF if none)
         [7] Category (1 byte)
         [8] Slot count (1 byte)
-        [9] Flags (1 byte): [security:2][has_code:1][has_urls:1][reserved:4]
+        [9] Flags (1 byte): [security:2][has_code:1][has_urls:1][is_binary:1][reserved:3]
         [10-11] Reserved (2 bytes)
         [12+] Compressed payload
+
+        Note: Size fields use 2 bytes (max 65535). For files >64KB, size is capped at 65535
+        as an indicator. Fast-path metadata extraction is optimized for small messages.
 
         Args:
             compressed: Compressed payload bytes
@@ -167,6 +172,7 @@ class MetadataSideChannel:
             category: Message category
             slot_count: Number of parameter slots
             original_text: Original text for analysis
+            is_binary: Whether the original data was binary
 
         Returns:
             Compressed payload with inline metadata header
@@ -176,6 +182,11 @@ class MetadataSideChannel:
         template_id_value = template_id if template_id is not None else 0xFFFF
         category_value = int(category) if category is not None else int(MessageCategory.GENERAL)
         slot_count_value = slot_count & 0xFF
+
+        # Handle large sizes (>64KB) by scaling down to fit in 2 bytes
+        # For sizes over 65535, store as 65535 (indicates large file)
+        original_size_stored = min(original_size, 65535)
+        compressed_size_stored = min(compressed_size, 65535)
 
         # Calculate flags
         flags = 0
@@ -191,12 +202,16 @@ class MetadataSideChannel:
             if 'http://' in original_text or 'https://' in original_text:
                 flags |= (1 << 4)  # Bit 4: has_urls
 
+        # Binary flag (bit 3)
+        if is_binary:
+            flags |= (1 << 3)  # Bit 3: is_binary
+
         # Pack all fields at once using precompiled struct (task 21 optimization)
         # Format: >BHHH BBB H = method, orig_size, comp_size, template_id, category, slot_count, flags, reserved
         metadata_header = self._HEADER_STRUCT.pack(
             compression_method.value if hasattr(compression_method, 'value') else int(compression_method),  # B: method
-            original_size,             # H: original_size
-            compressed_size,           # H: compressed_size
+            original_size_stored,      # H: original_size (capped at 65535)
+            compressed_size_stored,    # H: compressed_size (capped at 65535)
             template_id_value,         # H: template_id
             category_value,            # B: category
             slot_count_value,          # B: slot_count
@@ -240,6 +255,7 @@ class MetadataSideChannel:
         security_level = SecurityLevel((flags >> 6) & 0x03)
         contains_code = bool((flags >> 5) & 0x01)
         contains_urls = bool((flags >> 4) & 0x01)
+        is_binary = bool((flags >> 3) & 0x01)
 
         # Infer intent from template/category (lightweight operation)
         intent = self._infer_intent(template_id, category, contains_code)
@@ -264,6 +280,7 @@ class MetadataSideChannel:
             security_level=security_level,
             contains_code=contains_code,
             contains_urls=contains_urls,
+            is_binary=is_binary,
             timestamp=time.time() if include_timestamp else 0.0,
             conversation_id=None,
             user_id=None,

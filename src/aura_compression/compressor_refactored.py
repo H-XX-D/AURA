@@ -236,23 +236,67 @@ class ProductionHybridCompressor:
 
         # Hardware acceleration removed - focus on core compression
 
+    @staticmethod
+    def _is_binary_data(data: bytes) -> bool:
+        """
+        Detect if data is binary (not UTF-8 text).
+        
+        Returns True if data appears to be binary (images, video, archives, etc.)
+        Returns False if data appears to be text (UTF-8 decodable).
+        """
+        # Try to decode as UTF-8
+        try:
+            data.decode('utf-8')
+            # Check for high ratio of non-printable characters
+            printable_count = sum(1 for b in data if 32 <= b <= 126 or b in (9, 10, 13))
+            return (printable_count / len(data)) < 0.7 if data else False
+        except (UnicodeDecodeError, AttributeError):
+            return True
+
+    @staticmethod
+    def _normalize_input(text) -> Tuple[bytes, str, bool]:
+        """
+        Normalize input to both bytes and string representations.
+        
+        Returns:
+            (text_bytes, text_str, is_binary) tuple
+            - text_bytes: raw bytes representation
+            - text_str: UTF-8 string (may have errors='ignore' for binary)
+            - is_binary: True if original data was binary/non-UTF-8
+        """
+        if isinstance(text, bytes):
+            text_bytes = text
+            is_binary = ProductionHybridCompressor._is_binary_data(text)
+            
+            if is_binary:
+                # For binary data, use latin-1 for lossless round-trip
+                text_str = text.decode('latin-1')
+            else:
+                # For text data, use UTF-8 with error handling
+                text_str = text.decode('utf-8', errors='ignore')
+                
+            return text_bytes, text_str, is_binary
+        else:
+            # String input
+            text_str = text
+            try:
+                text_bytes = text.encode('utf-8')
+                is_binary = False
+            except UnicodeEncodeError:
+                # Handle surrogates from surrogateescape
+                text_bytes = text.encode('utf-8', errors='surrogateescape')
+                is_binary = False
+                
+            return text_bytes, text_str, is_binary
+
     def compress(self, text, template_id: Optional[int] = None,
                  slots: Optional[List[str]] = None) -> Tuple[bytes, CompressionMethod, dict]:
         """
         Compress text using best method with modular architecture
+        Supports both UTF-8 text and binary data.
         """
-        # Handle both str and bytes input (backward compatible)
-        if isinstance(text, bytes):
-            text_str = text.decode('utf-8', errors='ignore')
-            text_bytes = text
-        else:
-            text_str = text
-            # Handle surrogates that might be present from surrogateescape decoding
-            try:
-                text_bytes = text.encode('utf-8')
-            except UnicodeEncodeError:
-                # If surrogates are present, encode them back to bytes using surrogateescape
-                text_bytes = text.encode('utf-8', errors='surrogateescape')
+        # Normalize input to handle both text and binary data
+        text_bytes, text_str, is_binary = self._normalize_input(text)
         
         # Sync template store before compression
         current_time = time.time()
@@ -401,7 +445,8 @@ class ProductionHybridCompressor:
                 template_id=metadata_template_id,
                 category=category,
                 slot_count=metadata_slot_count,
-                original_text=text if self.enable_sidechain else None,
+                original_text=text_str if self.enable_sidechain else None,  # Always pass string, not bytes
+                is_binary=is_binary,  # Pass binary flag for proper decompression
             )
             # Update compressed size after adding metadata header
             metadata['compressed_size'] = len(final_payload)
@@ -541,10 +586,14 @@ class ProductionHybridCompressor:
         else:
             raise ValueError(f"Unsupported compression method: {method}")
 
+        # Convert back to bytes if original was binary (latin-1 round-trip)
+        if extracted_metadata and extracted_metadata.is_binary and isinstance(text, str):
+            text = text.encode('latin-1')
+
         if return_metadata:
             # Enhance metadata with additional info and extracted metadata
             metadata.update({
-                'semantic_sketch': self._generate_semantic_sketch(text, metadata)
+                'semantic_sketch': self._generate_semantic_sketch(text if isinstance(text, str) else text.decode('latin-1'), metadata)
             })
             if extracted_metadata:
                 metadata['sidechannel_metadata'] = {
@@ -554,6 +603,7 @@ class ProductionHybridCompressor:
                     'security_level': extracted_metadata.security_level.name,
                     'contains_code': extracted_metadata.contains_code,
                     'contains_urls': extracted_metadata.contains_urls,
+                    'is_binary': extracted_metadata.is_binary,
                     'compression_ratio': extracted_metadata.compression_ratio,
                 }
             return text, metadata
@@ -607,6 +657,13 @@ class ProductionHybridCompressor:
         Infer message category for metadata sidechannel encoding
         """
         from .metadata_sidechannel import MessageCategory
+
+        # Convert bytes to string if needed
+        if isinstance(text, bytes):
+            try:
+                text = text.decode('utf-8', errors='ignore')
+            except:
+                return MessageCategory.GENERAL
 
         # Template-based messages
         if template_id is not None:

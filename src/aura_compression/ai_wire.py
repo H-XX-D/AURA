@@ -12,19 +12,23 @@ from __future__ import annotations
 
 import ctypes
 import hashlib
+import hmac
+import json
 import os
+import secrets
 import sys
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from .ai_wire_messages import (
     AIWireFrame,
     build_ai_wire_messages,
     build_structured_ai_messages,
     decode_ai_wire_message,
+    discover_ai_wire_session_templates,
     encode_ai_wire_message,
 )
 
@@ -33,10 +37,22 @@ AI_WIRE_SUPPORTED_VERSIONS = (AI_WIRE_VERSION,)
 AI_WIRE_PROTOCOL = "aura.aiwire"
 AI_WIRE_HANDSHAKE_SCHEMA = "aura.aiwire.handshake.v1"
 AI_WIRE_NEGOTIATION_SCHEMA = "aura.aiwire.negotiation.v1"
+AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA = "aura.aiwire.session_templates.update.v1"
+AI_WIRE_SESSION_DICTIONARY_STATE_SCHEMA = "aura.aiwire.session_dictionary.state.v1"
+AI_WIRE_SESSION_DICTIONARY_DIFF_SCHEMA = "aura.aiwire.session_dictionary.diff.v1"
+AI_WIRE_SESSION_DICTIONARY_ACK_SCHEMA = "aura.aiwire.session_dictionary.ack.v1"
+AI_WIRE_SESSION_RESUME_HELLO_SCHEMA = "aura.aiwire.session_resume.hello.v1"
+AI_WIRE_SESSION_RESUME_RESPONSE_SCHEMA = "aura.aiwire.session_resume.response.v1"
 AI_WIRE_WBITS = -15
 AI_WIRE_MEM_LEVEL = 8
 AI_WIRE_DEFAULT_LEVEL = 3
 AI_WIRE_FLUSH_MODE = "z_sync_flush"
+AI_WIRE_DELTA_VERSION = 1
+AI_WIRE_MAX_SESSION_TEMPLATES = 4096
+AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS = 128
+AI_WIRE_MAX_SESSION_TEMPLATE_BYTES = 4096
+AI_WIRE_MAX_SESSION_DICTIONARY_BYTES = 262144
+AI_WIRE_NONCE_BYTES = 16
 
 
 _COMMON_AI_JSON_TERMS: tuple[str, ...] = (
@@ -176,6 +192,985 @@ def _build_static_dictionary() -> bytes:
 AI_WIRE_STATIC_DICTIONARY = _build_static_dictionary()
 AI_WIRE_DICTIONARY_SHA256 = hashlib.sha256(AI_WIRE_STATIC_DICTIONARY).hexdigest()
 
+AIWireSessionTemplates = Mapping[int, str] | Iterable[tuple[int, str] | Mapping[str, Any]]
+AIWireAuthKey = bytes | bytearray | memoryview | str | None
+
+
+def normalize_aiwire_session_templates(
+    session_templates: AIWireSessionTemplates | None = None,
+) -> tuple[tuple[int, str], ...]:
+    """Return a deterministic ``(template_id, pattern)`` tuple for session use."""
+
+    if session_templates is None:
+        return ()
+
+    items: Iterable[Any]
+    if isinstance(session_templates, Mapping):
+        items = session_templates.items()
+    else:
+        items = session_templates
+
+    normalized: list[tuple[int, str]] = []
+    seen: set[int] = set()
+    for item in items:
+        if isinstance(item, Mapping):
+            template_id = int(item.get("template_id", item.get("id")))  # type: ignore[arg-type]
+            pattern = str(item.get("pattern", item.get("template", "")))
+        else:
+            template_id = int(item[0])
+            pattern = str(item[1])
+
+        if template_id in seen:
+            raise ValueError(f"duplicate AIWire session template id: {template_id}")
+        if not 0 <= template_id <= 65535:
+            raise ValueError(f"AIWire session template id out of uint16 range: {template_id}")
+        if not pattern:
+            raise ValueError(f"AIWire session template {template_id} has an empty pattern")
+        seen.add(template_id)
+        normalized.append((template_id, pattern))
+
+    return tuple(sorted(normalized, key=lambda entry: entry[0]))
+
+
+def aiwire_session_templates_sha256(
+    session_templates: AIWireSessionTemplates | None = None,
+) -> str:
+    """Hash session templates in canonical order for handshake comparison."""
+
+    normalized = normalize_aiwire_session_templates(session_templates)
+    if not normalized:
+        return ""
+    payload = json.dumps(
+        [{"template_id": template_id, "pattern": pattern} for template_id, pattern in normalized],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _canonical_json_bytes(value: Mapping[str, Any]) -> bytes:
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+
+def _sha256_hex(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _validate_sha256_hex(value: str, field_name: str) -> None:
+    if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+        raise AIWireHandshakeError(f"{field_name} must be a lowercase sha256 hex digest")
+
+
+def _auth_key_bytes(auth_key: AIWireAuthKey) -> bytes | None:
+    if auth_key is None:
+        return None
+    if isinstance(auth_key, str):
+        return auth_key.encode("utf-8")
+    if isinstance(auth_key, (bytes, bytearray, memoryview)):
+        return bytes(auth_key)
+    raise TypeError(f"unsupported AIWire auth key type: {type(auth_key).__name__}")
+
+
+def _sign_aiwire_payload(payload: Mapping[str, Any], auth_key: AIWireAuthKey) -> str:
+    key = _auth_key_bytes(auth_key)
+    if key is None:
+        return ""
+    return hmac.new(key, _canonical_json_bytes(payload), hashlib.sha256).hexdigest()
+
+
+def _verify_aiwire_payload_auth(
+    payload: Mapping[str, Any],
+    auth_tag: str,
+    auth_key: AIWireAuthKey,
+    context: str,
+) -> None:
+    key = _auth_key_bytes(auth_key)
+    if key is None:
+        return
+    expected = hmac.new(key, _canonical_json_bytes(payload), hashlib.sha256).hexdigest()
+    if not auth_tag or not hmac.compare_digest(expected, auth_tag):
+        raise AIWireHandshakeError(f"{context} auth tag mismatch")
+
+
+def _make_aiwire_nonce() -> str:
+    return secrets.token_hex(AI_WIRE_NONCE_BYTES)
+
+
+def _template_pattern_sha256(pattern: str) -> str:
+    return _sha256_hex(pattern.encode("utf-8"))
+
+
+def _validate_session_dictionary_bounds(
+    session_templates: tuple[tuple[int, str], ...],
+    *,
+    max_templates: int = AI_WIRE_MAX_SESSION_TEMPLATES,
+    max_template_bytes: int = AI_WIRE_MAX_SESSION_TEMPLATE_BYTES,
+    max_total_bytes: int = AI_WIRE_MAX_SESSION_DICTIONARY_BYTES,
+) -> None:
+    if len(session_templates) > max_templates:
+        raise AIWireHandshakeError("session dictionary template limit exceeded")
+
+    total_bytes = 0
+    for template_id, pattern in session_templates:
+        pattern_size = len(pattern.encode("utf-8"))
+        if pattern_size > max_template_bytes:
+            raise AIWireHandshakeError(
+                f"session dictionary template {template_id} exceeds byte limit"
+            )
+        total_bytes += pattern_size
+
+    if total_bytes > max_total_bytes:
+        raise AIWireHandshakeError("session dictionary total byte limit exceeded")
+
+
+def _session_dictionary_state_payload(
+    session_templates: AIWireSessionTemplates | None,
+    *,
+    epoch: int,
+    static_dictionary_sha256: str = AI_WIRE_DICTIONARY_SHA256,
+) -> dict[str, object]:
+    if epoch < 0:
+        raise AIWireHandshakeError("session dictionary epoch must be non-negative")
+    _validate_sha256_hex(static_dictionary_sha256, "static_dictionary_sha256")
+    normalized = normalize_aiwire_session_templates(session_templates)
+    _validate_session_dictionary_bounds(normalized)
+    return {
+        "schema": AI_WIRE_SESSION_DICTIONARY_STATE_SCHEMA,
+        "protocol": AI_WIRE_PROTOCOL,
+        "version": AI_WIRE_VERSION,
+        "delta_version": AI_WIRE_DELTA_VERSION,
+        "static_dictionary_sha256": static_dictionary_sha256,
+        "epoch": epoch,
+        "templates": [
+            {
+                "template_id": template_id,
+                "pattern": pattern,
+                "pattern_sha256": _template_pattern_sha256(pattern),
+            }
+            for template_id, pattern in normalized
+        ],
+    }
+
+
+def aiwire_session_dictionary_state_sha256(
+    session_templates: AIWireSessionTemplates | None = None,
+    *,
+    epoch: int = 0,
+    static_dictionary_sha256: str = AI_WIRE_DICTIONARY_SHA256,
+) -> str:
+    """Hash the authenticated session dictionary state for delta safety."""
+
+    return _sha256_hex(
+        _canonical_json_bytes(
+            _session_dictionary_state_payload(
+                session_templates,
+                epoch=epoch,
+                static_dictionary_sha256=static_dictionary_sha256,
+            )
+        )
+    )
+
+
+@dataclass(frozen=True)
+class AIWireSessionTemplateUpdate:
+    """Delta signal for synchronizing session templates between AIWire epochs.
+
+    zlib dictionaries are fixed when a stream starts.  Applying this update
+    changes the session-template map for the next negotiated compression epoch;
+    callers must reset/recreate encoders and decoders before relying on the new
+    templates for compression.
+    """
+
+    previous_sha256: str
+    next_sha256: str
+    previous_count: int
+    next_count: int
+    add_or_update: tuple[tuple[int, str], ...]
+    remove: tuple[int, ...]
+    epoch: int
+    requires_session_reset: bool = True
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA,
+            "protocol": AI_WIRE_PROTOCOL,
+            "previous_sha256": self.previous_sha256,
+            "next_sha256": self.next_sha256,
+            "previous_count": self.previous_count,
+            "next_count": self.next_count,
+            "add_or_update": [
+                {"template_id": template_id, "pattern": pattern}
+                for template_id, pattern in self.add_or_update
+            ],
+            "remove": list(self.remove),
+            "epoch": self.epoch,
+            "requires_session_reset": self.requires_session_reset,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionTemplateUpdate":
+        if value.get("schema") != AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA:
+            raise AIWireHandshakeError("unsupported AIWire session template update schema")
+        if value.get("protocol") != AI_WIRE_PROTOCOL:
+            raise AIWireHandshakeError("unsupported AIWire protocol")
+
+        try:
+            add_or_update = normalize_aiwire_session_templates(value.get("add_or_update", ()))
+            remove = tuple(sorted(int(template_id) for template_id in value.get("remove", ())))
+            return cls(
+                previous_sha256=str(value["previous_sha256"]),
+                next_sha256=str(value["next_sha256"]),
+                previous_count=int(value["previous_count"]),
+                next_count=int(value["next_count"]),
+                add_or_update=add_or_update,
+                remove=remove,
+                epoch=int(value.get("epoch", 0)),
+                requires_session_reset=bool(value.get("requires_session_reset", True)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire session template update: {exc}") from exc
+
+
+def build_aiwire_session_template_update(
+    current_templates: AIWireSessionTemplates | None,
+    next_templates: AIWireSessionTemplates | None,
+    *,
+    epoch: int = 0,
+) -> AIWireSessionTemplateUpdate:
+    """Build a delta signal from one session-template map to another."""
+
+    current = dict(normalize_aiwire_session_templates(current_templates))
+    desired = dict(normalize_aiwire_session_templates(next_templates))
+    add_or_update = tuple(
+        sorted(
+            (
+                (template_id, pattern)
+                for template_id, pattern in desired.items()
+                if current.get(template_id) != pattern
+            ),
+            key=lambda entry: entry[0],
+        )
+    )
+    remove = tuple(sorted(template_id for template_id in current if template_id not in desired))
+    return AIWireSessionTemplateUpdate(
+        previous_sha256=aiwire_session_templates_sha256(current),
+        next_sha256=aiwire_session_templates_sha256(desired),
+        previous_count=len(current),
+        next_count=len(desired),
+        add_or_update=add_or_update,
+        remove=remove,
+        epoch=epoch,
+        requires_session_reset=True,
+    )
+
+
+def apply_aiwire_session_template_update(
+    current_templates: AIWireSessionTemplates | None,
+    update: AIWireSessionTemplateUpdate | dict[str, object],
+) -> tuple[tuple[int, str], ...]:
+    """Apply and verify a session-template delta signal."""
+
+    parsed = (
+        update
+        if isinstance(update, AIWireSessionTemplateUpdate)
+        else AIWireSessionTemplateUpdate.from_dict(update)
+    )
+    current = dict(normalize_aiwire_session_templates(current_templates))
+    if aiwire_session_templates_sha256(current) != parsed.previous_sha256:
+        raise AIWireHandshakeError("session template update previous hash mismatch")
+    if len(current) != parsed.previous_count:
+        raise AIWireHandshakeError("session template update previous count mismatch")
+
+    for template_id in parsed.remove:
+        current.pop(template_id, None)
+    for template_id, pattern in parsed.add_or_update:
+        current[template_id] = pattern
+
+    normalized = normalize_aiwire_session_templates(current)
+    if aiwire_session_templates_sha256(normalized) != parsed.next_sha256:
+        raise AIWireHandshakeError("session template update next hash mismatch")
+    if len(normalized) != parsed.next_count:
+        raise AIWireHandshakeError("session template update next count mismatch")
+    return normalized
+
+
+def _dictionary_diff_id_payload(value: Mapping[str, Any]) -> dict[str, object]:
+    payload = dict(value)
+    payload.pop("auth_tag", None)
+    payload.pop("diff_id", None)
+    return payload
+
+
+def _dictionary_diff_id(value: Mapping[str, Any]) -> str:
+    return _sha256_hex(_canonical_json_bytes(_dictionary_diff_id_payload(value)))
+
+
+def _verify_session_dictionary_diff_identity(diff: "AIWireSessionDictionaryDiff") -> None:
+    if diff.diff_id != _dictionary_diff_id(diff.to_dict()):
+        raise AIWireHandshakeError("session dictionary diff_id mismatch")
+
+
+@dataclass(frozen=True)
+class AIWireSessionDictionaryDiff:
+    """Authenticated append-only session dictionary update proposal.
+
+    A diff is only a proposal until the receiver validates it and returns a
+    matching ACK.  Senders must not encode deltas against ``next_state_hash``
+    until that ACK has been verified.
+    """
+
+    session_id: str
+    epoch: int
+    previous_state_hash: str
+    next_state_hash: str
+    previous_count: int
+    next_count: int
+    additions: tuple[tuple[int, str], ...]
+    nonce: str
+    diff_id: str
+    auth_tag: str = ""
+
+    def to_unsigned_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_SESSION_DICTIONARY_DIFF_SCHEMA,
+            "protocol": AI_WIRE_PROTOCOL,
+            "session_id": self.session_id,
+            "epoch": self.epoch,
+            "previous_state_hash": self.previous_state_hash,
+            "next_state_hash": self.next_state_hash,
+            "previous_count": self.previous_count,
+            "next_count": self.next_count,
+            "additions": [
+                {
+                    "template_id": template_id,
+                    "pattern": pattern,
+                    "pattern_sha256": _template_pattern_sha256(pattern),
+                }
+                for template_id, pattern in self.additions
+            ],
+            "nonce": self.nonce,
+            "diff_id": self.diff_id,
+            "delta_version": AI_WIRE_DELTA_VERSION,
+        }
+
+    def to_dict(self) -> dict[str, object]:
+        payload = self.to_unsigned_dict()
+        payload["auth_tag"] = self.auth_tag
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionDictionaryDiff":
+        if value.get("schema") != AI_WIRE_SESSION_DICTIONARY_DIFF_SCHEMA:
+            raise AIWireHandshakeError("unsupported AIWire session dictionary diff schema")
+        if value.get("protocol") != AI_WIRE_PROTOCOL:
+            raise AIWireHandshakeError("unsupported AIWire protocol")
+        if int(value.get("delta_version", 0)) != AI_WIRE_DELTA_VERSION:
+            raise AIWireHandshakeError("unsupported AIWire delta version")
+
+        try:
+            additions = normalize_aiwire_session_templates(value.get("additions", ()))
+            _validate_session_dictionary_bounds(additions)
+            for template_id, pattern in additions:
+                pattern_hash = next(
+                    item.get("pattern_sha256")
+                    for item in value.get("additions", ())  # type: ignore[union-attr]
+                    if int(item.get("template_id")) == template_id  # type: ignore[union-attr,arg-type]
+                )
+                if str(pattern_hash) != _template_pattern_sha256(pattern):
+                    raise AIWireHandshakeError("session dictionary addition hash mismatch")
+
+            previous_state_hash = str(value["previous_state_hash"])
+            next_state_hash = str(value["next_state_hash"])
+            diff_id = str(value["diff_id"])
+            _validate_sha256_hex(previous_state_hash, "previous_state_hash")
+            _validate_sha256_hex(next_state_hash, "next_state_hash")
+            _validate_sha256_hex(diff_id, "diff_id")
+            expected_diff_id = _dictionary_diff_id(value)
+            if diff_id != expected_diff_id:
+                raise AIWireHandshakeError("session dictionary diff_id mismatch")
+
+            return cls(
+                session_id=str(value["session_id"]),
+                epoch=int(value["epoch"]),
+                previous_state_hash=previous_state_hash,
+                next_state_hash=next_state_hash,
+                previous_count=int(value["previous_count"]),
+                next_count=int(value["next_count"]),
+                additions=additions,
+                nonce=str(value["nonce"]),
+                diff_id=diff_id,
+                auth_tag=str(value.get("auth_tag", "")),
+            )
+        except (KeyError, TypeError, ValueError, StopIteration, AIWireHandshakeError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire session dictionary diff: {exc}") from exc
+
+
+@dataclass(frozen=True)
+class AIWireSessionDictionaryAck:
+    """Receiver ACK/NACK for a session dictionary diff."""
+
+    session_id: str
+    epoch: int
+    accepted: bool
+    diff_id: str
+    previous_state_hash: str
+    state_hash: str
+    reason: str | None
+    nonce: str
+    auth_tag: str = ""
+
+    def to_unsigned_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_SESSION_DICTIONARY_ACK_SCHEMA,
+            "protocol": AI_WIRE_PROTOCOL,
+            "session_id": self.session_id,
+            "epoch": self.epoch,
+            "accepted": self.accepted,
+            "diff_id": self.diff_id,
+            "previous_state_hash": self.previous_state_hash,
+            "state_hash": self.state_hash,
+            "reason": self.reason,
+            "nonce": self.nonce,
+            "delta_version": AI_WIRE_DELTA_VERSION,
+        }
+
+    def to_dict(self) -> dict[str, object]:
+        payload = self.to_unsigned_dict()
+        payload["auth_tag"] = self.auth_tag
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionDictionaryAck":
+        if value.get("schema") != AI_WIRE_SESSION_DICTIONARY_ACK_SCHEMA:
+            raise AIWireHandshakeError("unsupported AIWire session dictionary ACK schema")
+        if value.get("protocol") != AI_WIRE_PROTOCOL:
+            raise AIWireHandshakeError("unsupported AIWire protocol")
+        if int(value.get("delta_version", 0)) != AI_WIRE_DELTA_VERSION:
+            raise AIWireHandshakeError("unsupported AIWire delta version")
+
+        try:
+            diff_id = str(value["diff_id"])
+            previous_state_hash = str(value["previous_state_hash"])
+            state_hash = str(value["state_hash"])
+            _validate_sha256_hex(diff_id, "diff_id")
+            _validate_sha256_hex(previous_state_hash, "previous_state_hash")
+            _validate_sha256_hex(state_hash, "state_hash")
+            return cls(
+                session_id=str(value["session_id"]),
+                epoch=int(value["epoch"]),
+                accepted=bool(value["accepted"]),
+                diff_id=diff_id,
+                previous_state_hash=previous_state_hash,
+                state_hash=state_hash,
+                reason=(str(value["reason"]) if value.get("reason") is not None else None),
+                nonce=str(value["nonce"]),
+                auth_tag=str(value.get("auth_tag", "")),
+            )
+        except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire session dictionary ACK: {exc}") from exc
+
+
+@dataclass(frozen=True)
+class AIWireSessionResumeHello:
+    """Future-connection proof that a peer has cached session dictionary state."""
+
+    peer_id: str
+    app_namespace: str
+    static_dictionary_sha256: str
+    cached_state_hashes: tuple[str, ...]
+    supported_delta_versions: tuple[int, ...]
+    nonce: str
+    auth_tag: str = ""
+
+    def to_unsigned_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_SESSION_RESUME_HELLO_SCHEMA,
+            "protocol": AI_WIRE_PROTOCOL,
+            "peer_id": self.peer_id,
+            "app_namespace": self.app_namespace,
+            "static_dictionary_sha256": self.static_dictionary_sha256,
+            "cached_state_hashes": list(self.cached_state_hashes),
+            "supported_delta_versions": list(self.supported_delta_versions),
+            "nonce": self.nonce,
+        }
+
+    def to_dict(self) -> dict[str, object]:
+        payload = self.to_unsigned_dict()
+        payload["auth_tag"] = self.auth_tag
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionResumeHello":
+        if value.get("schema") != AI_WIRE_SESSION_RESUME_HELLO_SCHEMA:
+            raise AIWireHandshakeError("unsupported AIWire session resume hello schema")
+        if value.get("protocol") != AI_WIRE_PROTOCOL:
+            raise AIWireHandshakeError("unsupported AIWire protocol")
+
+        try:
+            static_dictionary_sha256 = str(value["static_dictionary_sha256"])
+            _validate_sha256_hex(static_dictionary_sha256, "static_dictionary_sha256")
+            cached_state_hashes = tuple(str(item) for item in value.get("cached_state_hashes", ()))
+            for cached_hash in cached_state_hashes:
+                _validate_sha256_hex(cached_hash, "cached_state_hash")
+            supported_delta_versions = tuple(
+                int(version) for version in value.get("supported_delta_versions", ())
+            )
+            return cls(
+                peer_id=str(value["peer_id"]),
+                app_namespace=str(value.get("app_namespace", "default")),
+                static_dictionary_sha256=static_dictionary_sha256,
+                cached_state_hashes=cached_state_hashes,
+                supported_delta_versions=supported_delta_versions,
+                nonce=str(value["nonce"]),
+                auth_tag=str(value.get("auth_tag", "")),
+            )
+        except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire session resume hello: {exc}") from exc
+
+
+@dataclass(frozen=True)
+class AIWireSessionResumeResponse:
+    """Resume decision for a future agent connection."""
+
+    accepted: bool
+    reason: str | None
+    resume_state_hash: str | None
+    static_dictionary_sha256: str
+    selected_delta_version: int | None
+    hello_nonce: str
+    nonce: str
+    auth_tag: str = ""
+
+    def to_unsigned_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_SESSION_RESUME_RESPONSE_SCHEMA,
+            "protocol": AI_WIRE_PROTOCOL,
+            "accepted": self.accepted,
+            "reason": self.reason,
+            "resume_state_hash": self.resume_state_hash,
+            "static_dictionary_sha256": self.static_dictionary_sha256,
+            "selected_delta_version": self.selected_delta_version,
+            "hello_nonce": self.hello_nonce,
+            "nonce": self.nonce,
+        }
+
+    def to_dict(self) -> dict[str, object]:
+        payload = self.to_unsigned_dict()
+        payload["auth_tag"] = self.auth_tag
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionResumeResponse":
+        if value.get("schema") != AI_WIRE_SESSION_RESUME_RESPONSE_SCHEMA:
+            raise AIWireHandshakeError("unsupported AIWire session resume response schema")
+        if value.get("protocol") != AI_WIRE_PROTOCOL:
+            raise AIWireHandshakeError("unsupported AIWire protocol")
+
+        try:
+            static_dictionary_sha256 = str(value["static_dictionary_sha256"])
+            _validate_sha256_hex(static_dictionary_sha256, "static_dictionary_sha256")
+            resume_state_hash = (
+                str(value["resume_state_hash"])
+                if value.get("resume_state_hash") is not None
+                else None
+            )
+            if resume_state_hash is not None:
+                _validate_sha256_hex(resume_state_hash, "resume_state_hash")
+            selected_delta_version = (
+                int(value["selected_delta_version"])
+                if value.get("selected_delta_version") is not None
+                else None
+            )
+            return cls(
+                accepted=bool(value["accepted"]),
+                reason=(str(value["reason"]) if value.get("reason") is not None else None),
+                resume_state_hash=resume_state_hash,
+                static_dictionary_sha256=static_dictionary_sha256,
+                selected_delta_version=selected_delta_version,
+                hello_nonce=str(value["hello_nonce"]),
+                nonce=str(value["nonce"]),
+                auth_tag=str(value.get("auth_tag", "")),
+            )
+        except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire session resume response: {exc}") from exc
+
+
+def build_aiwire_session_dictionary_diff(
+    current_templates: AIWireSessionTemplates | None,
+    discovered_templates: AIWireSessionTemplates,
+    *,
+    session_id: str,
+    epoch: int = 0,
+    auth_key: AIWireAuthKey = None,
+    nonce: str | None = None,
+) -> AIWireSessionDictionaryDiff:
+    """Build a safe append-only dictionary diff from discovered templates.
+
+    Existing IDs may be repeated only when the pattern is identical.  A changed
+    shape must receive a new template ID so old deltas keep a stable meaning.
+    """
+
+    current = dict(normalize_aiwire_session_templates(current_templates))
+    discovered = dict(normalize_aiwire_session_templates(discovered_templates))
+    _validate_session_dictionary_bounds(normalize_aiwire_session_templates(current))
+    _validate_session_dictionary_bounds(normalize_aiwire_session_templates(discovered))
+
+    additions: list[tuple[int, str]] = []
+    for template_id, pattern in sorted(discovered.items()):
+        existing = current.get(template_id)
+        if existing == pattern:
+            continue
+        if existing is not None:
+            raise AIWireHandshakeError(
+                f"session dictionary template {template_id} already has a different shape"
+            )
+        additions.append((template_id, pattern))
+
+    if not additions:
+        raise AIWireHandshakeError("session dictionary diff has no additions")
+    if len(additions) > AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS:
+        raise AIWireHandshakeError("session dictionary diff addition limit exceeded")
+
+    next_templates = normalize_aiwire_session_templates({**current, **dict(additions)})
+    _validate_session_dictionary_bounds(next_templates)
+    next_epoch = epoch + 1
+    previous_state_hash = aiwire_session_dictionary_state_sha256(current, epoch=epoch)
+    next_state_hash = aiwire_session_dictionary_state_sha256(next_templates, epoch=next_epoch)
+    nonce_value = nonce or _make_aiwire_nonce()
+    unsigned_without_id: dict[str, object] = {
+        "schema": AI_WIRE_SESSION_DICTIONARY_DIFF_SCHEMA,
+        "protocol": AI_WIRE_PROTOCOL,
+        "session_id": session_id,
+        "epoch": next_epoch,
+        "previous_state_hash": previous_state_hash,
+        "next_state_hash": next_state_hash,
+        "previous_count": len(current),
+        "next_count": len(next_templates),
+        "additions": [
+            {
+                "template_id": template_id,
+                "pattern": pattern,
+                "pattern_sha256": _template_pattern_sha256(pattern),
+            }
+            for template_id, pattern in additions
+        ],
+        "nonce": nonce_value,
+        "delta_version": AI_WIRE_DELTA_VERSION,
+    }
+    diff_id = _sha256_hex(_canonical_json_bytes(unsigned_without_id))
+    unsigned = {**unsigned_without_id, "diff_id": diff_id}
+    return AIWireSessionDictionaryDiff(
+        session_id=session_id,
+        epoch=next_epoch,
+        previous_state_hash=previous_state_hash,
+        next_state_hash=next_state_hash,
+        previous_count=len(current),
+        next_count=len(next_templates),
+        additions=tuple(additions),
+        nonce=nonce_value,
+        diff_id=diff_id,
+        auth_tag=_sign_aiwire_payload(unsigned, auth_key),
+    )
+
+
+def _build_session_dictionary_ack(
+    diff: AIWireSessionDictionaryDiff,
+    *,
+    accepted: bool,
+    state_hash: str,
+    reason: str | None,
+    auth_key: AIWireAuthKey,
+    nonce: str | None = None,
+) -> AIWireSessionDictionaryAck:
+    ack_without_auth = AIWireSessionDictionaryAck(
+        session_id=diff.session_id,
+        epoch=diff.epoch,
+        accepted=accepted,
+        diff_id=diff.diff_id,
+        previous_state_hash=diff.previous_state_hash,
+        state_hash=state_hash,
+        reason=reason,
+        nonce=nonce or _make_aiwire_nonce(),
+        auth_tag="",
+    )
+    return AIWireSessionDictionaryAck(
+        **{
+            **ack_without_auth.__dict__,
+            "auth_tag": _sign_aiwire_payload(ack_without_auth.to_unsigned_dict(), auth_key),
+        }
+    )
+
+
+def apply_aiwire_session_dictionary_diff(
+    current_templates: AIWireSessionTemplates | None,
+    diff: AIWireSessionDictionaryDiff | dict[str, object],
+    *,
+    current_epoch: int = 0,
+    auth_key: AIWireAuthKey = None,
+    replay_cache: set[str] | None = None,
+) -> tuple[tuple[int, str], AIWireSessionDictionaryAck]:
+    """Validate, apply, and ACK a session dictionary diff proposal."""
+
+    parsed = (
+        diff
+        if isinstance(diff, AIWireSessionDictionaryDiff)
+        else AIWireSessionDictionaryDiff.from_dict(diff)
+    )
+    _verify_session_dictionary_diff_identity(parsed)
+    _verify_aiwire_payload_auth(
+        parsed.to_unsigned_dict(),
+        parsed.auth_tag,
+        auth_key,
+        "session dictionary diff",
+    )
+    if replay_cache is not None and (
+        parsed.diff_id in replay_cache or parsed.nonce in replay_cache
+    ):
+        raise AIWireHandshakeError("session dictionary diff replay detected")
+
+    current = dict(normalize_aiwire_session_templates(current_templates))
+    current_normalized = normalize_aiwire_session_templates(current)
+    if parsed.previous_state_hash != aiwire_session_dictionary_state_sha256(
+        current_normalized,
+        epoch=current_epoch,
+    ):
+        raise AIWireHandshakeError("session dictionary previous state hash mismatch")
+    if parsed.previous_count != len(current):
+        raise AIWireHandshakeError("session dictionary previous count mismatch")
+    if parsed.epoch != current_epoch + 1:
+        raise AIWireHandshakeError("session dictionary epoch must increment by one")
+    if not parsed.additions:
+        raise AIWireHandshakeError("session dictionary diff has no additions")
+    if len(parsed.additions) > AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS:
+        raise AIWireHandshakeError("session dictionary diff addition limit exceeded")
+
+    for template_id, pattern in parsed.additions:
+        if template_id in current:
+            if current[template_id] == pattern:
+                raise AIWireHandshakeError(
+                    "session dictionary diff repeats an already accepted template"
+                )
+            raise AIWireHandshakeError("session dictionary template id overwrite rejected")
+        current[template_id] = pattern
+
+    next_templates = normalize_aiwire_session_templates(current)
+    _validate_session_dictionary_bounds(next_templates)
+    next_state_hash = aiwire_session_dictionary_state_sha256(
+        next_templates,
+        epoch=parsed.epoch,
+    )
+    if parsed.next_state_hash != next_state_hash:
+        raise AIWireHandshakeError("session dictionary next state hash mismatch")
+    if parsed.next_count != len(next_templates):
+        raise AIWireHandshakeError("session dictionary next count mismatch")
+
+    if replay_cache is not None:
+        replay_cache.add(parsed.diff_id)
+        replay_cache.add(parsed.nonce)
+
+    return next_templates, _build_session_dictionary_ack(
+        parsed,
+        accepted=True,
+        state_hash=next_state_hash,
+        reason=None,
+        auth_key=auth_key,
+    )
+
+
+def verify_aiwire_session_dictionary_ack(
+    diff: AIWireSessionDictionaryDiff | dict[str, object],
+    ack: AIWireSessionDictionaryAck | dict[str, object],
+    *,
+    auth_key: AIWireAuthKey = None,
+) -> None:
+    """Verify that a receiver ACK authorizes use of a proposed dictionary diff."""
+
+    parsed_diff = (
+        diff
+        if isinstance(diff, AIWireSessionDictionaryDiff)
+        else AIWireSessionDictionaryDiff.from_dict(diff)
+    )
+    _verify_session_dictionary_diff_identity(parsed_diff)
+    parsed_ack = (
+        ack
+        if isinstance(ack, AIWireSessionDictionaryAck)
+        else AIWireSessionDictionaryAck.from_dict(ack)
+    )
+    _verify_aiwire_payload_auth(
+        parsed_ack.to_unsigned_dict(),
+        parsed_ack.auth_tag,
+        auth_key,
+        "session dictionary ACK",
+    )
+    if not parsed_ack.accepted:
+        raise AIWireHandshakeError(parsed_ack.reason or "session dictionary diff rejected")
+    if parsed_ack.session_id != parsed_diff.session_id:
+        raise AIWireHandshakeError("session dictionary ACK session mismatch")
+    if parsed_ack.epoch != parsed_diff.epoch:
+        raise AIWireHandshakeError("session dictionary ACK epoch mismatch")
+    if parsed_ack.diff_id != parsed_diff.diff_id:
+        raise AIWireHandshakeError("session dictionary ACK diff mismatch")
+    if parsed_ack.previous_state_hash != parsed_diff.previous_state_hash:
+        raise AIWireHandshakeError("session dictionary ACK previous state mismatch")
+    if parsed_ack.state_hash != parsed_diff.next_state_hash:
+        raise AIWireHandshakeError("session dictionary ACK next state mismatch")
+
+
+def build_aiwire_session_resume_hello(
+    *,
+    peer_id: str,
+    cached_state_hashes: Iterable[str],
+    app_namespace: str = "default",
+    static_dictionary_sha256: str = AI_WIRE_DICTIONARY_SHA256,
+    supported_delta_versions: Iterable[int] = (AI_WIRE_DELTA_VERSION,),
+    auth_key: AIWireAuthKey = None,
+    nonce: str | None = None,
+) -> AIWireSessionResumeHello:
+    """Build a future-connection resume hello with explicit cached state hashes."""
+
+    _validate_sha256_hex(static_dictionary_sha256, "static_dictionary_sha256")
+    cached = tuple(cached_state_hashes)
+    for cached_hash in cached:
+        _validate_sha256_hex(cached_hash, "cached_state_hash")
+    versions = tuple(int(version) for version in supported_delta_versions)
+    hello_without_auth = AIWireSessionResumeHello(
+        peer_id=peer_id,
+        app_namespace=app_namespace,
+        static_dictionary_sha256=static_dictionary_sha256,
+        cached_state_hashes=cached,
+        supported_delta_versions=versions,
+        nonce=nonce or _make_aiwire_nonce(),
+        auth_tag="",
+    )
+    return AIWireSessionResumeHello(
+        **{
+            **hello_without_auth.__dict__,
+            "auth_tag": _sign_aiwire_payload(hello_without_auth.to_unsigned_dict(), auth_key),
+        }
+    )
+
+
+def negotiate_aiwire_session_resume(
+    hello: AIWireSessionResumeHello | dict[str, object],
+    *,
+    available_state_hashes: Iterable[str],
+    static_dictionary_sha256: str = AI_WIRE_DICTIONARY_SHA256,
+    auth_key: AIWireAuthKey = None,
+    nonce: str | None = None,
+) -> AIWireSessionResumeResponse:
+    """Negotiate reuse of a cached session dictionary on a future connection."""
+
+    parsed = (
+        hello
+        if isinstance(hello, AIWireSessionResumeHello)
+        else AIWireSessionResumeHello.from_dict(hello)
+    )
+    _verify_aiwire_payload_auth(
+        parsed.to_unsigned_dict(),
+        parsed.auth_tag,
+        auth_key,
+        "session resume hello",
+    )
+    _validate_sha256_hex(static_dictionary_sha256, "static_dictionary_sha256")
+    available = set(available_state_hashes)
+    for state_hash in available:
+        _validate_sha256_hex(state_hash, "available_state_hash")
+
+    accepted = False
+    reason: str | None = None
+    selected_hash: str | None = None
+    selected_delta_version: int | None = None
+    if parsed.static_dictionary_sha256 != static_dictionary_sha256:
+        reason = "static_dictionary_sha256_mismatch"
+    elif AI_WIRE_DELTA_VERSION not in parsed.supported_delta_versions:
+        reason = "no_common_delta_version"
+    else:
+        for cached_hash in parsed.cached_state_hashes:
+            if cached_hash in available:
+                accepted = True
+                selected_hash = cached_hash
+                selected_delta_version = AI_WIRE_DELTA_VERSION
+                break
+        if not accepted:
+            reason = "no_shared_session_dictionary"
+
+    response_without_auth = AIWireSessionResumeResponse(
+        accepted=accepted,
+        reason=reason,
+        resume_state_hash=selected_hash,
+        static_dictionary_sha256=static_dictionary_sha256,
+        selected_delta_version=selected_delta_version,
+        hello_nonce=parsed.nonce,
+        nonce=nonce or _make_aiwire_nonce(),
+        auth_tag="",
+    )
+    return AIWireSessionResumeResponse(
+        **{
+            **response_without_auth.__dict__,
+            "auth_tag": _sign_aiwire_payload(
+                response_without_auth.to_unsigned_dict(),
+                auth_key,
+            ),
+        }
+    )
+
+
+def verify_aiwire_session_resume_response(
+    hello: AIWireSessionResumeHello | dict[str, object],
+    response: AIWireSessionResumeResponse | dict[str, object],
+    *,
+    auth_key: AIWireAuthKey = None,
+) -> None:
+    """Verify a resume response before reusing cached dictionary state."""
+
+    parsed_hello = (
+        hello
+        if isinstance(hello, AIWireSessionResumeHello)
+        else AIWireSessionResumeHello.from_dict(hello)
+    )
+    parsed_response = (
+        response
+        if isinstance(response, AIWireSessionResumeResponse)
+        else AIWireSessionResumeResponse.from_dict(response)
+    )
+    _verify_aiwire_payload_auth(
+        parsed_response.to_unsigned_dict(),
+        parsed_response.auth_tag,
+        auth_key,
+        "session resume response",
+    )
+    if parsed_response.hello_nonce != parsed_hello.nonce:
+        raise AIWireHandshakeError("session resume response nonce mismatch")
+    if parsed_response.static_dictionary_sha256 != parsed_hello.static_dictionary_sha256:
+        raise AIWireHandshakeError("session resume static dictionary mismatch")
+    if not parsed_response.accepted:
+        raise AIWireHandshakeError(parsed_response.reason or "session resume rejected")
+    if parsed_response.selected_delta_version not in parsed_hello.supported_delta_versions:
+        raise AIWireHandshakeError("session resume delta version mismatch")
+    if parsed_response.resume_state_hash not in parsed_hello.cached_state_hashes:
+        raise AIWireHandshakeError("session resume state hash was not offered")
+
+
+def _build_session_dictionary(
+    *,
+    use_static_dictionary: bool,
+    session_templates: tuple[tuple[int, str], ...],
+) -> bytes | None:
+    dictionary = AI_WIRE_STATIC_DICTIONARY if use_static_dictionary else b""
+    if session_templates:
+        template_terms = "\n".join(
+            f"{template_id}:{pattern}" for template_id, pattern in session_templates
+        )
+        # Keep session terms near the end of the zlib window because they are
+        # workload-specific and should have the highest match priority.
+        dictionary += (("\n" + template_terms) * 12).encode("utf-8")
+    return dictionary[-32768:] if dictionary else None
+
 
 def _fnv1a64(data: bytes) -> int:
     value = 14695981039346656037
@@ -207,6 +1202,9 @@ class AIWireNativeStatus:
     dictionary_size: int | None = None
     dictionary_checksum: str | None = None
     dictionary_matches_python: bool | None = None
+    supports_custom_dictionary: bool = False
+    supports_token_codec: bool = False
+    supports_token_aiwire: bool = False
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -217,6 +1215,9 @@ class AIWireNativeStatus:
             "dictionary_size": self.dictionary_size,
             "dictionary_checksum": self.dictionary_checksum,
             "dictionary_matches_python": self.dictionary_matches_python,
+            "supports_custom_dictionary": self.supports_custom_dictionary,
+            "supports_token_codec": self.supports_token_codec,
+            "supports_token_aiwire": self.supports_token_aiwire,
         }
 
 
@@ -228,6 +1229,9 @@ class _NativeAIWireLibrary:
         self.error: str | None = None
         self.lib: ctypes.CDLL | None = None
         self.version: str | None = None
+        self.supports_custom_dictionary = False
+        self.supports_token_codec = False
+        self.supports_token_aiwire = False
         self._load()
 
     @property
@@ -267,7 +1271,11 @@ class _NativeAIWireLibrary:
                 lib = ctypes.CDLL(library_path)
                 self.lib = lib
                 self.library_path = library_path
-                self._configure_signatures(lib)
+                (
+                    self.supports_custom_dictionary,
+                    self.supports_token_codec,
+                    self.supports_token_aiwire,
+                ) = self._configure_signatures(lib)
                 raw_version = lib.aura_aiwire_backend_version()
                 self.version = (
                     raw_version.decode("utf-8", errors="replace") if raw_version else None
@@ -278,7 +1286,7 @@ class _NativeAIWireLibrary:
         self.error = "; ".join(errors) if errors else "libaura_aiwire not found"
 
     @staticmethod
-    def _configure_signatures(lib: ctypes.CDLL) -> None:
+    def _configure_signatures(lib: ctypes.CDLL) -> tuple[bool, bool, bool]:
         lib.aura_aiwire_last_error.argtypes = []
         lib.aura_aiwire_last_error.restype = ctypes.c_char_p
 
@@ -296,6 +1304,16 @@ class _NativeAIWireLibrary:
 
         lib.aura_aiwire_encoder_create.argtypes = [ctypes.c_int, ctypes.c_int]
         lib.aura_aiwire_encoder_create.restype = ctypes.c_void_p
+        supports_custom_dictionary = hasattr(
+            lib, "aura_aiwire_encoder_create_with_dictionary"
+        ) and hasattr(lib, "aura_aiwire_decoder_create_with_dictionary")
+        if supports_custom_dictionary:
+            lib.aura_aiwire_encoder_create_with_dictionary.argtypes = [
+                ctypes.c_int,
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+            ]
+            lib.aura_aiwire_encoder_create_with_dictionary.restype = ctypes.c_void_p
         lib.aura_aiwire_encoder_destroy.argtypes = [ctypes.c_void_p]
         lib.aura_aiwire_encoder_destroy.restype = None
         lib.aura_aiwire_encoder_compress.argtypes = [
@@ -315,6 +1333,12 @@ class _NativeAIWireLibrary:
 
         lib.aura_aiwire_decoder_create.argtypes = [ctypes.c_int]
         lib.aura_aiwire_decoder_create.restype = ctypes.c_void_p
+        if supports_custom_dictionary:
+            lib.aura_aiwire_decoder_create_with_dictionary.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+            ]
+            lib.aura_aiwire_decoder_create_with_dictionary.restype = ctypes.c_void_p
         lib.aura_aiwire_decoder_destroy.argtypes = [ctypes.c_void_p]
         lib.aura_aiwire_decoder_destroy.restype = None
         lib.aura_aiwire_decoder_decompress.argtypes = [
@@ -331,6 +1355,113 @@ class _NativeAIWireLibrary:
         lib.aura_aiwire_decoder_bytes_in.restype = ctypes.c_uint64
         lib.aura_aiwire_decoder_bytes_out.argtypes = [ctypes.c_void_p]
         lib.aura_aiwire_decoder_bytes_out.restype = ctypes.c_uint64
+
+        supports_token_codec = hasattr(lib, "aura_aiwire_token_encoder_create") and hasattr(
+            lib, "aura_aiwire_token_decoder_create"
+        )
+        if supports_token_codec:
+            lib.aura_aiwire_token_encoder_create.argtypes = [
+                ctypes.c_size_t,
+                ctypes.c_size_t,
+            ]
+            lib.aura_aiwire_token_encoder_create.restype = ctypes.c_void_p
+            lib.aura_aiwire_token_encoder_destroy.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_encoder_destroy.restype = None
+            lib.aura_aiwire_token_encoder_encode.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_size_t),
+            ]
+            lib.aura_aiwire_token_encoder_encode.restype = ctypes.c_int
+            lib.aura_aiwire_token_encoder_frames.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_encoder_frames.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_encoder_bytes_in.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_encoder_bytes_in.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_encoder_bytes_out.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_encoder_bytes_out.restype = ctypes.c_uint64
+
+            lib.aura_aiwire_token_decoder_create.argtypes = [ctypes.c_size_t]
+            lib.aura_aiwire_token_decoder_create.restype = ctypes.c_void_p
+            lib.aura_aiwire_token_decoder_destroy.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_decoder_destroy.restype = None
+            lib.aura_aiwire_token_decoder_decode.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_size_t),
+            ]
+            lib.aura_aiwire_token_decoder_decode.restype = ctypes.c_int
+            lib.aura_aiwire_token_decoder_frames.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_decoder_frames.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_decoder_bytes_in.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_decoder_bytes_in.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_decoder_bytes_out.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_decoder_bytes_out.restype = ctypes.c_uint64
+
+        supports_token_aiwire = hasattr(
+            lib, "aura_aiwire_token_aiwire_encoder_create_with_dictionary"
+        ) and hasattr(lib, "aura_aiwire_token_aiwire_decoder_create_with_dictionary")
+        if supports_token_aiwire:
+            lib.aura_aiwire_token_aiwire_encoder_create.argtypes = [
+                ctypes.c_int,
+                ctypes.c_int,
+            ]
+            lib.aura_aiwire_token_aiwire_encoder_create.restype = ctypes.c_void_p
+            lib.aura_aiwire_token_aiwire_encoder_create_with_dictionary.argtypes = [
+                ctypes.c_int,
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+            ]
+            lib.aura_aiwire_token_aiwire_encoder_create_with_dictionary.restype = ctypes.c_void_p
+            lib.aura_aiwire_token_aiwire_encoder_destroy.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_encoder_destroy.restype = None
+            lib.aura_aiwire_token_aiwire_encoder_encode.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_size_t),
+            ]
+            lib.aura_aiwire_token_aiwire_encoder_encode.restype = ctypes.c_int
+            lib.aura_aiwire_token_aiwire_encoder_frames.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_encoder_frames.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_aiwire_encoder_bytes_in.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_encoder_bytes_in.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_aiwire_encoder_token_bytes.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_encoder_token_bytes.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_aiwire_encoder_bytes_out.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_encoder_bytes_out.restype = ctypes.c_uint64
+
+            lib.aura_aiwire_token_aiwire_decoder_create.argtypes = [ctypes.c_int]
+            lib.aura_aiwire_token_aiwire_decoder_create.restype = ctypes.c_void_p
+            lib.aura_aiwire_token_aiwire_decoder_create_with_dictionary.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+            ]
+            lib.aura_aiwire_token_aiwire_decoder_create_with_dictionary.restype = ctypes.c_void_p
+            lib.aura_aiwire_token_aiwire_decoder_destroy.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_decoder_destroy.restype = None
+            lib.aura_aiwire_token_aiwire_decoder_decode.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                ctypes.c_size_t,
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_size_t),
+            ]
+            lib.aura_aiwire_token_aiwire_decoder_decode.restype = ctypes.c_int
+            lib.aura_aiwire_token_aiwire_decoder_frames.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_decoder_frames.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_aiwire_decoder_bytes_in.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_decoder_bytes_in.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_aiwire_decoder_token_bytes.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_decoder_token_bytes.restype = ctypes.c_uint64
+            lib.aura_aiwire_token_aiwire_decoder_bytes_out.argtypes = [ctypes.c_void_p]
+            lib.aura_aiwire_token_aiwire_decoder_bytes_out.restype = ctypes.c_uint64
+
+        return supports_custom_dictionary, supports_token_codec, supports_token_aiwire
 
     def last_error(self) -> str:
         if self.lib is None:
@@ -374,6 +1505,9 @@ def aiwire_native_status() -> AIWireNativeStatus:
         dictionary_size=dictionary_size,
         dictionary_checksum=dictionary_checksum,
         dictionary_matches_python=dictionary_matches_python,
+        supports_custom_dictionary=lib.supports_custom_dictionary,
+        supports_token_codec=lib.supports_token_codec,
+        supports_token_aiwire=lib.supports_token_aiwire,
     )
 
 
@@ -393,6 +1527,11 @@ class AIWireHandshake:
     backend: str
     native_version: str | None
     fallback_codecs: tuple[str, ...]
+    session_templates: tuple[tuple[int, str], ...]
+    session_template_sha256: str
+    session_template_count: int
+    session_template_epoch: int
+    require_session_templates: bool
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -410,6 +1549,14 @@ class AIWireHandshake:
             "backend": self.backend,
             "native_version": self.native_version,
             "fallback_codecs": list(self.fallback_codecs),
+            "session_templates": [
+                {"template_id": template_id, "pattern": pattern}
+                for template_id, pattern in self.session_templates
+            ],
+            "session_template_sha256": self.session_template_sha256,
+            "session_template_count": self.session_template_count,
+            "session_template_epoch": self.session_template_epoch,
+            "require_session_templates": self.require_session_templates,
         }
 
     @classmethod
@@ -422,6 +1569,22 @@ class AIWireHandshake:
         try:
             versions = tuple(int(version) for version in value["versions"])  # type: ignore[index]
             fallback_codecs = tuple(str(codec) for codec in value.get("fallback_codecs", ()))
+            session_templates = normalize_aiwire_session_templates(
+                value.get("session_templates", ())
+            )
+            session_template_sha256 = str(
+                value.get(
+                    "session_template_sha256",
+                    aiwire_session_templates_sha256(session_templates),
+                )
+            )
+            if session_template_sha256 != aiwire_session_templates_sha256(session_templates):
+                raise AIWireHandshakeError("session template hash does not match payload")
+            session_template_count = int(
+                value.get("session_template_count", len(session_templates))
+            )
+            if session_template_count != len(session_templates):
+                raise AIWireHandshakeError("session template count does not match payload")
             return cls(
                 versions=versions,
                 preferred_version=int(value["preferred_version"]),
@@ -439,8 +1602,13 @@ class AIWireHandshake:
                     else None
                 ),
                 fallback_codecs=fallback_codecs,
+                session_templates=session_templates,
+                session_template_sha256=session_template_sha256,
+                session_template_count=session_template_count,
+                session_template_epoch=int(value.get("session_template_epoch", 0)),
+                require_session_templates=bool(value.get("require_session_templates", False)),
             )
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
             raise AIWireHandshakeError(f"malformed AIWire handshake: {exc}") from exc
 
 
@@ -471,12 +1639,22 @@ def build_aiwire_handshake(
     use_static_dictionary: bool = True,
     use_native: bool | None = None,
     fallback_codecs: Iterable[str] = ("zlib", "raw"),
+    session_templates: AIWireSessionTemplates | None = None,
+    session_template_epoch: int = 0,
+    require_session_templates: bool = False,
 ) -> AIWireHandshake:
     if not 0 <= level <= 9:
         raise ValueError(f"zlib level must be in [0, 9], got {level}")
 
+    normalized_templates = normalize_aiwire_session_templates(session_templates)
     native_status = aiwire_native_status()
-    backend = "native" if _native_enabled(use_native) and native_status.available else "python"
+    backend = (
+        "native"
+        if _native_enabled(use_native)
+        and native_status.available
+        and (not normalized_templates or native_status.supports_custom_dictionary)
+        else "python"
+    )
 
     return AIWireHandshake(
         versions=AI_WIRE_SUPPORTED_VERSIONS,
@@ -491,6 +1669,11 @@ def build_aiwire_handshake(
         backend=backend,
         native_version=native_status.version if backend == "native" else None,
         fallback_codecs=tuple(fallback_codecs),
+        session_templates=normalized_templates,
+        session_template_sha256=aiwire_session_templates_sha256(normalized_templates),
+        session_template_count=len(normalized_templates),
+        session_template_epoch=session_template_epoch,
+        require_session_templates=require_session_templates,
     )
 
 
@@ -502,6 +1685,9 @@ def negotiate_aiwire_handshake(
     use_native: bool | None = None,
     fallback_codecs: Iterable[str] = ("zlib", "raw"),
     allow_fallback: bool = True,
+    session_templates: AIWireSessionTemplates | None = None,
+    session_template_epoch: int = 0,
+    require_session_templates: bool = False,
 ) -> AIWireNegotiation:
     peer = (
         peer_handshake
@@ -513,12 +1699,29 @@ def negotiate_aiwire_handshake(
         use_static_dictionary=use_static_dictionary,
         use_native=use_native,
         fallback_codecs=fallback_codecs,
+        session_templates=session_templates,
+        session_template_epoch=session_template_epoch,
+        require_session_templates=require_session_templates,
     )
 
     common_versions = sorted(set(peer.versions).intersection(local.versions), reverse=True)
+    templates_are_required = (
+        peer.require_session_templates
+        or local.require_session_templates
+        or bool(peer.session_template_count)
+        or bool(local.session_template_count)
+    )
     reason = None
     if not common_versions:
         reason = "no_common_aiwire_version"
+    elif templates_are_required and peer.session_template_count != local.session_template_count:
+        reason = "session_template_count_mismatch"
+    elif templates_are_required and peer.session_template_sha256 != local.session_template_sha256:
+        reason = "session_template_sha256_mismatch"
+    elif (
+        peer.require_session_templates or local.require_session_templates
+    ) and not local.session_template_count:
+        reason = "session_templates_required"
     elif peer.use_static_dictionary != local.use_static_dictionary:
         reason = "static_dictionary_mode_mismatch"
     elif peer.use_static_dictionary and peer.dictionary_sha256 != local.dictionary_sha256:
@@ -604,16 +1807,32 @@ def _bytes_from_native_call(
 
 
 class _NativeAIWireEncoder:
-    def __init__(self, *, level: int, use_static_dictionary: bool) -> None:
+    def __init__(
+        self,
+        *,
+        level: int,
+        use_static_dictionary: bool,
+        dictionary: bytes | None = None,
+    ) -> None:
         self._handle = None
         self._lib = _get_native_library()
         if self._lib.lib is None:
             raise AIWireNativeError(self._lib.error or "native AIWire library not loaded")
 
-        self._handle = self._lib.lib.aura_aiwire_encoder_create(
-            int(level),
-            1 if use_static_dictionary else 0,
-        )
+        if dictionary is None:
+            self._handle = self._lib.lib.aura_aiwire_encoder_create(
+                int(level),
+                1 if use_static_dictionary else 0,
+            )
+        else:
+            if not self._lib.supports_custom_dictionary:
+                raise AIWireNativeError("native AIWire backend lacks custom dictionary support")
+            dictionary_ptr = ctypes.c_char_p(dictionary) if dictionary else None
+            self._handle = self._lib.lib.aura_aiwire_encoder_create_with_dictionary(
+                int(level),
+                dictionary_ptr,
+                len(dictionary),
+            )
         if not self._handle:
             raise AIWireNativeError(self._lib.last_error())
 
@@ -637,15 +1856,29 @@ class _NativeAIWireEncoder:
 
 
 class _NativeAIWireDecoder:
-    def __init__(self, *, use_static_dictionary: bool) -> None:
+    def __init__(
+        self,
+        *,
+        use_static_dictionary: bool,
+        dictionary: bytes | None = None,
+    ) -> None:
         self._handle = None
         self._lib = _get_native_library()
         if self._lib.lib is None:
             raise AIWireNativeError(self._lib.error or "native AIWire library not loaded")
 
-        self._handle = self._lib.lib.aura_aiwire_decoder_create(
-            1 if use_static_dictionary else 0,
-        )
+        if dictionary is None:
+            self._handle = self._lib.lib.aura_aiwire_decoder_create(
+                1 if use_static_dictionary else 0,
+            )
+        else:
+            if not self._lib.supports_custom_dictionary:
+                raise AIWireNativeError("native AIWire backend lacks custom dictionary support")
+            dictionary_ptr = ctypes.c_char_p(dictionary) if dictionary else None
+            self._handle = self._lib.lib.aura_aiwire_decoder_create_with_dictionary(
+                dictionary_ptr,
+                len(dictionary),
+            )
         if not self._handle:
             raise AIWireNativeError(self._lib.last_error())
 
@@ -697,6 +1930,7 @@ class AIWireSessionEncoder:
         *,
         level: int = AI_WIRE_DEFAULT_LEVEL,
         use_static_dictionary: bool = True,
+        session_templates: AIWireSessionTemplates | None = None,
         use_native: bool | None = None,
     ) -> None:
         if not 0 <= level <= 9:
@@ -704,6 +1938,7 @@ class AIWireSessionEncoder:
 
         self.level = level
         self.use_static_dictionary = use_static_dictionary
+        self.session_templates = normalize_aiwire_session_templates(session_templates)
         self.backend = "python"
         self._native: _NativeAIWireEncoder | None = None
         self._compressor: zlib.compressobj | None = None
@@ -711,11 +1946,17 @@ class AIWireSessionEncoder:
         self._bytes_in = 0
         self._bytes_out = 0
 
+        dictionary = _build_session_dictionary(
+            use_static_dictionary=use_static_dictionary,
+            session_templates=self.session_templates,
+        )
+
         if _native_enabled(use_native):
             try:
                 self._native = _NativeAIWireEncoder(
                     level=level,
                     use_static_dictionary=use_static_dictionary,
+                    dictionary=dictionary if self.session_templates else None,
                 )
                 self.backend = "native"
                 return
@@ -730,8 +1971,8 @@ class AIWireSessionEncoder:
             "memLevel": AI_WIRE_MEM_LEVEL,
             "strategy": zlib.Z_DEFAULT_STRATEGY,
         }
-        if use_static_dictionary:
-            kwargs["zdict"] = AI_WIRE_STATIC_DICTIONARY
+        if dictionary:
+            kwargs["zdict"] = dictionary
         self._compressor = zlib.compressobj(**kwargs)
 
     @property
@@ -787,9 +2028,11 @@ class AIWireSessionDecoder:
         self,
         *,
         use_static_dictionary: bool = True,
+        session_templates: AIWireSessionTemplates | None = None,
         use_native: bool | None = None,
     ) -> None:
         self.use_static_dictionary = use_static_dictionary
+        self.session_templates = normalize_aiwire_session_templates(session_templates)
         self.backend = "python"
         self._native: _NativeAIWireDecoder | None = None
         self._decompressor: zlib.decompressobj | None = None
@@ -797,10 +2040,16 @@ class AIWireSessionDecoder:
         self._bytes_in = 0
         self._bytes_out = 0
 
+        dictionary = _build_session_dictionary(
+            use_static_dictionary=use_static_dictionary,
+            session_templates=self.session_templates,
+        )
+
         if _native_enabled(use_native):
             try:
                 self._native = _NativeAIWireDecoder(
                     use_static_dictionary=use_static_dictionary,
+                    dictionary=dictionary if self.session_templates else None,
                 )
                 self.backend = "native"
                 return
@@ -809,8 +2058,8 @@ class AIWireSessionDecoder:
                     raise
 
         kwargs = {"wbits": AI_WIRE_WBITS}
-        if use_static_dictionary:
-            kwargs["zdict"] = AI_WIRE_STATIC_DICTIONARY
+        if dictionary:
+            kwargs["zdict"] = dictionary
         self._decompressor = zlib.decompressobj(**kwargs)
 
     @property
@@ -865,11 +2114,13 @@ def compress_ai_wire_frames(
     *,
     level: int = AI_WIRE_DEFAULT_LEVEL,
     use_static_dictionary: bool = True,
+    session_templates: AIWireSessionTemplates | None = None,
     use_native: bool | None = None,
 ) -> tuple[list[bytes], AIWireStats]:
     encoder = AIWireSessionEncoder(
         level=level,
         use_static_dictionary=use_static_dictionary,
+        session_templates=session_templates,
         use_native=use_native,
     )
     try:
@@ -883,10 +2134,12 @@ def decompress_ai_wire_frames(
     frames: Iterable[bytes],
     *,
     use_static_dictionary: bool = True,
+    session_templates: AIWireSessionTemplates | None = None,
     use_native: bool | None = None,
 ) -> tuple[list[bytes], AIWireStats]:
     decoder = AIWireSessionDecoder(
         use_static_dictionary=use_static_dictionary,
+        session_templates=session_templates,
         use_native=use_native,
     )
     try:

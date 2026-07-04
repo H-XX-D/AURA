@@ -7,8 +7,8 @@ Older notes in this repo described broader economic projections and legacy file
 layouts. The current repo should be understood more narrowly:
 
 **AURA is an experimental compression toolkit whose strongest validated use case
-is AIWire, a session codec for high-volume structured AI-to-AI messages over
-normal networks.**
+is AIWire, a negotiated structure side channel for high-volume AI-to-AI
+messages over normal networks.**
 
 ## Current Direction
 
@@ -21,8 +21,8 @@ AI systems increasingly exchange structured messages instead of plain text:
 - Repeated operational logs and status events
 
 Those messages repeat the same keys and shapes thousands of times. AIWire uses
-that repetition through a static AI protocol dictionary plus live session
-history.
+that repetition by handshaking static protocol structure and session templates,
+then moving compact changes against that shared structure.
 
 ## What Is Proven Right Now
 
@@ -30,10 +30,11 @@ The best-supported path is:
 
 ```text
 structured message mapping
-    -> canonical JSON bytes
-    -> AIWire session encoder
+    -> canonical JSON boundary form
+    -> AIWire structure handshake/templates
+    -> AIWire delta/session encoder
     -> ordinary network transport
-    -> AIWire session decoder
+    -> AIWire delta/session decoder
     -> original structured message
 ```
 
@@ -44,6 +45,7 @@ Verified local capabilities:
   decode helpers.
 - AIWire beats stateless zlib on the generated AI protocol corpus.
 - AIWire has a working handshake negotiation model.
+- AIWire has session-template discovery/update support for shared structure.
 - AIWire has optional native backend detection and interoperability tests.
 - The LAN benchmark shows AIWire outperforming raw JSON and stateless zlib for
   high-volume request/response traffic.
@@ -79,9 +81,11 @@ Files:
 
 Purpose:
 
-- Session compression for AI protocol frames
+- Handshaked structure side channel for AI protocol frames
 - Canonical JSON message handling
 - Dictionary negotiation
+- Session-template update negotiation
+- Delta movement against shared structure
 - Native backend interop when available
 
 ### Hybrid Compressor
@@ -137,8 +141,9 @@ Do not present AURA as:
 
 The strongest accurate claim is narrower and more useful:
 
-> AURA AIWire is a working, benchmarked session codec for repetitive structured
-> AI-to-AI messages over normal networks.
+> AURA AIWire is a working, benchmarked structural side channel for repetitive
+> AI-to-AI messages over normal networks, with the target steady state of
+> sending changes instead of whole frames.
 
 ## Public Documentation Rule
 

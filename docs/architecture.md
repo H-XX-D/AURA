@@ -1,11 +1,12 @@
 # AURA Architecture
 
 AURA is a Python-first compression research codebase with one clear current
-product direction: **AIWire for high-volume structured AI-to-AI messages**.
+product direction: **AIWire for handshaked structure and delta movement in
+high-volume AI-to-AI messages**.
 
 The repo still contains broader hybrid compression components. Those are useful
 for experiments and large-message research, but the most validated path today is
-the AIWire session codec.
+the AIWire structural side channel.
 
 ## Design Goal
 
@@ -20,7 +21,8 @@ AI-to-AI systems move many small structured messages:
 
 These messages are verbose, repetitive, and usually exchanged by systems that
 control both ends of the link. AURA uses that structure instead of treating each
-frame as unrelated text.
+frame as unrelated text. The intended steady state is not "send a whole frame
+more cheaply"; it is "handshake the structure, then send the change."
 
 ## High-Level Shape
 
@@ -28,12 +30,16 @@ frame as unrelated text.
 Application / agent runtime
         |
         v
-Structured messages
+Structured message semantics
 MCP, A2A, OpenAI tool calls, local agent traces
         |
         v
-AIWire session codec
-canonical JSON -> static AI dictionary -> live deflate history
+AIWire side channel
+handshake static dictionary + session templates + update signals
+        |
+        v
+AIWire data path
+canonical JSON boundary form -> tokens/deltas -> live session history
         |
         v
 Normal network transport
@@ -67,6 +73,8 @@ AIWire provides:
 - A stable protocol identity: `aura.aiwire`
 - A versioned handshake shape
 - A static dictionary tuned for AI protocol fields
+- Session-template negotiation and update signals
+- Compact delta movement against the handshaked structure
 - Stateful session compression across frames
 - Canonical JSON helpers for structured Python mappings
 - Python encode/decode path using zlib
@@ -76,8 +84,9 @@ AIWire provides:
 ### Why It Works
 
 Generic zlib per frame pays setup cost every message and loses history after
-each frame. AIWire keeps the useful history across a session and starts with a
-dictionary containing common AI protocol terms.
+each frame. AIWire keeps the useful history across a session, starts with a
+dictionary containing common AI protocol terms, and lets peers agree on
+session-specific structure before the hot path sends changes.
 
 This matters for fields such as:
 
@@ -88,6 +97,8 @@ trace_id, task_id, tool_call_id, arguments, status, artifacts
 
 On the local LAN benchmark, AIWire moved more verified request/response
 exchanges than raw JSON and stateless zlib under the same modeled bandwidth.
+The next benchmark target is to make the corpus more explicitly delta-shaped:
+repeat the same agent/task/session structures while moving only changed values.
 See [AI-to-AI LAN Benchmark](perf/ai_to_ai_lan_benchmark_2026-07-04.md).
 
 ## Structured Message Helpers
@@ -115,13 +126,16 @@ AIWire peers should agree on:
 - Protocol name
 - Supported versions
 - Static dictionary hash
+- Session template hashes and limits
+- Template update signal behavior
+- Delta frame and resync behavior
 - Compression level
 - Flush mode
 - Fallback codecs, when fallback is allowed
 
-The dictionary hash matters because the encoder and decoder must use the same
-static dictionary. A mismatch should fail closed unless the caller explicitly
-allows fallback to another codec.
+The dictionary and template hashes matter because the encoder and decoder must
+share the same structural state. A mismatch should fail closed, request resync,
+or fall back only when the caller explicitly allows another codec.
 
 ## General Hybrid Compressor
 
@@ -162,7 +176,9 @@ compressed traffic without full decompression. It is useful for:
 - Message category classification
 - Operational monitoring
 
-This is adjacent to AIWire but not required for the basic AIWire session codec.
+This is adjacent to AIWire but separate from the AIWire structural side channel.
+AIWire's side channel is for negotiated message structure; the metadata
+sidechannel is for routing and inspection.
 
 ## Large-File Path
 
@@ -176,8 +192,9 @@ container metadata. It is not the main AI-to-AI message path.
 
 ## Transport Boundary
 
-AURA does not require a special network. It produces compressed frames that can
-be carried by normal transports:
+AURA does not require a special network. It produces explicit side-channel
+handshake/update messages and compact data frames that can be carried by normal
+transports:
 
 - Raw TCP frame streams
 - WebSocket messages
@@ -213,8 +230,8 @@ uvx isort --check-only src/aura_compression tests tools/stress_ai_wire_roundtrip
 
 ## Current Risk Areas
 
-- AIWire v1 needs a frozen frame/handshake spec before other projects depend on
-  it.
+- AIWire v1 needs a frozen handshake, template-update, delta-frame, and resync
+  spec before other projects depend on it.
 - Native backend support needs reproducible builds and ARM64 performance checks.
 - The general hybrid compressor has more experimental surface than production
   hardening.

@@ -11,14 +11,25 @@ from aura_compression.ai_wire import (
     AIWireSessionDecoder,
     AIWireSessionEncoder,
     aiwire_native_status,
+    aiwire_session_dictionary_state_sha256,
+    aiwire_session_templates_sha256,
+    apply_aiwire_session_dictionary_diff,
+    apply_aiwire_session_template_update,
     build_ai_wire_messages,
     build_aiwire_handshake,
+    build_aiwire_session_dictionary_diff,
+    build_aiwire_session_resume_hello,
+    build_aiwire_session_template_update,
     build_structured_ai_messages,
     compress_ai_wire_frames,
     decode_ai_wire_message,
     decompress_ai_wire_frames,
+    discover_ai_wire_session_templates,
     encode_ai_wire_message,
     negotiate_aiwire_handshake,
+    negotiate_aiwire_session_resume,
+    verify_aiwire_session_dictionary_ack,
+    verify_aiwire_session_resume_response,
 )
 
 
@@ -116,6 +127,297 @@ def test_ai_wire_handshake_accepts_matching_peer() -> None:
     assert negotiation.codec == "aiwire"
     assert negotiation.version == 1
     assert negotiation.reason is None
+
+
+def test_ai_wire_handshake_accepts_forced_session_templates() -> None:
+    session_templates = {
+        128: '{"protocol":"mcp","jsonrpc":"2.0","id":{0},"method":"tools/call"',
+        129: '"trace_id":"{0}","task_id":"{1}","metadata":{2}',
+    }
+    peer = build_aiwire_handshake(
+        level=3,
+        session_templates=session_templates,
+        require_session_templates=True,
+    )
+
+    negotiation = negotiate_aiwire_handshake(
+        peer.to_dict(),
+        level=3,
+        session_templates=dict(reversed(list(session_templates.items()))),
+        require_session_templates=True,
+        allow_fallback=False,
+    )
+
+    assert negotiation.accepted is True
+    assert negotiation.codec == "aiwire"
+    assert negotiation.server_handshake.session_template_count == 2
+    assert negotiation.server_handshake.session_template_sha256 == aiwire_session_templates_sha256(
+        session_templates
+    )
+
+
+def test_ai_wire_handshake_rejects_session_template_mismatch() -> None:
+    peer = build_aiwire_handshake(
+        level=3,
+        session_templates={128: "agent {0} calls tool {1}"},
+        require_session_templates=True,
+    )
+
+    negotiation = negotiate_aiwire_handshake(
+        peer.to_dict(),
+        level=3,
+        session_templates={128: "agent {0} calls different tool {1}"},
+        require_session_templates=True,
+        allow_fallback=False,
+    )
+
+    assert negotiation.accepted is False
+    assert negotiation.codec == ""
+    assert negotiation.reason == "session_template_sha256_mismatch"
+
+
+def test_ai_wire_session_template_update_signal_applies_delta() -> None:
+    current_templates = {
+        128: "agent {0} calls tool {1}",
+        129: "tool {0} returned result {1}",
+    }
+    next_templates = {
+        129: "tool {0} returned structured result {1}",
+        130: "handoff from {0} to {1}: {2}",
+    }
+
+    update = build_aiwire_session_template_update(
+        current_templates,
+        next_templates,
+        epoch=7,
+    )
+    restored = apply_aiwire_session_template_update(current_templates, update.to_dict())
+
+    assert dict(restored) == next_templates
+    assert update.previous_sha256 == aiwire_session_templates_sha256(current_templates)
+    assert update.next_sha256 == aiwire_session_templates_sha256(next_templates)
+    assert update.add_or_update == (
+        (129, "tool {0} returned structured result {1}"),
+        (130, "handoff from {0} to {1}: {2}"),
+    )
+    assert update.remove == (128,)
+    assert update.epoch == 7
+    assert update.requires_session_reset is True
+
+
+def test_ai_wire_session_template_update_rejects_wrong_base() -> None:
+    update = build_aiwire_session_template_update(
+        {128: "agent {0} calls tool {1}"},
+        {128: "agent {0} calls tool {1}", 129: "trace {0} status {1}"},
+    )
+
+    with pytest.raises(Exception, match="previous hash mismatch"):
+        apply_aiwire_session_template_update({128: "different base {0}"}, update)
+
+
+def test_ai_wire_session_dictionary_diff_requires_ack_before_use() -> None:
+    current_templates = {128: "agent {0} calls tool {1}"}
+    discovered_templates = {
+        128: "agent {0} calls tool {1}",
+        129: "task {0} status {1} tokens {2}",
+    }
+    auth_key = b"session-secret"
+
+    diff = build_aiwire_session_dictionary_diff(
+        current_templates,
+        discovered_templates,
+        session_id="session-1",
+        epoch=2,
+        auth_key=auth_key,
+        nonce="0" * 32,
+    )
+    next_templates, ack = apply_aiwire_session_dictionary_diff(
+        current_templates,
+        diff.to_dict(),
+        current_epoch=2,
+        auth_key=auth_key,
+    )
+
+    verify_aiwire_session_dictionary_ack(diff, ack.to_dict(), auth_key=auth_key)
+    assert dict(next_templates) == discovered_templates
+    assert diff.previous_state_hash == aiwire_session_dictionary_state_sha256(
+        current_templates,
+        epoch=2,
+    )
+    assert diff.next_state_hash == aiwire_session_dictionary_state_sha256(
+        discovered_templates,
+        epoch=3,
+    )
+    assert ack.accepted is True
+    assert ack.state_hash == diff.next_state_hash
+
+
+def test_ai_wire_session_dictionary_diff_rejects_template_overwrite() -> None:
+    with pytest.raises(Exception, match="already has a different shape"):
+        build_aiwire_session_dictionary_diff(
+            {128: "agent {0} calls tool {1}"},
+            {128: "agent {0} calls different tool {1}"},
+            session_id="session-1",
+        )
+
+
+def test_ai_wire_session_dictionary_diff_rejects_wrong_base_hash() -> None:
+    diff = build_aiwire_session_dictionary_diff(
+        {128: "agent {0} calls tool {1}"},
+        {129: "task {0} status {1}"},
+        session_id="session-1",
+        epoch=4,
+    )
+
+    with pytest.raises(Exception, match="previous state hash mismatch"):
+        apply_aiwire_session_dictionary_diff(
+            {128: "different base {0}"},
+            diff,
+            current_epoch=4,
+        )
+
+
+def test_ai_wire_session_dictionary_diff_rejects_tampered_auth() -> None:
+    diff = build_aiwire_session_dictionary_diff(
+        {},
+        {128: "task {0} status {1}"},
+        session_id="session-1",
+        auth_key=b"session-secret",
+    ).to_dict()
+    diff["additions"] = [
+        {
+            "template_id": 128,
+            "pattern": "task {0} status {1} with tampering",
+            "pattern_sha256": diff["additions"][0]["pattern_sha256"],  # type: ignore[index]
+        }
+    ]
+
+    with pytest.raises(Exception, match="diff"):
+        apply_aiwire_session_dictionary_diff({}, diff, auth_key=b"session-secret")
+
+
+def test_ai_wire_session_dictionary_diff_rejects_replay() -> None:
+    replay_cache: set[str] = set()
+    diff = build_aiwire_session_dictionary_diff(
+        {},
+        {128: "task {0} status {1}"},
+        session_id="session-1",
+    )
+    apply_aiwire_session_dictionary_diff({}, diff, replay_cache=replay_cache)
+
+    with pytest.raises(Exception, match="replay"):
+        apply_aiwire_session_dictionary_diff({}, diff, replay_cache=replay_cache)
+
+
+def test_ai_wire_session_resume_handshake_accepts_known_state_hash() -> None:
+    state_hash = aiwire_session_dictionary_state_sha256(
+        {128: "task {0} status {1}"},
+        epoch=1,
+    )
+    hello = build_aiwire_session_resume_hello(
+        peer_id="agent-a",
+        app_namespace="bench",
+        cached_state_hashes=[state_hash],
+        auth_key=b"resume-secret",
+        nonce="1" * 32,
+    )
+
+    response = negotiate_aiwire_session_resume(
+        hello.to_dict(),
+        available_state_hashes=[state_hash],
+        auth_key=b"resume-secret",
+        nonce="2" * 32,
+    )
+
+    verify_aiwire_session_resume_response(hello, response.to_dict(), auth_key=b"resume-secret")
+    assert response.accepted is True
+    assert response.resume_state_hash == state_hash
+
+
+def test_ai_wire_session_resume_handshake_rejects_unknown_state_hash() -> None:
+    offered = aiwire_session_dictionary_state_sha256({128: "offered {0}"}, epoch=1)
+    available = aiwire_session_dictionary_state_sha256({129: "available {0}"}, epoch=1)
+    hello = build_aiwire_session_resume_hello(
+        peer_id="agent-a",
+        cached_state_hashes=[offered],
+    )
+
+    response = negotiate_aiwire_session_resume(
+        hello,
+        available_state_hashes=[available],
+    )
+
+    assert response.accepted is False
+    assert response.reason == "no_shared_session_dictionary"
+    with pytest.raises(Exception, match="no_shared_session_dictionary"):
+        verify_aiwire_session_resume_response(hello, response)
+
+
+def test_ai_wire_session_templates_round_trip_on_python_backend() -> None:
+    session_templates = {
+        128: '{"protocol":"agent.trace","event":"plan.created","trace_id":"{0}"',
+        129: '"objective":"Reduce {0} tail latency without increasing error budget burn."',
+    }
+    messages = build_structured_ai_messages(96, seed=303)
+    raw_frames = [encode_ai_wire_message(message) for message in messages]
+
+    compressed, encode_stats = compress_ai_wire_frames(
+        messages,
+        session_templates=session_templates,
+        use_native=False,
+    )
+    restored, decode_stats = decompress_ai_wire_frames(
+        compressed,
+        session_templates=session_templates,
+        use_native=False,
+    )
+
+    assert restored == raw_frames
+    assert encode_stats.frames == len(messages)
+    assert decode_stats.frames == len(messages)
+    assert encode_stats.ratio > 4.0
+
+
+def test_ai_wire_session_templates_round_trip_on_native_backend_when_available() -> None:
+    status = aiwire_native_status()
+    if not status.available:
+        pytest.skip(status.error or "native AIWire backend is not built")
+    if not status.supports_custom_dictionary:
+        pytest.skip("native AIWire backend lacks custom dictionary support")
+
+    session_templates = {
+        128: '{"protocol":"mcp","jsonrpc":"2.0","id":{0}',
+        129: '"trace_id":"{0}","task_id":"{1}"',
+    }
+    messages = build_structured_ai_messages(64, seed=515)
+
+    with (
+        AIWireSessionEncoder(
+            session_templates=session_templates,
+            use_native=True,
+        ) as encoder,
+        AIWireSessionDecoder(
+            session_templates=session_templates,
+            use_native=True,
+        ) as decoder,
+    ):
+        payloads = [encoder.compress_message(message) for message in messages]
+        restored = [decoder.decompress_message(payload) for payload in payloads]
+
+    assert encoder.backend == "native"
+    assert decoder.backend == "native"
+    assert restored == messages
+    assert encoder.stats.ratio > 4.0
+
+
+def test_ai_wire_discovers_session_templates_from_structured_messages() -> None:
+    messages = build_structured_ai_messages(96, seed=404)
+
+    templates = discover_ai_wire_session_templates(messages, max_templates=4)
+
+    assert 0 < len(templates) <= 4
+    assert all(128 <= template_id <= 131 for template_id in templates)
+    assert all(pattern for pattern in templates.values())
 
 
 def test_ai_wire_handshake_rejects_dictionary_mismatch_without_fallback() -> None:

@@ -1,0 +1,48 @@
+{
+  "name": "aura-compression",
+  "version": "2.0.2",
+  "description": "AURA AIWire helpers for protocol-aware AI-to-AI message movement",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "aura-compress": "bin/compress.js",
+    "aura-decompress": "bin/decompress.js"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm test"
+  },
+  "keywords": [
+    "aura",
+    "aiwire",
+    "compression",
+    "ai",
+    "agents",
+    "mcp",
+    "a2a",
+    "json-rpc",
+    "protocol",
+    "edge"
+  ],
+  "author": "Todd Hendricks <todd@auraprotocol.org>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/H-XX-D/AURA.git"
+  },
+  "bugs": {
+    "url": "https://github.com/H-XX-D/AURA/issues"
+  },
+  "homepage": "https://github.com/H-XX-D/AURA#readme",
+  "engines": {
+    "node": ">=16"
+  }
+}

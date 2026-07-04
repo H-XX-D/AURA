@@ -165,6 +165,8 @@ Details:
 
 ## Install
 
+Python:
+
 ```bash
 git clone https://github.com/H-XX-D/AURA.git
 cd AURA
@@ -172,6 +174,17 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```
+
+JavaScript / npm:
+
+```bash
+npm i aura-compression
+```
+
+The npm package exposes dependency-free Node helpers for canonical AIWire
+messages, the three-lane constants, blob descriptors, and a small zlib-backed
+frame wrapper. The benchmarked AIWire engine remains the Python/native C++ path
+in this repo.
 
 ## Quick Start: AIWire
 
@@ -219,6 +232,38 @@ restored, decode_stats = decompress_ai_wire_frames(compressed)
 
 assert len(restored) == len(messages)
 print(encode_stats.as_dict())
+```
+
+Node.js helper API:
+
+```js
+const {
+  AIWireSessionEncoder,
+  AIWireSessionDecoder,
+  createBlobDescriptor,
+} = require("aura-compression");
+
+const encoder = new AIWireSessionEncoder({ threshold: 0 });
+const decoder = new AIWireSessionDecoder();
+
+const frame = encoder.compressMessage({
+  protocol: "mcp",
+  jsonrpc: "2.0",
+  id: 1,
+  method: "tools/call",
+  params: { name: "read_file", arguments: { uri: "repo://service/path.py" } },
+});
+
+console.log(decoder.decompressMessage(frame));
+
+const descriptor = createBlobDescriptor({
+  blobId: "blob-1",
+  contentType: "application/octet-stream",
+  bytes: Buffer.from("opaque payload"),
+  status: "available",
+});
+
+console.log(descriptor.digest);
 ```
 
 ## Benchmarking AIWire

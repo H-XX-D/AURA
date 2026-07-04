@@ -12,6 +12,8 @@ Each profile has separate client-to-server and server-to-client settings:
 - Per-frame jitter.
 - Occasional tail pauses to approximate queue spikes or TCP retransmit recovery.
 - Pipeline depth, because high-RTT links need more in-flight exchanges.
+- Concurrent logical agents, because each agent contributes to the aggregate
+  in-flight window needed to fill a bandwidth-delay product.
 
 The harness still uses TCP and does not drop application frames. Lossy networks
 are modeled as latency tails, not as corrupted or missing messages.
@@ -40,6 +42,7 @@ PYTHONPATH=src python tools/run_aiwire_network_suite.py \
   --profiles lan_10m,wifi_busy,lte_good,edge_mesh \
   --seconds 5 \
   --exchanges 20000 \
+  --agent-count 8 \
   --codecs raw,zlib,aiwire,aitoken_aiwire \
   --discover-session-templates \
   --output /tmp/aura_aiwire_network_suite.json
@@ -60,6 +63,8 @@ bytes-per-exchange:
 python tools/extrapolate_aiwire_bandwidth.py \
   /tmp/aura_aiwire_network_suite.json \
   --bandwidth-mbps 1,5,10,50,100,1000 \
+  --agent-counts 1,2,4,8,16,32 \
+  --per-agent-window 1 \
   --output /tmp/aura_aiwire_bandwidth_extrapolation.md
 ```
 
@@ -67,13 +72,18 @@ The extrapolation includes latency limits. It reports pure bandwidth capacity
 and effective capacity, where effective capacity is capped by:
 
 ```text
-pipeline_window / projected_p95_roundtrip_seconds
+aggregate_inflight_window / projected_p95_roundtrip_seconds
 ```
 
 Projected p95 keeps the measured non-serialization tail from the benchmark and
 recomputes request/response serialization delay at the requested Mbps. This
 keeps high-RTT profiles honest: saving bytes creates capacity, but the stream
-needs enough in-flight exchanges to fill that capacity.
+needs enough in-flight exchanges to fill that capacity. Required agents are
+estimated as:
+
+```text
+ceil(bandwidth_capacity_exchanges_per_second * projected_p95_seconds / per_agent_window)
+```
 
 ## Run One Manual Profile Across Machines
 
@@ -100,7 +110,8 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
   --seconds 5 \
   --exchanges 20000 \
   --codecs raw,zlib,aiwire,aitoken_aiwire \
-  --pipeline-window 128 \
+  --agent-count 32 \
+  --pipeline-window 1 \
   --link-mbps 1.5 \
   --one-way-delay-ms 65 \
   --jitter-ms 35 \
@@ -115,6 +126,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
 - Framed bytes per exchange.
 - Bandwidth-proportional exchange capacity per profile.
 - Observed utilization of that bandwidth capacity.
+- Concurrent logical agents needed to fill the latency window.
 - p95/p99 roundtrip latency and tail tax.
 - Codec CPU per exchange.
 - Request/response bottleneck direction for asymmetric links.

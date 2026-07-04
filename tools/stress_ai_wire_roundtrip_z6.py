@@ -588,6 +588,9 @@ def _client_stress_codec(
     args: argparse.Namespace,
 ) -> dict[str, Any]:
     duration_mode = args.seconds > 0
+    agent_count = max(1, args.agent_count)
+    per_agent_pipeline_window = max(1, args.pipeline_window)
+    aggregate_pipeline_window = agent_count * per_agent_pipeline_window
     session_templates: tuple[tuple[int, str], ...] = ()
     if codec in AIWIRE_NEGOTIATED_CODECS:
         session_templates = _client_session_templates(args, frames)
@@ -601,6 +604,9 @@ def _client_stress_codec(
         "client_jitter_ms": args.jitter_ms,
         "client_tail_pause_probability": args.tail_pause_probability,
         "client_tail_pause_ms": args.tail_pause_ms,
+        "agent_count": agent_count,
+        "per_agent_pipeline_window": per_agent_pipeline_window,
+        "aggregate_pipeline_window": aggregate_pipeline_window,
     }
     if codec in AIWIRE_NEGOTIATED_CODECS:
         hello.update(
@@ -658,10 +664,9 @@ def _client_stress_codec(
         deadline_completed_exchanges = 0
         sent_exchanges = 0
         outstanding: deque[InFlightRequest] = deque()
-        pipeline_window = max(1, args.pipeline_window)
 
         def can_send_more() -> bool:
-            if len(outstanding) >= pipeline_window:
+            if len(outstanding) >= aggregate_pipeline_window:
                 return False
             if duration_mode:
                 assert deadline_ns is not None
@@ -787,7 +792,10 @@ def _client_stress_codec(
             if codec in AIWIRE_NEGOTIATED_CODECS
             else ""
         ),
-        "pipeline_window": pipeline_window,
+        "agent_count": agent_count,
+        "per_agent_pipeline_window": per_agent_pipeline_window,
+        "aggregate_pipeline_window": aggregate_pipeline_window,
+        "pipeline_window": aggregate_pipeline_window,
         "sent_exchanges": sent_exchanges,
         "deadline_completed_exchanges": deadline_completed_exchanges,
         "deadline_exchanges_per_second": (
@@ -939,7 +947,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     client.add_argument("--impairment-seed", type=int, default=1729)
     client.add_argument(
-        "--pipeline-window", type=int, default=1, help="maximum in-flight request frames"
+        "--pipeline-window",
+        type=int,
+        default=1,
+        help="maximum in-flight request frames per logical agent",
+    )
+    client.add_argument(
+        "--agent-count",
+        type=int,
+        default=1,
+        help="logical agents sharing the session; aggregate window is agent-count * pipeline-window",
     )
     client.add_argument("--output")
     client.set_defaults(func=run_client)

@@ -69,6 +69,25 @@ def test_extrapolate_rows_projects_latency_and_effective_capacity() -> None:
     assert raw_1["effective_semantic_mib_per_second"] < raw_1["semantic_mib_per_second"]
 
 
+def test_extrapolate_rows_projects_concurrent_agents_to_fill_bandwidth() -> None:
+    rows = extrapolate_rows(
+        _benchmark(),
+        bandwidth_mbps=(10.0,),
+        agent_counts=(1, 4, 32),
+        per_agent_window=1,
+    )
+    aiwire_1 = next(row for row in rows if row["codec"] == "aiwire" and row["agent_count"] == 1)
+    aiwire_32 = next(row for row in rows if row["codec"] == "aiwire" and row["agent_count"] == 32)
+
+    assert (
+        aiwire_32["effective_capacity_exchanges_per_second"]
+        > aiwire_1["effective_capacity_exchanges_per_second"]
+    )
+    assert aiwire_32["bandwidth_fill_percent"] > aiwire_1["bandwidth_fill_percent"]
+    assert aiwire_1["required_inflight_window"] > aiwire_1["aggregate_inflight_window"]
+    assert aiwire_1["required_agent_count"] == aiwire_1["required_inflight_window"]
+
+
 def test_extrapolate_rows_uses_asymmetric_downlink_multiplier() -> None:
     rows = extrapolate_rows(_benchmark(), bandwidth_mbps=(1.0,), downlink_multiplier=4.0)
     raw = next(row for row in rows if row["codec"] == "raw")

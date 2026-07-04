@@ -161,7 +161,8 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
   --host <target-host> \
   --port 8765 \
   --seconds 5 \
-  --pipeline-window 128 \
+  --agent-count 16 \
+  --pipeline-window 1 \
   --link-mbps 10 \
   --codecs raw,zlib,aura,aiwire
 ```
@@ -180,17 +181,22 @@ capacity:
 PYTHONPATH=src python tools/run_aiwire_network_suite.py \
   --profiles lan_10m,wifi_busy,lte_good,edge_mesh \
   --seconds 5 \
+  --agent-count 8 \
   --codecs raw,zlib,aiwire,aitoken_aiwire \
   --output /tmp/aura_aiwire_network_suite.json
 
 python tools/extrapolate_aiwire_bandwidth.py \
   /tmp/aura_aiwire_network_suite.json \
   --bandwidth-mbps 1,5,10,50,100,1000 \
+  --agent-counts 1,2,4,8,16,32 \
+  --per-agent-window 1 \
   --output /tmp/aura_aiwire_bandwidth_extrapolation.md
 ```
 
 The extrapolator reports both bandwidth capacity and latency-capped effective
-capacity. High-RTT profiles need enough in-flight exchanges to fill the link.
+capacity. It also projects how many concurrent logical agents are needed to
+fill the link from the measured p95 latency and per-agent in-flight window.
+High-RTT profiles need enough aggregate in-flight exchanges to fill the link.
 
 ## General Compression API
 

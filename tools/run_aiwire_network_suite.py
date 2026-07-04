@@ -64,6 +64,8 @@ def _run_profile(profile, args: argparse.Namespace, port: int) -> list[dict[str,
         args.codecs,
         "--pipeline-window",
         str(profile.pipeline_window),
+        "--agent-count",
+        str(args.agent_count),
         "--link-mbps",
         str(profile.client_link_mbps),
         "--one-way-delay-ms",
@@ -133,7 +135,10 @@ def _run_profile(profile, args: argparse.Namespace, port: int) -> list[dict[str,
         row["network_profile"] = profile.name
         row["network_description"] = profile.description
         row["profile_rtt_ms"] = profile.rtt_ms
-        row["profile_pipeline_window"] = profile.pipeline_window
+        row["profile_pipeline_window"] = row.get("pipeline_window") or profile.pipeline_window
+        row["profile_per_agent_pipeline_window"] = (
+            row.get("per_agent_pipeline_window") or profile.pipeline_window
+        )
     return rows
 
 
@@ -148,6 +153,7 @@ def run_suite(args: argparse.Namespace) -> dict[str, Any]:
         "suite": "aura-aiwire-realistic-network",
         "seconds": args.seconds,
         "exchanges": args.exchanges,
+        "agent_count": args.agent_count,
         "codecs": [codec.strip() for codec in args.codecs.split(",") if codec.strip()],
         "profiles": profiles_as_dicts(profiles),
         "results": all_results,
@@ -166,6 +172,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seconds", type=float, default=5.0)
     parser.add_argument("--exchanges", type=int, default=20000)
     parser.add_argument("--codecs", default="raw,zlib,aiwire,aitoken_aiwire")
+    parser.add_argument(
+        "--agent-count",
+        type=int,
+        default=1,
+        help="logical agents sharing each client session",
+    )
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--server-start-delay", type=float, default=0.25)
     parser.add_argument("--impairment-seed", type=int, default=1729)

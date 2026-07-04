@@ -1,0 +1,441 @@
+# AIWire v1 Protocol Spec
+
+Status: implementation contract for the current Python and native C++ AIWire
+code paths.
+
+AIWire v1 is a session-oriented structure side channel for repetitive
+AI-to-AI messages. It is designed for controlled peers that already have a
+normal transport such as TCP, WebSocket, HTTP streaming, a broker frame, or a
+replay log. AIWire does not define that transport. It defines the handshake,
+compression parameters, session structure state, and safety checks that both
+peers must share before compact frames are exchanged.
+
+Normative words such as MUST, MUST NOT, SHOULD, and MAY are used intentionally.
+
+## Scope
+
+AIWire v1 covers:
+
+- Protocol identity and version negotiation.
+- Static dictionary agreement.
+- Optional session-template agreement.
+- Ordered data frames encoded with a live raw-deflate stream.
+- Session-template update signals for future compression epochs.
+- Append-only session dictionary diffs, ACKs, and resume handshakes.
+- Fallback negotiation to non-AIWire codecs when explicitly allowed.
+
+AIWire v1 does not cover:
+
+- Transport security, peer authentication, retries, or backpressure.
+- Message authorization or policy.
+- Cross-transport framing.
+- Encryption.
+- Loss recovery inside the compressed stream.
+
+Those concerns belong at the transport or application layer.
+
+## Protocol Constants
+
+| Name | Value |
+|---|---|
+| Protocol | `aura.aiwire` |
+| Version | `1` |
+| Supported versions | `[1]` |
+| Delta version | `1` |
+| Handshake schema | `aura.aiwire.handshake.v1` |
+| Negotiation schema | `aura.aiwire.negotiation.v1` |
+| Template update schema | `aura.aiwire.session_templates.update.v1` |
+| Dictionary state schema | `aura.aiwire.session_dictionary.state.v1` |
+| Dictionary diff schema | `aura.aiwire.session_dictionary.diff.v1` |
+| Dictionary ACK schema | `aura.aiwire.session_dictionary.ack.v1` |
+| Resume hello schema | `aura.aiwire.session_resume.hello.v1` |
+| Resume response schema | `aura.aiwire.session_resume.response.v1` |
+| Raw deflate window bits | `-15` |
+| zlib memory level | `8` |
+| Default compression level | `3` |
+| Flush mode | `z_sync_flush` |
+| Max session templates | `4096` |
+| Max template bytes | `4096` |
+| Max session dictionary bytes | `262144` |
+| Max diff additions | `128` |
+| Nonce bytes | `16`, encoded as 32 lowercase hex characters |
+
+The static dictionary is implementation-versioned by SHA-256. Peers MUST compare
+the static dictionary SHA-256 and byte size when `use_static_dictionary` is
+true.
+
+## Serialization
+
+Structured messages crossing the AIWire boundary MUST be converted to canonical
+UTF-8 JSON bytes before compression:
+
+```python
+json.dumps(message, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+```
+
+Raw bytes MAY be compressed directly when both peers agree that the payload is
+not structured JSON. String payloads are UTF-8 encoded.
+
+AIWire control messages are JSON mappings. Hashes and auth tags are computed
+over canonical JSON bytes using the same compact sorted-key encoding unless a
+field definition below states otherwise.
+
+## Ordered Data Frames
+
+An AIWire data frame is the compressed byte output from one call to the session
+encoder. It has no built-in length prefix, magic byte, or per-frame metadata.
+The carrier transport MUST preserve frame boundaries and ordering.
+
+The encoder uses one live raw-deflate stream per direction:
+
+```text
+raw = canonical_message_bytes
+compressed = deflate(raw) + Z_SYNC_FLUSH
+```
+
+The decoder uses the matching live inflate stream and consumes one compressed
+frame at a time. A frame MUST NOT contain unused compressed data after inflate.
+
+Because the stream is stateful, data frames are not independently decodable.
+Peers MUST NOT reorder, drop, duplicate, or replay data frames inside a live
+AIWire stream. A transport that can lose or reorder messages must add its own
+ordering and recovery layer or must reset and rehandshake after disruption.
+
+For bidirectional agent communication, each direction SHOULD use its own encoder
+and decoder state.
+
+## Session Dictionary Construction
+
+The compression dictionary is built from:
+
+1. The static AIWire dictionary, when `use_static_dictionary=true`.
+2. Optional session templates, serialized as newline-separated
+   `template_id:pattern` terms and repeated near the end of the zlib window.
+
+The final dictionary passed to zlib is the last 32768 bytes of that combined
+dictionary. This matters because zlib weights dictionary terms near the end of
+the window most strongly.
+
+Session template IDs are unsigned 16-bit integers in the range `0..65535`.
+Patterns MUST be non-empty strings. Template maps are normalized by sorting
+ascending by `template_id`.
+
+`session_template_sha256` is:
+
+```text
+sha256(
+  json.dumps(
+    [{"template_id": id, "pattern": pattern}, ...],
+    ensure_ascii=False,
+    separators=(",", ":")
+  ).encode("utf-8")
+)
+```
+
+For an empty template set, `session_template_sha256` is the empty string.
+
+## Initial Handshake
+
+Before sending AIWire data frames, a peer sends an `AIWireHandshake` object:
+
+| Field | Required | Meaning |
+|---|---:|---|
+| `schema` | yes | `aura.aiwire.handshake.v1` |
+| `protocol` | yes | `aura.aiwire` |
+| `versions` | yes | Supported AIWire versions |
+| `preferred_version` | yes | Preferred version, currently `1` |
+| `dictionary_sha256` | yes | Static dictionary SHA-256, or empty when disabled |
+| `dictionary_size` | yes | Static dictionary byte size, or `0` when disabled |
+| `wbits` | yes | Raw deflate window bits, currently `-15` |
+| `mem_level` | yes | zlib memory level, currently `8` |
+| `flush_mode` | yes | Currently `z_sync_flush` |
+| `level` | yes | zlib compression level `0..9` |
+| `use_static_dictionary` | yes | Whether the static dictionary is enabled |
+| `backend` | yes | Informational backend name, for example `python` or `native` |
+| `native_version` | no | Informational native backend version |
+| `fallback_codecs` | yes | Ordered fallback codecs the peer can accept |
+| `session_templates` | yes | Template objects with `template_id` and `pattern` |
+| `session_template_sha256` | yes | Hash of normalized session templates |
+| `session_template_count` | yes | Number of templates |
+| `session_template_epoch` | yes | Template epoch, initially usually `0` |
+| `require_session_templates` | yes | If true, fail unless templates match |
+
+The receiver MUST parse and validate:
+
+- `schema` and `protocol`.
+- Version intersection.
+- Session template count and hash when templates are required or either side
+  sends a non-empty template set.
+- Static dictionary mode, hash, and size.
+- `wbits`, `mem_level`, and `flush_mode`.
+- Session template payload hash and count.
+
+The receiver responds with an `AIWireNegotiation` object:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `aura.aiwire.negotiation.v1` |
+| `accepted` | Whether the negotiated codec can be used |
+| `codec` | `aiwire`, a fallback codec, or empty on hard reject |
+| `version` | Selected AIWire version, or null for fallback |
+| `reason` | Null on success, otherwise a reason code |
+| `server` | The receiver's `AIWireHandshake` |
+
+When negotiation succeeds with `codec="aiwire"`, peers MUST create fresh encoder
+and decoder state using the negotiated parameters before sending data frames.
+
+## Handshake Failure And Fallback
+
+Known hard-failure reason codes include:
+
+- `no_common_aiwire_version`
+- `session_template_count_mismatch`
+- `session_template_sha256_mismatch`
+- `session_templates_required`
+- `static_dictionary_mode_mismatch`
+- `dictionary_sha256_mismatch`
+- `dictionary_size_mismatch`
+- `zlib_window_mismatch`
+- `flush_mode_mismatch`
+- `mem_level_mismatch`
+
+If `allow_fallback=true`, the receiver MAY accept the first local fallback codec
+also present in the peer handshake. Current fallback codecs are usually `zlib`
+and `raw`. Fallback acceptance sets `accepted=true`, `codec=<fallback>`,
+`version=null`, and `reason=<aiwire failure reason>`.
+
+If fallback is not allowed or no fallback matches, the receiver MUST return
+`accepted=false`, `codec=""`, `version=null`, and the reason.
+
+## Session Template Update Signal
+
+`AIWireSessionTemplateUpdate` signals a transition from one template set to
+another:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `aura.aiwire.session_templates.update.v1` |
+| `protocol` | `aura.aiwire` |
+| `previous_sha256` | Hash of the current normalized template set |
+| `next_sha256` | Hash of the desired normalized template set |
+| `previous_count` | Current template count |
+| `next_count` | Desired template count |
+| `add_or_update` | Template objects to add or replace |
+| `remove` | Template IDs to remove |
+| `epoch` | Caller-managed template epoch |
+| `requires_session_reset` | Currently true |
+
+The receiver MUST verify the previous hash and count, apply removals and
+additions, then verify the next hash and count.
+
+Because zlib dictionaries are fixed when a stream starts, a successful template
+update is for the next compression epoch. Peers MUST reset and recreate encoder
+and decoder state before using frames encoded against the updated dictionary.
+
+## Session Dictionary State Hash
+
+The safer update path is the append-only session dictionary diff and ACK flow.
+It addresses a dictionary state by:
+
+```text
+state_hash = sha256(canonical_json(session_dictionary_state))
+```
+
+The state payload is:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `aura.aiwire.session_dictionary.state.v1` |
+| `protocol` | `aura.aiwire` |
+| `version` | AIWire version |
+| `delta_version` | Delta version |
+| `static_dictionary_sha256` | Static dictionary SHA-256 |
+| `epoch` | Non-negative dictionary epoch |
+| `templates` | Normalized template objects with `pattern_sha256` |
+
+Template bounds MUST be enforced before hashing:
+
+- At most 4096 templates.
+- Each UTF-8 template pattern at most 4096 bytes.
+- Total UTF-8 template bytes at most 262144 bytes.
+
+## Append-Only Dictionary Diff
+
+A dictionary diff proposes new template IDs for the next epoch. It is only a
+proposal until the receiver validates it and returns a matching ACK.
+
+| Field | Meaning |
+|---|---|
+| `schema` | `aura.aiwire.session_dictionary.diff.v1` |
+| `protocol` | `aura.aiwire` |
+| `session_id` | Application session identifier |
+| `epoch` | Must equal current epoch + 1 |
+| `previous_state_hash` | Current state hash |
+| `next_state_hash` | Proposed next state hash |
+| `previous_count` | Current template count |
+| `next_count` | Proposed next template count |
+| `additions` | New template objects with `pattern_sha256` |
+| `nonce` | Fresh 32-character lowercase hex nonce |
+| `diff_id` | SHA-256 identity of the unsigned diff payload without `diff_id` |
+| `delta_version` | Delta version |
+| `auth_tag` | Optional HMAC-SHA256 tag |
+
+The receiver MUST reject a diff if:
+
+- The schema, protocol, or delta version is unsupported.
+- `diff_id` does not match the canonical unsigned diff payload.
+- A configured auth key is present and `auth_tag` is missing or invalid.
+- `diff_id` or `nonce` has already been accepted in the replay cache.
+- `previous_state_hash` or `previous_count` does not match local state.
+- `epoch` is not exactly current epoch + 1.
+- There are no additions.
+- Additions exceed the per-diff limit.
+- An addition repeats an already accepted template ID.
+- An addition attempts to overwrite an existing template ID with a different
+  pattern.
+- Any template bound is exceeded.
+- The computed next state hash or next count does not match the diff.
+
+Senders MUST NOT encode deltas against `next_state_hash` until the matching ACK
+has been verified.
+
+## Dictionary ACK
+
+The receiver replies with an `AIWireSessionDictionaryAck`:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `aura.aiwire.session_dictionary.ack.v1` |
+| `protocol` | `aura.aiwire` |
+| `session_id` | Same session as the diff |
+| `epoch` | Same epoch as the diff |
+| `accepted` | Boolean decision |
+| `diff_id` | Same diff ID |
+| `previous_state_hash` | Same previous state hash |
+| `state_hash` | Accepted next state hash |
+| `reason` | Null on accept, reason text on reject |
+| `nonce` | Fresh 32-character lowercase hex nonce |
+| `delta_version` | Delta version |
+| `auth_tag` | Optional HMAC-SHA256 tag |
+
+The sender MUST verify:
+
+- ACK schema, protocol, and delta version.
+- ACK auth tag when an auth key is configured.
+- `accepted=true`.
+- Session ID, epoch, diff ID, previous hash, and next hash match the diff.
+
+Only after this verification may future deltas reference the new template IDs.
+
+## Resume Handshake
+
+For a later connection to the same peer, a client MAY offer cached session
+dictionary states with an `AIWireSessionResumeHello`:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `aura.aiwire.session_resume.hello.v1` |
+| `protocol` | `aura.aiwire` |
+| `peer_id` | Caller-defined peer identity |
+| `app_namespace` | Caller-defined namespace, default `default` |
+| `static_dictionary_sha256` | Static dictionary hash |
+| `cached_state_hashes` | Cached session dictionary states |
+| `supported_delta_versions` | Supported delta versions |
+| `nonce` | Fresh nonce |
+| `auth_tag` | Optional HMAC-SHA256 tag |
+
+The receiver responds with `AIWireSessionResumeResponse`:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `aura.aiwire.session_resume.response.v1` |
+| `protocol` | `aura.aiwire` |
+| `accepted` | Whether resume is accepted |
+| `reason` | Null on accept, otherwise reason code |
+| `resume_state_hash` | Selected cached state hash, or null |
+| `static_dictionary_sha256` | Receiver static dictionary hash |
+| `selected_delta_version` | Selected delta version, or null |
+| `hello_nonce` | Nonce from the hello |
+| `nonce` | Fresh response nonce |
+| `auth_tag` | Optional HMAC-SHA256 tag |
+
+Resume acceptance requires:
+
+- Valid hello auth when configured.
+- Matching static dictionary SHA-256.
+- Common delta version.
+- At least one offered state hash known to the receiver.
+
+Known rejection reasons are:
+
+- `static_dictionary_sha256_mismatch`
+- `no_common_delta_version`
+- `no_shared_session_dictionary`
+
+The client MUST verify response auth when configured, `hello_nonce`, static
+dictionary hash, selected delta version, and that `resume_state_hash` was one of
+the offered hashes.
+
+## Auth Tags
+
+Dictionary diffs, ACKs, resume hellos, and resume responses MAY be protected by
+HMAC-SHA256. When an auth key is configured:
+
+```text
+auth_tag = hmac_sha256(auth_key, canonical_json(unsigned_payload)).hexdigest()
+```
+
+The canonical JSON form uses sorted keys, compact separators, UTF-8 encoding,
+and `ensure_ascii=False`.
+
+When no auth key is configured, `auth_tag` is the empty string and receivers do
+not verify it. This is acceptable only inside an already authenticated transport
+or local trust boundary.
+
+## Resync And Error Handling
+
+If a peer detects any of the following, it MUST stop using the current AIWire
+stream:
+
+- Handshake rejection without accepted fallback.
+- Data-frame inflate error.
+- Unused compressed data after inflate.
+- Dictionary/template hash mismatch.
+- Template update validation failure.
+- Dictionary diff or ACK validation failure.
+- Resume validation failure.
+- Transport ordering loss, duplication, replay, or gap.
+
+The recovery behavior is one of:
+
+1. Perform a fresh AIWire handshake and start a new compression stream.
+2. Fall back to `raw` or `zlib` if fallback was negotiated and application
+   policy allows it.
+3. Abort the application session.
+
+Peers MUST NOT continue sending compact deltas against uncertain structure.
+
+## Reference Implementation
+
+The Python reference implementation lives in:
+
+- [`src/aura_compression/ai_wire.py`](../src/aura_compression/ai_wire.py)
+- [`src/aura_compression/ai_wire_messages.py`](../src/aura_compression/ai_wire_messages.py)
+- [`src/aura_compression/ai_wire_token.py`](../src/aura_compression/ai_wire_token.py)
+
+The native C++ backend lives in:
+
+- [`native/aiwire/aura_aiwire.cpp`](../native/aiwire/aura_aiwire.cpp)
+
+Interoperability and safety tests live in:
+
+- [`tests/test_ai_wire.py`](../tests/test_ai_wire.py)
+- [`tests/test_ai_wire_token.py`](../tests/test_ai_wire_token.py)
+- [`tests/test_aiwire_transport_examples.py`](../tests/test_aiwire_transport_examples.py)
+
+Transport examples live in:
+
+- [`examples/aiwire_tcp_transport.py`](../examples/aiwire_tcp_transport.py)
+- [`examples/aiwire_websocket_transport.py`](../examples/aiwire_websocket_transport.py)
+- [`examples/aiwire_http_streaming_transport.py`](../examples/aiwire_http_streaming_transport.py)
+- [`examples/aiwire_local_broker.py`](../examples/aiwire_local_broker.py)

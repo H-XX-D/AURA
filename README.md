@@ -270,6 +270,7 @@ delta streams.
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Current project context](docs/AURA_SYSTEM_CONTEXT.md)
+- [AIWire v1 protocol spec](docs/aiwire_v1_spec.md)
 - [AIWire session dictionary safety](docs/aiwire_session_dictionary.md)
 - [Realistic network benchmarks](docs/perf/realistic_network_benchmarks.md)
 - [AI-to-AI messaging metrics](docs/perf/ai_to_ai_messaging_metrics_2026-07-04.md)
@@ -297,7 +298,7 @@ uvx isort --check-only src/aura_compression tests tools
 The near-term roadmap is to harden AIWire first:
 
 - Stabilize the AIWire v1 frame and handshake contract
-- Publish the AIWire v1 side-channel and delta-frame spec
+- Keep the AIWire v1 side-channel and delta-frame spec aligned with tests
 - Define the session-template update signal and delta/resync behavior
 - Keep benchmark reports reproducible and public-safe
 - Keep improving realistic MCP, A2A, OpenAI, and local agent message corpora

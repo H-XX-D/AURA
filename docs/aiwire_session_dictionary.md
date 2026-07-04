@@ -4,6 +4,9 @@ AIWire treats discovered structure as replicated session state. A discovered
 template is not usable on the wire until both peers have validated and ACKed the
 same session dictionary diff.
 
+This document explains the safety model. The normative protocol fields and
+wire-level contract are in [AIWire v1 Protocol Spec](aiwire_v1_spec.md).
+
 ## State Model
 
 AIWire has two structure layers:

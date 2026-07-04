@@ -43,8 +43,8 @@ Definition of done:
 
 Goal: freeze the minimum protocol contract.
 
-- Define the AIWire v1 handshake, side-channel, and delta-frame format in a
-  dedicated spec doc.
+- Keep the AIWire v1 handshake, side-channel, and delta-frame spec aligned with
+  implementation and tests.
 - Define handshake fields, template update signals, accepted fallback behavior,
   resync behavior, and failure modes.
 - Add cross-version dictionary compatibility tests.

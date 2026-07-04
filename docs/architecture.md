@@ -65,6 +65,7 @@ Primary files:
 
 - [`src/aura_compression/ai_wire.py`](../src/aura_compression/ai_wire.py)
 - [`src/aura_compression/ai_wire_messages.py`](../src/aura_compression/ai_wire_messages.py)
+- [`docs/aiwire_v1_spec.md`](aiwire_v1_spec.md)
 - [`tests/test_ai_wire.py`](../tests/test_ai_wire.py)
 - [`tools/stress_ai_wire_roundtrip_z6.py`](../tools/stress_ai_wire_roundtrip_z6.py)
 
@@ -136,6 +137,9 @@ AIWire peers should agree on:
 The dictionary and template hashes matter because the encoder and decoder must
 share the same structural state. A mismatch should fail closed, request resync,
 or fall back only when the caller explicitly allows another codec.
+
+The implementation contract is documented in
+[AIWire v1 Protocol Spec](aiwire_v1_spec.md).
 
 ## General Hybrid Compressor
 

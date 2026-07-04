@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 
 from tools.compress_large_file import (
-    _parse_chunk_size,
-    _resolve_progress_mode,
-    _render_stats,
     _output_stats,
+    _parse_chunk_size,
+    _render_stats,
+    _resolve_progress_mode,
     compress_path,
     inspect_container,
 )

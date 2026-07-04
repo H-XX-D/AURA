@@ -2,23 +2,15 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from aura_compression.templates import TemplateLibrary, TemplateMatch
 
-from . import dictionary
-from .constants import MAX_MATCH, WINDOW_SIZE
-from . import lz77
-from . import rans
-from .tokens import (
-    DictionaryToken,
-    LiteralToken,
-    MatchToken,
-    MetadataEntry,
-    TemplateToken,
-    Token,
-)
+from . import dictionary, lz77, rans
+from .constants import MAX_MATCH, MIN_MATCH, WINDOW_SIZE
+from .tokens import DictionaryToken, LiteralToken, MatchToken, MetadataEntry, TemplateToken, Token
 
 _LITERAL_KIND = 0
 _DICT_KIND = 1
@@ -30,6 +22,17 @@ _MATCH_TAG = 0x02
 _TEMPLATE_TAG = 0x03
 
 SERVER_ONLY_FLAG = 0x80
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
 
 
 @dataclass
@@ -91,6 +94,10 @@ class BrioEncoder:
 
     def _tokenise(self, text: str) -> Tuple[List[Token], List[MetadataEntry]]:
         data = text.encode("utf-8")
+        cuda_result = self._tokenise_cuda_lz(data)
+        if cuda_result is not None:
+            return cuda_result
+
         tokens: List[Token] = []
         metadata: List[MetadataEntry] = []
         window = bytearray()
@@ -130,6 +137,75 @@ class BrioEncoder:
             chunk = data[chunk_start:pos]
             lz_tokens = lz77.tokenize(chunk, window)
             self._extend_with_lz_tokens(tokens, metadata, lz_tokens, window)
+
+        return tokens, metadata
+
+    def _tokenise_cuda_lz(self, data: bytes) -> Optional[Tuple[List[Token], List[MetadataEntry]]]:
+        if not _env_flag("AURA_ENABLE_CUDA_BRIO"):
+            return None
+
+        min_bytes = max(_env_int("AURA_CUDA_BRIO_MIN_BYTES", 8192), 1)
+        if len(data) < min_bytes:
+            return None
+
+        try:
+            from aura_compression.cuda_native import CudaNativeBackend
+
+            backend = CudaNativeBackend()
+            if not backend.is_available():
+                return None
+            window_size = min(
+                max(_env_int("AURA_CUDA_BRIO_WINDOW_SIZE", WINDOW_SIZE), MIN_MATCH),
+                WINDOW_SIZE,
+            )
+            candidates = backend.lz_match_candidates(
+                data,
+                window_size=window_size,
+                min_match=MIN_MATCH,
+                max_match=MAX_MATCH,
+            )
+        except Exception:
+            return None
+
+        tokens: List[Token] = []
+        metadata: List[MetadataEntry] = []
+        window = bytearray()
+        pos = 0
+
+        while pos < len(data):
+            distance, length = candidates[pos]
+            if length >= MIN_MATCH and distance > 0 and distance <= len(window):
+                tokens.append(MatchToken(distance, length))
+                metadata.append(
+                    MetadataEntry(
+                        len(tokens) - 1,
+                        _MATCH_KIND,
+                        min(distance, 0xFFFF),
+                        flags=SERVER_ONLY_FLAG,
+                    )
+                )
+                start = len(window) - distance
+                match_bytes = [window[start + i] for i in range(length)]
+                window.extend(match_bytes)
+                if len(window) > WINDOW_SIZE:
+                    del window[:-WINDOW_SIZE]
+                pos += length
+                continue
+
+            literal = data[pos]
+            tokens.append(LiteralToken(literal))
+            metadata.append(
+                MetadataEntry(
+                    len(tokens) - 1,
+                    _LITERAL_KIND,
+                    literal,
+                    flags=SERVER_ONLY_FLAG,
+                )
+            )
+            window.append(literal)
+            if len(window) > WINDOW_SIZE:
+                del window[:-WINDOW_SIZE]
+            pos += 1
 
         return tokens, metadata
 

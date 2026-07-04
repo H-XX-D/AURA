@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 import string
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Pattern, Any
 from functools import lru_cache
+from typing import Any, Dict, Iterable, List, Optional, Pattern
 
 from .persistent_cache import PersistentTemplateCache
 
@@ -97,7 +97,6 @@ class TemplateLibrary:
         7: "Probably",
         8: "Definitely",
         9: "Absolutely",
-
         # Limitations & abilities (20-39)
         # 20 is repurposed for detailed definitions to match tests
         20: "{0} is {1} {2} {3}.",
@@ -108,7 +107,6 @@ class TemplateLibrary:
         25: "I can help with {0}.",
         26: "I can help you {0}.",
         27: "I'm able to {0}.",
-
         # Facts & definitions (40-59)
         # 40 is repurposed for instruction with command blocks to match tests
         40: "To {0}, use {1}: `{2}`",
@@ -118,7 +116,6 @@ class TemplateLibrary:
         44: "The {0} of {1} is {2}.",
         45: "{0} means {1}.",
         46: "{0} refers to {1}.",
-
         # Questions (60-69)
         60: "What {0}?",
         61: "Why {0}?",
@@ -130,7 +127,6 @@ class TemplateLibrary:
         67: "Would you {0}?",
         68: "Could you clarify {0}?",
         69: "What specific {0} would you like to know more about?",
-
         # Instructions & recommendations (70-89)
         70: "To {0}, {1}.",
         71: "To {0}, use {1}.",
@@ -141,33 +137,28 @@ class TemplateLibrary:
         76: "I suggest {0}.",
         77: "Consider {0}.",
         78: "To {0}, I recommend: {1}",
-
-    # Explanations and recommendations (90-99)
-    # 90 is repurposed for recommendations to match tests
-    90: "To {0}, I recommend: {1}",
+        # Explanations and recommendations (90-99)
+        # 90 is repurposed for recommendations to match tests
+        90: "To {0}, I recommend: {1}",
         91: "{0} is used for {1}.",
         92: "The {0} of {1} is {2} because {3}.",
         93: "{0} because {1}.",
         94: "This is {0}.",
         95: "This means {0}.",
-
-    # Clarifications (100-109)
-    # 100 is repurposed for clarification question to match tests
-    100: "Yes, I can help with that. What specific {0} would you like to know more about?",
+        # Clarifications (100-109)
+        # 100 is repurposed for clarification question to match tests
+        100: "Yes, I can help with that. What specific {0} would you like to know more about?",
         101: "Here's an example: `{0}`",
         102: "Here's how to {0}:\n\n```{1}\n{2}\n```",
         103: "For example: {0}",
-
-    # App/UX snippets (128-191 - dynamic range, but provide a default used by tests)
-    130: "Open the {0}: {1}",
-
+        # App/UX snippets (128-191 - dynamic range, but provide a default used by tests)
+        130: "Open the {0}: {1}",
         # Lists & enumerations (110-119)
         110: "Common {0} include: {1}.",
         111: "The main {0} are: {1}.",
         112: "Examples include: {0}.",
         113: "{0}, {1}, and {2}.",
         114: "{0} and {1}.",
-
         # Comparisons (120-127)
         120: "The main {0} between {1} are: {2}",
         121: "{0} and {1} are different: {0} {2}, {1} {3}.",
@@ -177,32 +168,36 @@ class TemplateLibrary:
         125: "Unlike {0}, {1} {2}.",
         126: "Both {0} and {1} {2}.",
         127: "Neither {0} nor {1} {2}.",
-
         # Conversational assistant phrasing (140-149)
-    140: "Hello {0}, how are you today?",
-    141: "Thanks for your help with {0}!",
-    142: "Can you explain {0} in more detail?",
-    143: "I appreciate your help with {0}.",
-    144: "What do you think about {0}?",
-    145: "Hello {0}, how are you today? {1}",
+        140: "Hello {0}, how are you today?",
+        141: "Thanks for your help with {0}!",
+        142: "Can you explain {0} in more detail?",
+        143: "I appreciate your help with {0}.",
+        144: "What do you think about {0}?",
+        145: "Hello {0}, how are you today? {1}",
     }
 
     # Domain-specific template ranges
-    AI_TO_AI_RANGE = range(128, 2128)              # 2,000 slots for AI-to-AI patterns
-    RESERVED_1_RANGE = range(2128, 5000)           # 2,872 slots reserved
+    AI_TO_AI_RANGE = range(128, 2128)  # 2,000 slots for AI-to-AI patterns
+    RESERVED_1_RANGE = range(2128, 5000)  # 2,872 slots reserved
     HUMAN_TO_AI_HEALTHCARE_RANGE = range(5000, 7000)  # 2,000 slots for healthcare
-    FINANCIAL_RANGE = range(7000, 10000)           # 3,000 slots for financial
-    LEGAL_RANGE = range(10000, 12000)              # 2,000 slots for legal
-    SMALL_SENTENCES_RANGE = range(12000, 14000)    # 2,000 slots for small sentences
-    DYNAMIC_RANGE = range(14000, 16384)            # 2,384 slots for general discovery
+    FINANCIAL_RANGE = range(7000, 10000)  # 3,000 slots for financial
+    LEGAL_RANGE = range(10000, 12000)  # 2,000 slots for legal
+    SMALL_SENTENCES_RANGE = range(12000, 14000)  # 2,000 slots for small sentences
+    DYNAMIC_RANGE = range(14000, 16384)  # 2,384 slots for general discovery
 
     # System ranges (backward compatible)
-    CLIENT_SYNC_RANGE = range(16384, 32768)        # 16,384 slots for client-discovered
-    WHITESPACE_RANGE = range(32768, 49152)         # 16,384 slots for whitespace variants
-    RESERVED_FUTURE = range(49152, 65536)          # 16,384 slots for future features
+    CLIENT_SYNC_RANGE = range(16384, 32768)  # 16,384 slots for client-discovered
+    WHITESPACE_RANGE = range(32768, 49152)  # 16,384 slots for whitespace variants
+    RESERVED_FUTURE = range(49152, 65536)  # 16,384 slots for future features
 
-    def __init__(self, custom_templates: Optional[Dict[int, str]] = None, enable_fast_matching: bool = True,
-                 enable_persistent_cache: bool = True, cache_dir: str = ".aura_cache"):
+    def __init__(
+        self,
+        custom_templates: Optional[Dict[int, str]] = None,
+        enable_fast_matching: bool = True,
+        enable_persistent_cache: bool = True,
+        cache_dir: str = ".aura_cache",
+    ):
         self._templates: Dict[int, str] = {}
         self._records: Dict[int, TemplateRecord] = {}
         self._static_ids = set(self.DEFAULT_TEMPLATES.keys())
@@ -234,7 +229,9 @@ class TemplateLibrary:
 
         # Persistent cache for surviving restarts (Optimization: Persistent Template Cache)
         self.enable_persistent_cache = enable_persistent_cache
-        self._persistent_cache = PersistentTemplateCache(cache_dir=cache_dir) if enable_persistent_cache else None
+        self._persistent_cache = (
+            PersistentTemplateCache(cache_dir=cache_dir) if enable_persistent_cache else None
+        )
 
         for template_id, pattern in self.DEFAULT_TEMPLATES.items():
             self._register_template(template_id, pattern)
@@ -295,11 +292,11 @@ class TemplateLibrary:
         hit_rate = (self._match_cache_hits / total_requests * 100) if total_requests > 0 else 0.0
 
         return {
-            'hits': cache_info.hits,
-            'misses': cache_info.misses,
-            'size': cache_info.currsize,
-            'maxsize': cache_info.maxsize,
-            'hit_rate_percent': hit_rate,
+            "hits": cache_info.hits,
+            "misses": cache_info.misses,
+            "size": cache_info.currsize,
+            "maxsize": cache_info.maxsize,
+            "hit_rate_percent": hit_rate,
         }
 
     def format_template(self, template_id: int, slots: Iterable[str]) -> str:
@@ -315,7 +312,7 @@ class TemplateLibrary:
         length = len(text)
         first_char = ord(text[0]) if text else 0
         last_char = ord(text[-1]) if text else 0
-        space_count = text.count(' ')
+        space_count = text.count(" ")
         return hash((length // 10, first_char, last_char, space_count // 3))
 
     def _get_candidate_templates(self, text: str) -> List[int]:
@@ -373,8 +370,8 @@ class TemplateLibrary:
         if self._persistent_cache:
             cached_data = self._persistent_cache.get(text)
             if cached_data is not None:
-                template_id = cached_data.get('template_id')
-                slots = cached_data.get('slots', [])
+                template_id = cached_data.get("template_id")
+                slots = cached_data.get("slots", [])
                 record = self._records.get(template_id)
                 if record and len(slots) == len(record.slot_order):
                     try:
@@ -385,8 +382,8 @@ class TemplateLibrary:
                         return TemplateMatch(
                             template_id=template_id,
                             slots=list(slots),
-                            start=cached_data.get('start'),
-                            end=cached_data.get('end')
+                            start=cached_data.get("start"),
+                            end=cached_data.get("end"),
                         )
                 # Cached entry stale; invalidate and fall through to fresh lookup
                 self._persistent_cache.invalidate_text(text)
@@ -401,10 +398,10 @@ class TemplateLibrary:
                 if self._persistent_cache and result is not None:
                     # Convert TemplateMatch to dict for storage
                     match_data = {
-                        'template_id': result.template_id,
-                        'slots': list(result.slots),
-                        'start': result.start,
-                        'end': result.end
+                        "template_id": result.template_id,
+                        "slots": list(result.slots),
+                        "start": result.start,
+                        "end": result.end,
                     }
                     self._persistent_cache.put(text, match_data)
 
@@ -422,10 +419,10 @@ class TemplateLibrary:
         if self._persistent_cache and result is not None:
             # Convert TemplateMatch to dict for storage
             match_data = {
-                'template_id': result.template_id,
-                'slots': list(result.slots),
-                'start': result.start,
-                'end': result.end
+                "template_id": result.template_id,
+                "slots": list(result.slots),
+                "start": result.start,
+                "end": result.end,
             }
             self._persistent_cache.put(text, match_data)
 
@@ -471,9 +468,7 @@ class TemplateLibrary:
                 candidate_records = self._records.values()
             else:
                 candidate_records = (
-                    self._records[tid]
-                    for tid in candidate_ids
-                    if tid in self._records
+                    self._records[tid] for tid in candidate_ids if tid in self._records
                 )
         else:
             candidate_records = self._records.values()
@@ -521,12 +516,12 @@ class TemplateLibrary:
 
                 # Detect leading/trailing whitespace for whitespace-aware matching
                 ws_start = start
-                while ws_start > 0 and text[ws_start - 1] in ' \t\n\r':
+                while ws_start > 0 and text[ws_start - 1] in " \t\n\r":
                     ws_start -= 1
                 leading_ws = text[ws_start:start] if ws_start < start else ""
 
                 ws_end = best_end
-                while ws_end < text_length and text[ws_end] in ' \t\n\r':
+                while ws_end < text_length and text[ws_end] in " \t\n\r":
                     ws_end += 1
                 trailing_ws = text[best_end:ws_end] if ws_end > best_end else ""
 
@@ -537,7 +532,9 @@ class TemplateLibrary:
                     continue
                 seen_spans.add(span)
 
-                variant_template_id = self.ensure_whitespace_variant(record.template_id, leading_ws, trailing_ws)
+                variant_template_id = self.ensure_whitespace_variant(
+                    record.template_id, leading_ws, trailing_ws
+                )
                 candidates.append(
                     TemplateMatch(
                         template_id=variant_template_id,
@@ -548,8 +545,9 @@ class TemplateLibrary:
                 )
 
         # Deduplicate overlaps by preferring earliest start and longest length
-        candidates.sort(key=lambda m: (m.start if m.start is not None else 0,
-                                       -((m.end or 0) - (m.start or 0))))
+        candidates.sort(
+            key=lambda m: (m.start if m.start is not None else 0, -((m.end or 0) - (m.start or 0)))
+        )
 
         selected: List[TemplateMatch] = []
         current_end = -1
@@ -567,7 +565,9 @@ class TemplateLibrary:
         record = self._records.get(template_id)
         if not record:
             return None
-        return TemplateEntry(template_id=template_id, pattern=record.pattern, slot_count=len(record.slot_order))
+        return TemplateEntry(
+            template_id=template_id, pattern=record.pattern, slot_count=len(record.slot_order)
+        )
 
     def extract_slots(self, template_id: int, text: str) -> Optional[List[str]]:
         record = self._records.get(template_id)
@@ -594,7 +594,10 @@ class TemplateLibrary:
         self.clear_match_cache()
 
     def allocate_dynamic_id(self) -> int:
-        while self._next_dynamic_id in self._templates and self._next_dynamic_id < self.DYNAMIC_RANGE.stop:
+        while (
+            self._next_dynamic_id in self._templates
+            and self._next_dynamic_id < self.DYNAMIC_RANGE.stop
+        ):
             self._next_dynamic_id += 1
         if self._next_dynamic_id >= self.DYNAMIC_RANGE.stop:
             raise RuntimeError("Dynamic template ID range exhausted")
@@ -603,7 +606,10 @@ class TemplateLibrary:
         return allocated
 
     def allocate_client_sync_id(self) -> int:
-        while self._next_client_sync_id in self._templates and self._next_client_sync_id < self.CLIENT_SYNC_RANGE.stop:
+        while (
+            self._next_client_sync_id in self._templates
+            and self._next_client_sync_id < self.CLIENT_SYNC_RANGE.stop
+        ):
             self._next_client_sync_id += 1
         if self._next_client_sync_id >= self.CLIENT_SYNC_RANGE.stop:
             raise RuntimeError("Client-sync template ID range exhausted")
@@ -612,7 +618,10 @@ class TemplateLibrary:
         return allocated
 
     def _allocate_whitespace_id(self) -> int:
-        while self._next_whitespace_id in self._templates and self._next_whitespace_id < self.WHITESPACE_RANGE.stop:
+        while (
+            self._next_whitespace_id in self._templates
+            and self._next_whitespace_id < self.WHITESPACE_RANGE.stop
+        ):
             self._next_whitespace_id += 1
         if self._next_whitespace_id >= self.WHITESPACE_RANGE.stop:
             raise RuntimeError("Whitespace template ID range exhausted")
@@ -623,7 +632,10 @@ class TemplateLibrary:
     # Domain-specific ID allocation methods
     def allocate_ai_to_ai_id(self) -> int:
         """Allocate template ID from AI-to-AI range (128-2127)"""
-        while self._next_ai_to_ai_id in self._templates and self._next_ai_to_ai_id < self.AI_TO_AI_RANGE.stop:
+        while (
+            self._next_ai_to_ai_id in self._templates
+            and self._next_ai_to_ai_id < self.AI_TO_AI_RANGE.stop
+        ):
             self._next_ai_to_ai_id += 1
         if self._next_ai_to_ai_id >= self.AI_TO_AI_RANGE.stop:
             raise RuntimeError("AI-to-AI template ID range exhausted (128-2127)")
@@ -633,7 +645,10 @@ class TemplateLibrary:
 
     def allocate_human_to_ai_id(self) -> int:
         """Allocate template ID from Human-to-AI range (2128-4999)"""
-        while self._next_human_to_ai_id in self._templates and self._next_human_to_ai_id < self.RESERVED_1_RANGE.stop:
+        while (
+            self._next_human_to_ai_id in self._templates
+            and self._next_human_to_ai_id < self.RESERVED_1_RANGE.stop
+        ):
             self._next_human_to_ai_id += 1
         if self._next_human_to_ai_id >= self.RESERVED_1_RANGE.stop:
             raise RuntimeError("Human-to-AI template ID range exhausted (2128-4999)")
@@ -643,7 +658,10 @@ class TemplateLibrary:
 
     def allocate_healthcare_id(self) -> int:
         """Allocate template ID from Healthcare range (5000-6999)"""
-        while self._next_healthcare_id in self._templates and self._next_healthcare_id < self.HUMAN_TO_AI_HEALTHCARE_RANGE.stop:
+        while (
+            self._next_healthcare_id in self._templates
+            and self._next_healthcare_id < self.HUMAN_TO_AI_HEALTHCARE_RANGE.stop
+        ):
             self._next_healthcare_id += 1
         if self._next_healthcare_id >= self.HUMAN_TO_AI_HEALTHCARE_RANGE.stop:
             raise RuntimeError("Healthcare template ID range exhausted (5000-6999)")
@@ -653,7 +671,10 @@ class TemplateLibrary:
 
     def allocate_financial_id(self) -> int:
         """Allocate template ID from Financial range (7000-9999)"""
-        while self._next_financial_id in self._templates and self._next_financial_id < self.FINANCIAL_RANGE.stop:
+        while (
+            self._next_financial_id in self._templates
+            and self._next_financial_id < self.FINANCIAL_RANGE.stop
+        ):
             self._next_financial_id += 1
         if self._next_financial_id >= self.FINANCIAL_RANGE.stop:
             raise RuntimeError("Financial template ID range exhausted (7000-9999)")
@@ -663,7 +684,9 @@ class TemplateLibrary:
 
     def allocate_legal_id(self) -> int:
         """Allocate template ID from Legal range (10000-11999)"""
-        while self._next_legal_id in self._templates and self._next_legal_id < self.LEGAL_RANGE.stop:
+        while (
+            self._next_legal_id in self._templates and self._next_legal_id < self.LEGAL_RANGE.stop
+        ):
             self._next_legal_id += 1
         if self._next_legal_id >= self.LEGAL_RANGE.stop:
             raise RuntimeError("Legal template ID range exhausted (10000-11999)")
@@ -673,7 +696,10 @@ class TemplateLibrary:
 
     def allocate_small_sentences_id(self) -> int:
         """Allocate template ID from Small Sentences range (12000-13999)"""
-        while self._next_small_sentences_id in self._templates and self._next_small_sentences_id < self.SMALL_SENTENCES_RANGE.stop:
+        while (
+            self._next_small_sentences_id in self._templates
+            and self._next_small_sentences_id < self.SMALL_SENTENCES_RANGE.stop
+        ):
             self._next_small_sentences_id += 1
         if self._next_small_sentences_id >= self.SMALL_SENTENCES_RANGE.stop:
             raise RuntimeError("Small Sentences template ID range exhausted (12000-13999)")
@@ -688,13 +714,19 @@ class TemplateLibrary:
             self._next_ai_to_ai_id = template_id + 1
         if template_id in self.RESERVED_1_RANGE and template_id >= self._next_human_to_ai_id:
             self._next_human_to_ai_id = template_id + 1
-        if template_id in self.HUMAN_TO_AI_HEALTHCARE_RANGE and template_id >= self._next_healthcare_id:
+        if (
+            template_id in self.HUMAN_TO_AI_HEALTHCARE_RANGE
+            and template_id >= self._next_healthcare_id
+        ):
             self._next_healthcare_id = template_id + 1
         if template_id in self.FINANCIAL_RANGE and template_id >= self._next_financial_id:
             self._next_financial_id = template_id + 1
         if template_id in self.LEGAL_RANGE and template_id >= self._next_legal_id:
             self._next_legal_id = template_id + 1
-        if template_id in self.SMALL_SENTENCES_RANGE and template_id >= self._next_small_sentences_id:
+        if (
+            template_id in self.SMALL_SENTENCES_RANGE
+            and template_id >= self._next_small_sentences_id
+        ):
             self._next_small_sentences_id = template_id + 1
 
         # System ranges
@@ -728,7 +760,7 @@ class TemplateLibrary:
 
     def _register_template(self, template_id: int, pattern: str) -> None:
         regex, partial_regex, slot_order = self._compile_pattern(pattern)
-        pattern_text = re.sub(r'\{[0-9]+\}', '', pattern)
+        pattern_text = re.sub(r"\{[0-9]+\}", "", pattern)
         literal_length = len(pattern_text)
         literal_parts = self._extract_literal_parts(pattern)
         anchor_literal, anchor_casefold = self._select_anchor_literal(literal_parts)
@@ -800,17 +832,20 @@ class TemplateLibrary:
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get statistics for both in-memory and persistent caches."""
         stats = {
-            'in_memory_cache': {
-                'enabled': self._match_cache_enabled,
-                'hits': self._match_cache_hits,
-                'misses': self._match_cache_misses,
-                'hit_rate': (self._match_cache_hits / (self._match_cache_hits + self._match_cache_misses))
-                           if (self._match_cache_hits + self._match_cache_misses) > 0 else 0.0
+            "in_memory_cache": {
+                "enabled": self._match_cache_enabled,
+                "hits": self._match_cache_hits,
+                "misses": self._match_cache_misses,
+                "hit_rate": (
+                    (self._match_cache_hits / (self._match_cache_hits + self._match_cache_misses))
+                    if (self._match_cache_hits + self._match_cache_misses) > 0
+                    else 0.0
+                ),
             }
         }
 
         if self._persistent_cache:
-            stats['persistent_cache'] = self._persistent_cache.get_stats()
+            stats["persistent_cache"] = self._persistent_cache.get_stats()
 
         return stats
 

@@ -1,31 +1,34 @@
 """ML-based algorithm selection for optimal compression performance."""
 
-import time
-import math
-import statistics
-import re
-import logging
-import json
-import threading
 import hashlib
-from typing import Dict, List, Tuple, Optional, Any, NamedTuple
-from pathlib import Path
+import json
+import logging
+import math
+import re
+import statistics
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 # Import AI and template components for enhanced feature extraction
 try:
     from aura_compression.pattern_semantic_large_file import PatternSemanticCompressor
+
     AI_AVAILABLE = True
 except ImportError:
     AI_AVAILABLE = False
 
 try:
     from aura_compression.template_service import TemplateService
+
     TEMPLATE_AVAILABLE = True
 except ImportError:
     TEMPLATE_AVAILABLE = False
+
 
 # Compression method constants
 class CompressionMethod:
@@ -36,20 +39,24 @@ class CompressionMethod:
     AURA_HEAVY = "aura_heavy"
     PATTERN_SEMANTIC = "pattern_semantic"  # AI-powered semantic compression
     # Routing methods
-    FAST_PATH = "fast_path"      # Route using metadata only (no decompression)
-    SLOW_PATH = "slow_path"      # Route requiring full decompression
-    CACHED = "cached"           # Serve from cache
+    FAST_PATH = "fast_path"  # Route using metadata only (no decompression)
+    SLOW_PATH = "slow_path"  # Route requiring full decompression
+    CACHED = "cached"  # Serve from cache
+
 
 class CompressionResult(NamedTuple):
     """Result of a compression operation with metrics."""
+
     method: str
     original_size: int
     compressed_size: float
     compression_time: float
     ratio: float
 
+
 class MessageFeatures(NamedTuple):
     """Features extracted from a message for ML prediction."""
+
     length: int
     entropy: float
     has_numbers: bool
@@ -72,12 +79,15 @@ class MessageFeatures(NamedTuple):
     structured_data_score: float  # How structured the data appears (0-1)
     repetitive_pattern_score: float  # Score for repetitive patterns (0-1)
 
+
 class AlgorithmPrediction(NamedTuple):
     """ML prediction result."""
+
     method: str
     confidence: float
     expected_ratio: float
     reasoning: str
+
 
 class MLAlgorithmSelector:
     """Machine learning-based algorithm selection for optimal compression.
@@ -92,18 +102,28 @@ class MLAlgorithmSelector:
     - Semantic binary compression analysis
     """
 
-    def __init__(self,
-                 model_file: str = "./ml_model.json",
-                 enable_learning: bool = True,
-                 ai_compressor: Optional[Any] = None,
-                 template_service: Optional[Any] = None,
-                 enable_expensive_features: bool = True):
+    def __init__(
+        self,
+        model_file: str = "./ml_model.json",
+        enable_learning: bool = True,
+        ai_compressor: Optional[Any] = None,
+        template_service: Optional[Any] = None,
+        enable_expensive_features: bool = True,
+    ):
         self.model_file = Path(model_file)
         self.enable_learning = enable_learning
 
         # AI and template service integration
-        self.ai_compressor = ai_compressor if ai_compressor else (PatternSemanticCompressor() if AI_AVAILABLE else None)
-        self.template_service = template_service if template_service else (TemplateService() if TEMPLATE_AVAILABLE else None)
+        self.ai_compressor = (
+            ai_compressor
+            if ai_compressor
+            else (PatternSemanticCompressor() if AI_AVAILABLE else None)
+        )
+        self.template_service = (
+            template_service
+            if template_service
+            else (TemplateService() if TEMPLATE_AVAILABLE else None)
+        )
         self.enable_expensive_features = enable_expensive_features
 
         # Model data
@@ -123,7 +143,7 @@ class MLAlgorithmSelector:
         # Feature extraction cache
         self._feature_cache: Dict[str, Tuple[MessageFeatures, float]] = {}
         self._cache_max_size = 1000
-        
+
         # Track analyzed messages to avoid re-analysis
         self._analyzed_messages: set = set()
 
@@ -133,7 +153,9 @@ class MLAlgorithmSelector:
         # Load existing model
         self._load_model()
 
-    def predict_routing_decision(self, message: str, available_methods: List[str], metadata: Optional[Dict[str, Any]] = None) -> AlgorithmPrediction:
+    def predict_routing_decision(
+        self, message: str, available_methods: List[str], metadata: Optional[Dict[str, Any]] = None
+    ) -> AlgorithmPrediction:
         """
         Predict optimal routing/compression decision for a message.
 
@@ -148,14 +170,14 @@ class MLAlgorithmSelector:
         Returns:
             AlgorithmPrediction with the recommended method and confidence
         """
-        message_bytes = len(message.encode('utf-8'))
+        message_bytes = len(message.encode("utf-8"))
 
         if message_bytes < 25:
             return AlgorithmPrediction(
                 method=CompressionMethod.UNCOMPRESSED,
                 confidence=1.0,
                 expected_ratio=1.0,
-                reasoning="Fast-pass for payloads under 25 bytes"
+                reasoning="Fast-pass for payloads under 25 bytes",
             )
 
         # Check if we've already analyzed this exact message
@@ -170,7 +192,7 @@ class MLAlgorithmSelector:
                 method=CompressionMethod.UNCOMPRESSED,
                 confidence=1.0,
                 expected_ratio=1.0,
-                reasoning="No methods available"
+                reasoning="No methods available",
             )
 
         # Extract features
@@ -182,7 +204,7 @@ class MLAlgorithmSelector:
                 method=CompressionMethod.CACHED,
                 confidence=0.9,
                 expected_ratio=1.0,
-                reasoning="Message found in cache"
+                reasoning="Message found in cache",
             )
 
         # Determine if fast-path routing is viable
@@ -204,7 +226,11 @@ class MLAlgorithmSelector:
         # (Previously disabled for messages < 1MB, now available for all)
 
         if not viable_methods:
-            viable_methods = [CompressionMethod.UNCOMPRESSED] if CompressionMethod.UNCOMPRESSED in available_methods else available_methods
+            viable_methods = (
+                [CompressionMethod.UNCOMPRESSED]
+                if CompressionMethod.UNCOMPRESSED in available_methods
+                else available_methods
+            )
 
         if not viable_methods:
             viable_methods = available_methods
@@ -216,16 +242,18 @@ class MLAlgorithmSelector:
             method_scores[method] = score
 
         # Select best method
-        best_method = max(method_scores.keys(), key=lambda m: method_scores[m]['total_score'])
+        best_method = max(method_scores.keys(), key=lambda m: method_scores[m]["total_score"])
         best_score = method_scores[best_method]
 
         if best_method not in available_methods:
-            fallback_method = available_methods[0] if available_methods else CompressionMethod.UNCOMPRESSED
+            fallback_method = (
+                available_methods[0] if available_methods else CompressionMethod.UNCOMPRESSED
+            )
             best_method = fallback_method
-            best_score = method_scores.get(best_method, {'expected_ratio': 1.0})
+            best_score = method_scores.get(best_method, {"expected_ratio": 1.0})
 
         # Calculate confidence
-        scores = [s['total_score'] for s in method_scores.values()]
+        scores = [s["total_score"] for s in method_scores.values()]
         if len(scores) > 1:
             score_range = max(scores) - min(scores)
             confidence = min(1.0, score_range / 2.0) if score_range > 0 else 0.5
@@ -251,25 +279,27 @@ class MLAlgorithmSelector:
         return AlgorithmPrediction(
             method=best_method,
             confidence=confidence,
-            expected_ratio=best_score.get('expected_ratio', 1.0),
-            reasoning=" ".join(reasoning_parts)
+            expected_ratio=best_score.get("expected_ratio", 1.0),
+            reasoning=" ".join(reasoning_parts),
         )
 
     def select_algorithm(self, message: str, available_methods: List[str]) -> str:
         """
         Select the best compression algorithm for a message.
-        
+
         Args:
             message: The message to compress
             available_methods: List of available compression methods
-            
+
         Returns:
             The selected compression method name
         """
         prediction = self.predict_routing_decision(message, available_methods)
         return prediction.method
 
-    def _is_fast_path_viable(self, features: MessageFeatures, metadata: Optional[Dict[str, Any]] = None) -> bool:
+    def _is_fast_path_viable(
+        self, features: MessageFeatures, metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """Determine if fast-path routing is viable for this message."""
         # Fast-path criteria
         viability_score = 0.0
@@ -286,11 +316,11 @@ class MLAlgorithmSelector:
 
         # Metadata-based viability (if available)
         if metadata:
-            if metadata.get('template_ids'):  # Has template matches
+            if metadata.get("template_ids"):  # Has template matches
                 viability_score += 0.3
-            if metadata.get('function_id'):  # Has function routing info
+            if metadata.get("function_id"):  # Has function routing info
                 viability_score += 0.2
-            if metadata.get('compressed_size', 0) < 500:  # Small compressed size
+            if metadata.get("compressed_size", 0) < 500:  # Small compressed size
                 viability_score += 0.1
 
         return viability_score > 0.5
@@ -298,44 +328,8 @@ class MLAlgorithmSelector:
     def _should_use_cache(self, metadata: Dict[str, Any]) -> bool:
         """Determine if message should be served from cache."""
         # Simple cache logic - can be enhanced
-        cache_key = metadata.get('cache_key') or metadata.get('message_hash')
+        cache_key = metadata.get("cache_key") or metadata.get("message_hash")
         return cache_key is not None and len(str(cache_key)) > 10  # Arbitrary cache hit criteria
-        """Predict the optimal compression method for a message."""
-        if not available_methods:
-            return AlgorithmPrediction(
-                method=CompressionMethod.UNCOMPRESSED,
-                confidence=1.0,
-                expected_ratio=1.0,
-                reasoning="No methods available"
-            )
-
-        # Extract features
-        features = self._extract_features(message)
-
-        # Score each method
-        method_scores = {}
-        for method in available_methods:
-            score = self._score_method(method, features)
-            method_scores[method] = score
-
-        # Select best method
-        best_method = max(method_scores.keys(), key=lambda m: method_scores[m]['total_score'])
-        best_score = method_scores[best_method]
-
-        # Calculate confidence based on score difference
-        scores = [s['total_score'] for s in method_scores.values()]
-        if len(scores) > 1:
-            score_range = max(scores) - min(scores)
-            confidence = min(1.0, score_range / 2.0) if score_range > 0 else 0.5
-        else:
-            confidence = 0.8
-
-        return AlgorithmPrediction(
-            method=best_method,
-            confidence=confidence,
-            expected_ratio=best_score.get('expected_ratio', 1.0),
-            reasoning=f"ML prediction based on {len(features)} features"
-        )
 
     def record_performance(self, message: str, method: str, result: CompressionResult) -> None:
         """Record compression performance for learning."""
@@ -345,14 +339,14 @@ class MLAlgorithmSelector:
         features = self._extract_features(message)
 
         performance_data = {
-            'timestamp': time.time(),
-            'features': features._asdict(),
-            'method': method,
-            'original_size': result.original_size,
-            'compressed_size': result.compressed_size,
-            'compression_time': result.compression_time,
-            'ratio': result.ratio,
-            'message_hash': hashlib.md5(message.encode()).hexdigest()[:8]
+            "timestamp": time.time(),
+            "features": features._asdict(),
+            "method": method,
+            "original_size": result.original_size,
+            "compressed_size": result.compressed_size,
+            "compression_time": result.compression_time,
+            "ratio": result.ratio,
+            "message_hash": hashlib.md5(message.encode()).hexdigest()[:8],
         }
 
         with self._lock:
@@ -360,25 +354,25 @@ class MLAlgorithmSelector:
 
             # Keep history size manageable
             if len(self.performance_history) > self.max_history_size:
-                self.performance_history = self.performance_history[-self.max_history_size:]
+                self.performance_history = self.performance_history[-self.max_history_size :]
 
             # Update method statistics
             if method not in self.method_stats:
                 self.method_stats[method] = {
-                    'total_compressions': 0,
-                    'avg_ratio': 0.0,
-                    'avg_time': 0.0,
-                    'success_rate': 1.0
+                    "total_compressions": 0,
+                    "avg_ratio": 0.0,
+                    "avg_time": 0.0,
+                    "success_rate": 1.0,
                 }
 
             stats = self.method_stats[method]
-            stats['total_compressions'] += 1
-            stats['avg_ratio'] = (
-                (stats['avg_ratio'] * (stats['total_compressions'] - 1)) + result.ratio
-            ) / stats['total_compressions']
-            stats['avg_time'] = (
-                (stats['avg_time'] * (stats['total_compressions'] - 1)) + result.compression_time
-            ) / stats['total_compressions']
+            stats["total_compressions"] += 1
+            stats["avg_ratio"] = (
+                (stats["avg_ratio"] * (stats["total_compressions"] - 1)) + result.ratio
+            ) / stats["total_compressions"]
+            stats["avg_time"] = (
+                (stats["avg_time"] * (stats["total_compressions"] - 1)) + result.compression_time
+            ) / stats["total_compressions"]
 
         # Trigger learning in background
         self._executor.submit(self._update_model)
@@ -387,10 +381,10 @@ class MLAlgorithmSelector:
         """Get statistics for all compression methods."""
         with self._lock:
             return {
-                'methods': dict(self.method_stats),
-                'total_samples': len(self.performance_history),
-                'model_features': len(self.feature_weights),
-                'learning_enabled': self.enable_learning
+                "methods": dict(self.method_stats),
+                "total_samples": len(self.performance_history),
+                "model_features": len(self.feature_weights),
+                "learning_enabled": self.enable_learning,
             }
 
     def _extract_features(self, message: str) -> MessageFeatures:
@@ -398,24 +392,25 @@ class MLAlgorithmSelector:
         # Check cache first
         import hashlib
         import time
+
         message_hash = hashlib.md5(message.encode()).hexdigest()
-        
+
         with self._lock:
             if message_hash in self._feature_cache:
                 cached_features, cache_time = self._feature_cache[message_hash]
                 # Cache for 5 minutes
                 if time.time() - cache_time < 300:
                     return cached_features
-            
+
             # Extract features
             features = self._extract_features_uncached(message)
-            
+
             # Cache the result
             if len(self._feature_cache) >= self._cache_max_size:
                 # Remove oldest entries (simple FIFO)
                 oldest_key = next(iter(self._feature_cache))
                 del self._feature_cache[oldest_key]
-            
+
             self._feature_cache[message_hash] = (features, time.time())
             return features
 
@@ -450,7 +445,7 @@ class MLAlgorithmSelector:
 
         # Pattern score based on known compressible patterns
         pattern_score = 0.0
-        if ' ' in message:  # Has spaces (likely natural language)
+        if " " in message:  # Has spaces (likely natural language)
             pattern_score += 0.3
         if has_numbers and has_special_chars:  # Structured data
             pattern_score += 0.4
@@ -485,16 +480,22 @@ class MLAlgorithmSelector:
             try:
                 # Only sync template store occasionally (not on every feature extraction)
                 import time
+
                 current_time = time.time()
-                if not hasattr(self, '_last_template_sync') or current_time - self._last_template_sync > 60:  # Sync every 60 seconds
+                if (
+                    not hasattr(self, "_last_template_sync")
+                    or current_time - self._last_template_sync > 60
+                ):  # Sync every 60 seconds
                     self.template_service.sync_template_store()
                     self._last_template_sync = current_time
-                
+
                 template_match = self.template_service.find_template_match(message)
                 if template_match:
                     # Calculate real template match score based on match quality
                     match_ratio = len(template_match.matched_text) / len(message) if message else 0
-                    template_match_score = min(1.0, match_ratio * 2.0)  # Boost score for good matches
+                    template_match_score = min(
+                        1.0, match_ratio * 2.0
+                    )  # Boost score for good matches
                 else:
                     template_match_score = pattern_score * 0.5  # Reduce if no template match
             except Exception:
@@ -528,7 +529,9 @@ class MLAlgorithmSelector:
                 # Estimate semantic complexity
                 if semantic_chunks > 0:
                     avg_chunk_size = length / semantic_chunks
-                    semantic_complexity = min(1.0, avg_chunk_size / 1000.0)  # Larger chunks = simpler
+                    semantic_complexity = min(
+                        1.0, avg_chunk_size / 1000.0
+                    )  # Larger chunks = simpler
                 else:
                     semantic_complexity = 0.8  # High complexity if no chunks found
             except Exception:
@@ -564,11 +567,12 @@ class MLAlgorithmSelector:
                 structured_data_score += 0.4
 
         # Combine factors for binary semantic potential
-        binary_semantic_potential = min(1.0,
-            binary_semantic_potential +
-            (structured_data_score * 0.3) +
-            (repetitive_pattern_score * 0.4) +
-            (template_match_score * 0.3)
+        binary_semantic_potential = min(
+            1.0,
+            binary_semantic_potential
+            + (structured_data_score * 0.3)
+            + (repetitive_pattern_score * 0.4)
+            + (template_match_score * 0.3),
         )
 
         return MessageFeatures(
@@ -589,10 +593,12 @@ class MLAlgorithmSelector:
             semantic_complexity=max(0.0, min(1.0, semantic_complexity)),
             binary_semantic_potential=max(0.0, min(1.0, binary_semantic_potential)),
             structured_data_score=max(0.0, min(1.0, structured_data_score)),
-            repetitive_pattern_score=max(0.0, min(1.0, repetitive_pattern_score))
+            repetitive_pattern_score=max(0.0, min(1.0, repetitive_pattern_score)),
         )
 
-    def _find_repeated_sequences(self, message: str, min_length: int = 4, max_length: int = 20) -> List[str]:
+    def _find_repeated_sequences(
+        self, message: str, min_length: int = 4, max_length: int = 20
+    ) -> List[str]:
         """Find repeated sequences in the message for semantic binary analysis."""
         if len(message) < min_length * 2:
             return []
@@ -603,7 +609,7 @@ class MLAlgorithmSelector:
         # Look for repeated substrings of various lengths
         for length in range(min_length, min(max_length + 1, msg_len // 2 + 1)):
             for i in range(msg_len - length * 2 + 1):
-                substring = message[i:i + length]
+                substring = message[i : i + length]
                 # Count occurrences of this substring
                 count = message.count(substring)
                 if count > 1:
@@ -617,15 +623,15 @@ class MLAlgorithmSelector:
             return False
 
         # JSON-like patterns
-        json_indicators = ['{', '}', '[', ']', '"', ':', ',']
+        json_indicators = ["{", "}", "[", "]", '"', ":", ","]
         json_score = sum(1 for char in json_indicators if char in message) / len(json_indicators)
 
         # XML-like patterns
-        xml_indicators = ['<', '>', '/', '=', '"']
+        xml_indicators = ["<", ">", "/", "=", '"']
         xml_score = sum(1 for char in xml_indicators if char in message) / len(xml_indicators)
 
         # Key-value patterns (like config files)
-        kv_patterns = [r'\w+\s*=\s*\w+', r'\w+\s*:\s*\w+']
+        kv_patterns = [r"\w+\s*=\s*\w+", r"\w+\s*:\s*\w+"]
         kv_score = 0
         for pattern in kv_patterns:
             if re.search(pattern, message):
@@ -633,16 +639,18 @@ class MLAlgorithmSelector:
 
         # CSV-like patterns
         csv_score = 0
-        if ',' in message and '\n' in message:
-            lines = message.split('\n')[:5]  # Check first few lines
+        if "," in message and "\n" in message:
+            lines = message.split("\n")[:5]  # Check first few lines
             if len(lines) > 1:
                 # Check if lines have similar comma counts
-                comma_counts = [line.count(',') for line in lines if line.strip()]
+                comma_counts = [line.count(",") for line in lines if line.strip()]
                 if len(set(comma_counts)) == 1 and comma_counts[0] > 0:
                     csv_score = 0.8
 
         # Overall structured score
-        structured_score = (json_score * 0.4) + (xml_score * 0.3) + (kv_score * 0.2) + (csv_score * 0.1)
+        structured_score = (
+            (json_score * 0.4) + (xml_score * 0.3) + (kv_score * 0.2) + (csv_score * 0.1)
+        )
 
         return structured_score > 0.3
 
@@ -650,37 +658,36 @@ class MLAlgorithmSelector:
         """Score how well a method matches the message features."""
         if method not in self.feature_weights:
             # Default scoring for unknown methods
-            return {
-                'total_score': 0.5,
-                'expected_ratio': 1.0,
-                'feature_match': 0.5
-            }
+            return {"total_score": 0.5, "expected_ratio": 1.0, "feature_match": 0.5}
 
         weights = self.feature_weights[method]
         score = 0.0
 
         # Feature matching score
         feature_score = (
-            weights.get('length', 0.0) * (features.length / 1000.0) +
-            weights.get('entropy', 0.0) * features.entropy +
-            weights.get('has_numbers', 0.0) * (1.0 if features.has_numbers else 0.0) +
-            weights.get('has_special_chars', 0.0) * (1.0 if features.has_special_chars else 0.0) +
-            weights.get('word_count', 0.0) * (features.word_count / 50.0) +
-            weights.get('compression_potential', 0.0) * features.compression_potential +
-            weights.get('pattern_score', 0.0) * features.pattern_score +
+            weights.get("length", 0.0) * (features.length / 1000.0)
+            + weights.get("entropy", 0.0) * features.entropy
+            + weights.get("has_numbers", 0.0) * (1.0 if features.has_numbers else 0.0)
+            + weights.get("has_special_chars", 0.0) * (1.0 if features.has_special_chars else 0.0)
+            + weights.get("word_count", 0.0) * (features.word_count / 50.0)
+            + weights.get("compression_potential", 0.0) * features.compression_potential
+            + weights.get("pattern_score", 0.0) * features.pattern_score
+            +
             # Routing features
-            weights.get('fast_path_potential', 0.0) * features.fast_path_potential +
-            weights.get('metadata_size_estimate', 0.0) * (features.metadata_size_estimate / 500.0) +
-            weights.get('template_match_score', 0.0) * features.template_match_score +
+            weights.get("fast_path_potential", 0.0) * features.fast_path_potential
+            + weights.get("metadata_size_estimate", 0.0) * (features.metadata_size_estimate / 500.0)
+            + weights.get("template_match_score", 0.0) * features.template_match_score
+            +
             # AI semantic features
-            weights.get('pattern_semantic_score', 0.0) * features.pattern_semantic_score +
-            weights.get('semantic_chunks', 0.0) * (features.semantic_chunks / 10.0) +
-            weights.get('ai_patterns_found', 0.0) * (features.ai_patterns_found / 5.0) +
-            weights.get('semantic_complexity', 0.0) * features.semantic_complexity +
+            weights.get("pattern_semantic_score", 0.0) * features.pattern_semantic_score
+            + weights.get("semantic_chunks", 0.0) * (features.semantic_chunks / 10.0)
+            + weights.get("ai_patterns_found", 0.0) * (features.ai_patterns_found / 5.0)
+            + weights.get("semantic_complexity", 0.0) * features.semantic_complexity
+            +
             # Semantic binary features
-            weights.get('binary_semantic_potential', 0.0) * features.binary_semantic_potential +
-            weights.get('structured_data_score', 0.0) * features.structured_data_score +
-            weights.get('repetitive_pattern_score', 0.0) * features.repetitive_pattern_score
+            weights.get("binary_semantic_potential", 0.0) * features.binary_semantic_potential
+            + weights.get("structured_data_score", 0.0) * features.structured_data_score
+            + weights.get("repetitive_pattern_score", 0.0) * features.repetitive_pattern_score
         )
 
         # Method performance score (from learned data)
@@ -689,205 +696,205 @@ class MLAlgorithmSelector:
             stats = self.method_stats[method]
             # Prefer methods with better compression ratios and reasonable speed
             perf_score = (
-                stats['avg_ratio'] * 0.7 +  # 70% weight on compression ratio
-                (1.0 / max(stats['avg_time'], 0.001)) * 0.3  # 30% weight on speed (inverse time)
+                stats["avg_ratio"] * 0.7  # 70% weight on compression ratio
+                + (1.0 / max(stats["avg_time"], 0.001)) * 0.3  # 30% weight on speed (inverse time)
             )
 
         total_score = (feature_score * 0.6) + (perf_score * 0.4)
 
         # Expected ratio prediction
-        expected_ratio = weights.get('base_ratio', 1.0)
+        expected_ratio = weights.get("base_ratio", 1.0)
         if method in self.method_stats:
-            expected_ratio = self.method_stats[method]['avg_ratio']
+            expected_ratio = self.method_stats[method]["avg_ratio"]
 
         return {
-            'total_score': total_score,
-            'expected_ratio': expected_ratio,
-            'feature_match': feature_score,
-            'performance_score': perf_score
+            "total_score": total_score,
+            "expected_ratio": expected_ratio,
+            "feature_match": feature_score,
+            "performance_score": perf_score,
         }
 
     def _initialize_default_model(self) -> None:
         """Initialize default model weights based on algorithm characteristics."""
         self.feature_weights = {
             CompressionMethod.UNCOMPRESSED: {
-                'length': 0.1,  # Slightly prefers longer messages
-                'entropy': 0.0,  # Doesn't care about entropy
-                'has_numbers': 0.0,
-                'has_special_chars': 0.0,
-                'word_count': 0.0,
-                'compression_potential': -0.5,  # Prefers incompressible content
-                'pattern_score': 0.0,
-                'pattern_semantic_score': 0.0,
-                'semantic_chunks': 0.0,
-                'ai_patterns_found': 0.0,
-                'semantic_complexity': 0.0,
-                'binary_semantic_potential': 0.0,
-                'structured_data_score': 0.0,
-                'repetitive_pattern_score': 0.0,
-                'base_ratio': 1.0
+                "length": 0.1,  # Slightly prefers longer messages
+                "entropy": 0.0,  # Doesn't care about entropy
+                "has_numbers": 0.0,
+                "has_special_chars": 0.0,
+                "word_count": 0.0,
+                "compression_potential": -0.5,  # Prefers incompressible content
+                "pattern_score": 0.0,
+                "pattern_semantic_score": 0.0,
+                "semantic_chunks": 0.0,
+                "ai_patterns_found": 0.0,
+                "semantic_complexity": 0.0,
+                "binary_semantic_potential": 0.0,
+                "structured_data_score": 0.0,
+                "repetitive_pattern_score": 0.0,
+                "base_ratio": 1.0,
             },
             CompressionMethod.BINARY_SEMANTIC: {
-                'length': 0.2,
-                'entropy': -0.3,  # Prefers structured data
-                'has_numbers': 0.4,
-                'has_special_chars': 0.3,
-                'word_count': 0.1,
-                'compression_potential': 0.2,
-                'pattern_score': 0.5,  # Good for structured patterns
-                'fast_path_potential': 0.6,
-                'metadata_size_estimate': -0.2,
-                'template_match_score': 0.8,  # Excellent for template matching
-                'pattern_semantic_score': 0.2,
-                'semantic_chunks': 0.3,
-                'ai_patterns_found': 0.2,
-                'semantic_complexity': -0.2,  # Prefers less complex structures
-                'binary_semantic_potential': 0.8,  # Excellent for binary semantic
-                'structured_data_score': 0.7,
-                'repetitive_pattern_score': 0.4,
-                'base_ratio': 1.8
+                "length": 0.2,
+                "entropy": -0.3,  # Prefers structured data
+                "has_numbers": 0.4,
+                "has_special_chars": 0.3,
+                "word_count": 0.1,
+                "compression_potential": 0.2,
+                "pattern_score": 0.5,  # Good for structured patterns
+                "fast_path_potential": 0.6,
+                "metadata_size_estimate": -0.2,
+                "template_match_score": 0.8,  # Excellent for template matching
+                "pattern_semantic_score": 0.2,
+                "semantic_chunks": 0.3,
+                "ai_patterns_found": 0.2,
+                "semantic_complexity": -0.2,  # Prefers less complex structures
+                "binary_semantic_potential": 0.8,  # Excellent for binary semantic
+                "structured_data_score": 0.7,
+                "repetitive_pattern_score": 0.4,
+                "base_ratio": 1.8,
             },
             CompressionMethod.PATTERN_SEMANTIC: {
-                'length': 0.4,  # Good for longer files
-                'entropy': -0.4,  # Prefers patterned data
-                'has_numbers': 0.3,
-                'has_special_chars': 0.3,
-                'word_count': 0.2,
-                'compression_potential': 0.6,  # High compression potential
-                'pattern_score': 0.6,
-                'fast_path_potential': 0.3,
-                'metadata_size_estimate': 0.1,
-                'template_match_score': 0.5,
-                'pattern_semantic_score': 0.9,  # Requires high AI semantic understanding
-                'semantic_chunks': 0.8,  # Benefits from semantic chunking
-                'ai_patterns_found': 0.9,  # Loves AI-discovered patterns
-                'semantic_complexity': -0.3,  # Prefers simpler semantic structures
-                'binary_semantic_potential': 0.5,
-                'structured_data_score': 0.4,
-                'repetitive_pattern_score': 0.6,
-                'base_ratio': 4.0  # Best compression ratios
+                "length": 0.4,  # Good for longer files
+                "entropy": -0.4,  # Prefers patterned data
+                "has_numbers": 0.3,
+                "has_special_chars": 0.3,
+                "word_count": 0.2,
+                "compression_potential": 0.6,  # High compression potential
+                "pattern_score": 0.6,
+                "fast_path_potential": 0.3,
+                "metadata_size_estimate": 0.1,
+                "template_match_score": 0.5,
+                "pattern_semantic_score": 0.9,  # Requires high AI semantic understanding
+                "semantic_chunks": 0.8,  # Benefits from semantic chunking
+                "ai_patterns_found": 0.9,  # Loves AI-discovered patterns
+                "semantic_complexity": -0.3,  # Prefers simpler semantic structures
+                "binary_semantic_potential": 0.5,
+                "structured_data_score": 0.4,
+                "repetitive_pattern_score": 0.6,
+                "base_ratio": 4.0,  # Best compression ratios
             },
             CompressionMethod.BRIO: {
-                'length': 0.4,  # Best for longer messages
-                'entropy': -0.4,  # Excellent for repetitive data
-                'has_numbers': 0.1,
-                'has_special_chars': 0.1,
-                'word_count': 0.2,
-                'compression_potential': 0.5,  # Best compression potential
-                'pattern_score': 0.4,
-                'fast_path_potential': 0.2,
-                'metadata_size_estimate': -0.1,
-                'template_match_score': 0.3,
-                'pattern_semantic_score': 0.4,
-                'semantic_chunks': 0.5,
-                'ai_patterns_found': 0.6,  # Good for pattern-based compression
-                'semantic_complexity': 0.0,
-                'binary_semantic_potential': 0.3,
-                'structured_data_score': 0.2,
-                'repetitive_pattern_score': 0.8,  # Excellent for repetitive patterns
-                'base_ratio': 2.5
+                "length": 0.4,  # Best for longer messages
+                "entropy": -0.4,  # Excellent for repetitive data
+                "has_numbers": 0.1,
+                "has_special_chars": 0.1,
+                "word_count": 0.2,
+                "compression_potential": 0.5,  # Best compression potential
+                "pattern_score": 0.4,
+                "fast_path_potential": 0.2,
+                "metadata_size_estimate": -0.1,
+                "template_match_score": 0.3,
+                "pattern_semantic_score": 0.4,
+                "semantic_chunks": 0.5,
+                "ai_patterns_found": 0.6,  # Good for pattern-based compression
+                "semantic_complexity": 0.0,
+                "binary_semantic_potential": 0.3,
+                "structured_data_score": 0.2,
+                "repetitive_pattern_score": 0.8,  # Excellent for repetitive patterns
+                "base_ratio": 2.5,
             },
             CompressionMethod.AURALITE: {
-                'length': 0.3,
-                'entropy': -0.2,
-                'has_numbers': 0.1,
-                'has_special_chars': 0.1,
-                'word_count': 0.3,
-                'compression_potential': 0.3,
-                'pattern_score': 0.2,
-                'fast_path_potential': 0.1,
-                'metadata_size_estimate': -0.1,
-                'template_match_score': 0.2,
-                'pattern_semantic_score': 0.2,
-                'semantic_chunks': 0.3,
-                'ai_patterns_found': 0.2,
-                'semantic_complexity': 0.0,
-                'binary_semantic_potential': 0.1,
-                'structured_data_score': 0.1,
-                'repetitive_pattern_score': 0.2,
-                'base_ratio': 1.3
+                "length": 0.3,
+                "entropy": -0.2,
+                "has_numbers": 0.1,
+                "has_special_chars": 0.1,
+                "word_count": 0.3,
+                "compression_potential": 0.3,
+                "pattern_score": 0.2,
+                "fast_path_potential": 0.1,
+                "metadata_size_estimate": -0.1,
+                "template_match_score": 0.2,
+                "pattern_semantic_score": 0.2,
+                "semantic_chunks": 0.3,
+                "ai_patterns_found": 0.2,
+                "semantic_complexity": 0.0,
+                "binary_semantic_potential": 0.1,
+                "structured_data_score": 0.1,
+                "repetitive_pattern_score": 0.2,
+                "base_ratio": 1.3,
             },
             CompressionMethod.AURA_HEAVY: {
-                'length': 0.5,  # Best for very long messages
-                'entropy': -0.5,  # Excellent for highly repetitive data
-                'has_numbers': 0.2,
-                'has_special_chars': 0.2,
-                'word_count': 0.3,
-                'compression_potential': 0.6,  # Highest compression potential
-                'pattern_score': 0.5,
-                'fast_path_potential': 0.3,
-                'metadata_size_estimate': -0.2,
-                'template_match_score': 0.4,
-                'pattern_semantic_score': 0.5,
-                'semantic_chunks': 0.6,
-                'ai_patterns_found': 0.7,
-                'semantic_complexity': -0.1,
-                'binary_semantic_potential': 0.4,
-                'structured_data_score': 0.3,
-                'repetitive_pattern_score': 0.9,  # Best for repetitive patterns
-                'base_ratio': 3.0
+                "length": 0.5,  # Best for very long messages
+                "entropy": -0.5,  # Excellent for highly repetitive data
+                "has_numbers": 0.2,
+                "has_special_chars": 0.2,
+                "word_count": 0.3,
+                "compression_potential": 0.6,  # Highest compression potential
+                "pattern_score": 0.5,
+                "fast_path_potential": 0.3,
+                "metadata_size_estimate": -0.2,
+                "template_match_score": 0.4,
+                "pattern_semantic_score": 0.5,
+                "semantic_chunks": 0.6,
+                "ai_patterns_found": 0.7,
+                "semantic_complexity": -0.1,
+                "binary_semantic_potential": 0.4,
+                "structured_data_score": 0.3,
+                "repetitive_pattern_score": 0.9,  # Best for repetitive patterns
+                "base_ratio": 3.0,
             },
             # Routing methods (no compression, just routing decisions)
             CompressionMethod.FAST_PATH: {
-                'length': -0.3,  # Prefers shorter messages
-                'entropy': 0.0,
-                'has_numbers': 0.5,  # Structured data good for fast-path
-                'has_special_chars': 0.4,
-                'word_count': 0.2,
-                'compression_potential': 0.0,  # Routing, not compression
-                'pattern_score': 0.6,  # Good patterns enable fast routing
-                'fast_path_potential': 0.8,  # High fast-path potential
-                'metadata_size_estimate': -0.3,  # Smaller metadata preferred
-                'template_match_score': 0.7,  # Template matches enable fast-path
-                'pattern_semantic_score': 0.3,
-                'semantic_chunks': 0.2,
-                'ai_patterns_found': 0.2,
-                'semantic_complexity': -0.2,  # Simpler structures route faster
-                'binary_semantic_potential': 0.4,
-                'structured_data_score': 0.6,
-                'repetitive_pattern_score': 0.3,
-                'base_ratio': 1.0  # No compression ratio for routing
+                "length": -0.3,  # Prefers shorter messages
+                "entropy": 0.0,
+                "has_numbers": 0.5,  # Structured data good for fast-path
+                "has_special_chars": 0.4,
+                "word_count": 0.2,
+                "compression_potential": 0.0,  # Routing, not compression
+                "pattern_score": 0.6,  # Good patterns enable fast routing
+                "fast_path_potential": 0.8,  # High fast-path potential
+                "metadata_size_estimate": -0.3,  # Smaller metadata preferred
+                "template_match_score": 0.7,  # Template matches enable fast-path
+                "pattern_semantic_score": 0.3,
+                "semantic_chunks": 0.2,
+                "ai_patterns_found": 0.2,
+                "semantic_complexity": -0.2,  # Simpler structures route faster
+                "binary_semantic_potential": 0.4,
+                "structured_data_score": 0.6,
+                "repetitive_pattern_score": 0.3,
+                "base_ratio": 1.0,  # No compression ratio for routing
             },
             CompressionMethod.SLOW_PATH: {
-                'length': 0.2,  # Can handle longer messages
-                'entropy': 0.3,  # High entropy needs full processing
-                'has_numbers': -0.2,  # Less structured data
-                'has_special_chars': -0.1,
-                'word_count': 0.1,
-                'compression_potential': 0.0,
-                'pattern_score': -0.3,  # Poor patterns need slow path
-                'fast_path_potential': -0.6,  # Low fast-path potential
-                'metadata_size_estimate': 0.2,  # Larger metadata OK for slow path
-                'template_match_score': -0.4,  # No template match = slow path
-                'pattern_semantic_score': 0.1,
-                'semantic_chunks': 0.0,
-                'ai_patterns_found': -0.1,
-                'semantic_complexity': 0.4,  # Complex structures need slow path
-                'binary_semantic_potential': -0.2,
-                'structured_data_score': -0.3,
-                'repetitive_pattern_score': -0.2,
-                'base_ratio': 1.0
+                "length": 0.2,  # Can handle longer messages
+                "entropy": 0.3,  # High entropy needs full processing
+                "has_numbers": -0.2,  # Less structured data
+                "has_special_chars": -0.1,
+                "word_count": 0.1,
+                "compression_potential": 0.0,
+                "pattern_score": -0.3,  # Poor patterns need slow path
+                "fast_path_potential": -0.6,  # Low fast-path potential
+                "metadata_size_estimate": 0.2,  # Larger metadata OK for slow path
+                "template_match_score": -0.4,  # No template match = slow path
+                "pattern_semantic_score": 0.1,
+                "semantic_chunks": 0.0,
+                "ai_patterns_found": -0.1,
+                "semantic_complexity": 0.4,  # Complex structures need slow path
+                "binary_semantic_potential": -0.2,
+                "structured_data_score": -0.3,
+                "repetitive_pattern_score": -0.2,
+                "base_ratio": 1.0,
             },
             CompressionMethod.CACHED: {
-                'length': 0.0,
-                'entropy': 0.0,
-                'has_numbers': 0.0,
-                'has_special_chars': 0.0,
-                'word_count': 0.0,
-                'compression_potential': 0.0,
-                'pattern_score': 0.0,
-                'fast_path_potential': 0.0,
-                'metadata_size_estimate': 0.0,
-                'template_match_score': 0.0,
-                'pattern_semantic_score': 0.0,
-                'semantic_chunks': 0.0,
-                'ai_patterns_found': 0.0,
-                'semantic_complexity': 0.0,
-                'binary_semantic_potential': 0.0,
-                'structured_data_score': 0.0,
-                'repetitive_pattern_score': 0.0,
-                'base_ratio': 1.0  # Cached responses have no compression cost
-            }
+                "length": 0.0,
+                "entropy": 0.0,
+                "has_numbers": 0.0,
+                "has_special_chars": 0.0,
+                "word_count": 0.0,
+                "compression_potential": 0.0,
+                "pattern_score": 0.0,
+                "fast_path_potential": 0.0,
+                "metadata_size_estimate": 0.0,
+                "template_match_score": 0.0,
+                "pattern_semantic_score": 0.0,
+                "semantic_chunks": 0.0,
+                "ai_patterns_found": 0.0,
+                "semantic_complexity": 0.0,
+                "binary_semantic_potential": 0.0,
+                "structured_data_score": 0.0,
+                "repetitive_pattern_score": 0.0,
+                "base_ratio": 1.0,  # Cached responses have no compression cost
+            },
         }
 
     def _update_model(self) -> None:
@@ -899,73 +906,102 @@ class MLAlgorithmSelector:
             recent_data = self.performance_history[-100:]  # Use recent samples
 
             # Update weights based on performance
-            for method in set(d['method'] for d in recent_data):
-                method_data = [d for d in recent_data if d['method'] == method]
+            for method in set(d["method"] for d in recent_data):
+                method_data = [d for d in recent_data if d["method"] == method]
                 if len(method_data) < 5:
                     continue
 
                 # Calculate average performance for this method
-                avg_ratio = statistics.mean(d['ratio'] for d in method_data)
-                avg_time = statistics.mean(d['compression_time'] for d in method_data)
+                avg_ratio = statistics.mean(d["ratio"] for d in method_data)
+                avg_time = statistics.mean(d["compression_time"] for d in method_data)
 
                 # Update feature weights based on what led to good performance
                 if method not in self.feature_weights:
                     self.feature_weights[method] = {
-                        'length': 0.0, 'entropy': 0.0, 'has_numbers': 0.0,
-                        'has_special_chars': 0.0, 'word_count': 0.0,
-                        'compression_potential': 0.0, 'pattern_score': 0.0,
-                        'fast_path_potential': 0.0, 'metadata_size_estimate': 0.0,
-                        'template_match_score': 0.0, 'pattern_semantic_score': 0.0,
-                        'semantic_chunks': 0.0, 'ai_patterns_found': 0.0,
-                        'semantic_complexity': 0.0, 'binary_semantic_potential': 0.0,
-                        'structured_data_score': 0.0, 'repetitive_pattern_score': 0.0,
-                        'base_ratio': avg_ratio
+                        "length": 0.0,
+                        "entropy": 0.0,
+                        "has_numbers": 0.0,
+                        "has_special_chars": 0.0,
+                        "word_count": 0.0,
+                        "compression_potential": 0.0,
+                        "pattern_score": 0.0,
+                        "fast_path_potential": 0.0,
+                        "metadata_size_estimate": 0.0,
+                        "template_match_score": 0.0,
+                        "pattern_semantic_score": 0.0,
+                        "semantic_chunks": 0.0,
+                        "ai_patterns_found": 0.0,
+                        "semantic_complexity": 0.0,
+                        "binary_semantic_potential": 0.0,
+                        "structured_data_score": 0.0,
+                        "repetitive_pattern_score": 0.0,
+                        "base_ratio": avg_ratio,
                     }
 
                 weights = self.feature_weights[method]
 
                 # Simple reinforcement learning: adjust weights toward successful features
                 for data_point in method_data:
-                    features = data_point['features']
-                    
+                    features = data_point["features"]
+
                     # Ensure all new feature keys exist in old data (backward compatibility)
-                    if 'fast_path_potential' not in features:
-                        features['fast_path_potential'] = 0.0
-                    if 'template_match_score' not in features:
-                        features['template_match_score'] = 0.0
-                    if 'pattern_semantic_score' not in features:
-                        features['pattern_semantic_score'] = 0.0
-                    if 'semantic_chunks' not in features:
-                        features['semantic_chunks'] = 0
-                    if 'ai_patterns_found' not in features:
-                        features['ai_patterns_found'] = 0
-                    if 'semantic_complexity' not in features:
-                        features['semantic_complexity'] = 0.5
-                    if 'binary_semantic_potential' not in features:
-                        features['binary_semantic_potential'] = 0.0
-                    if 'structured_data_score' not in features:
-                        features['structured_data_score'] = 0.0
-                    if 'repetitive_pattern_score' not in features:
-                        features['repetitive_pattern_score'] = 0.0
-                    
-                    performance = data_point['ratio'] / max(data_point['compression_time'], 0.001)
+                    if "fast_path_potential" not in features:
+                        features["fast_path_potential"] = 0.0
+                    if "template_match_score" not in features:
+                        features["template_match_score"] = 0.0
+                    if "pattern_semantic_score" not in features:
+                        features["pattern_semantic_score"] = 0.0
+                    if "semantic_chunks" not in features:
+                        features["semantic_chunks"] = 0
+                    if "ai_patterns_found" not in features:
+                        features["ai_patterns_found"] = 0
+                    if "semantic_complexity" not in features:
+                        features["semantic_complexity"] = 0.5
+                    if "binary_semantic_potential" not in features:
+                        features["binary_semantic_potential"] = 0.0
+                    if "structured_data_score" not in features:
+                        features["structured_data_score"] = 0.0
+                    if "repetitive_pattern_score" not in features:
+                        features["repetitive_pattern_score"] = 0.0
+
+                    performance = data_point["ratio"] / max(data_point["compression_time"], 0.001)
 
                     # Adjust weights based on performance
                     adjustment = self.learning_rate * (performance - 0.5)
 
-                    weights['length'] += adjustment * (features.get('length', 0) / 1000.0)
-                    weights['entropy'] += adjustment * features.get('entropy', 0)
-                    weights['compression_potential'] += adjustment * features.get('compression_potential', 0)
-                    weights['pattern_score'] += adjustment * features.get('pattern_score', 0)
-                    weights['fast_path_potential'] += adjustment * features.get('fast_path_potential', 0.0)
-                    weights['template_match_score'] += adjustment * features.get('template_match_score', 0.0)
-                    weights['pattern_semantic_score'] += adjustment * features.get('pattern_semantic_score', 0.0)
-                    weights['semantic_chunks'] += adjustment * (features.get('semantic_chunks', 0) / 10.0)
-                    weights['ai_patterns_found'] += adjustment * (features.get('ai_patterns_found', 0) / 5.0)
-                    weights['semantic_complexity'] += adjustment * features.get('semantic_complexity', 0.0)
-                    weights['binary_semantic_potential'] += adjustment * features.get('binary_semantic_potential', 0.0)
-                    weights['structured_data_score'] += adjustment * features.get('structured_data_score', 0.0)
-                    weights['repetitive_pattern_score'] += adjustment * features.get('repetitive_pattern_score', 0.0)
+                    weights["length"] += adjustment * (features.get("length", 0) / 1000.0)
+                    weights["entropy"] += adjustment * features.get("entropy", 0)
+                    weights["compression_potential"] += adjustment * features.get(
+                        "compression_potential", 0
+                    )
+                    weights["pattern_score"] += adjustment * features.get("pattern_score", 0)
+                    weights["fast_path_potential"] += adjustment * features.get(
+                        "fast_path_potential", 0.0
+                    )
+                    weights["template_match_score"] += adjustment * features.get(
+                        "template_match_score", 0.0
+                    )
+                    weights["pattern_semantic_score"] += adjustment * features.get(
+                        "pattern_semantic_score", 0.0
+                    )
+                    weights["semantic_chunks"] += adjustment * (
+                        features.get("semantic_chunks", 0) / 10.0
+                    )
+                    weights["ai_patterns_found"] += adjustment * (
+                        features.get("ai_patterns_found", 0) / 5.0
+                    )
+                    weights["semantic_complexity"] += adjustment * features.get(
+                        "semantic_complexity", 0.0
+                    )
+                    weights["binary_semantic_potential"] += adjustment * features.get(
+                        "binary_semantic_potential", 0.0
+                    )
+                    weights["structured_data_score"] += adjustment * features.get(
+                        "structured_data_score", 0.0
+                    )
+                    weights["repetitive_pattern_score"] += adjustment * features.get(
+                        "repetitive_pattern_score", 0.0
+                    )
 
                     # Keep weights in reasonable bounds
                     for key in weights:
@@ -978,12 +1014,12 @@ class MLAlgorithmSelector:
             return
 
         try:
-            with open(self.model_file, 'r', encoding='utf-8') as f:
+            with open(self.model_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            self.feature_weights = data.get('feature_weights', self.feature_weights)
-            self.method_stats = data.get('method_stats', {})
-            self.performance_history = data.get('performance_history', [])
+            self.feature_weights = data.get("feature_weights", self.feature_weights)
+            self.method_stats = data.get("method_stats", {})
+            self.performance_history = data.get("performance_history", [])
 
             logger.info(f"Loaded ML model with {len(self.performance_history)} training samples")
 
@@ -996,13 +1032,13 @@ class MLAlgorithmSelector:
             self.model_file.parent.mkdir(parents=True, exist_ok=True)
 
             data = {
-                'feature_weights': self.feature_weights,
-                'method_stats': self.method_stats,
-                'performance_history': self.performance_history[-1000:],  # Save last 1000 samples
-                'timestamp': time.time()
+                "feature_weights": self.feature_weights,
+                "method_stats": self.method_stats,
+                "performance_history": self.performance_history[-1000:],  # Save last 1000 samples
+                "timestamp": time.time(),
             }
 
-            with open(self.model_file, 'w', encoding='utf-8') as f:
+            with open(self.model_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
         except IOError as e:
@@ -1011,7 +1047,7 @@ class MLAlgorithmSelector:
     def __del__(self):
         """Save model on destruction."""
         try:
-            if hasattr(self, '_executor') and self._executor:
+            if hasattr(self, "_executor") and self._executor:
                 # Don't wait during interpreter shutdown to avoid thread join issues
                 self._executor.shutdown(wait=False)
             self.save_model()

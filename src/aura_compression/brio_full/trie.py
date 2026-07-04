@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Optional, Dict
 from dataclasses import dataclass
+from typing import Dict, Optional
 
 
 @dataclass
 class TrieNode:
     """Node in the trie data structure."""
+
     children: Dict[str, TrieNode]
     is_end: bool
     token_id: Optional[int]
@@ -86,14 +87,14 @@ class DictionaryTrie:
         """
         # Convert bytes to string for trie traversal
         try:
-            text = data[pos:].decode('utf-8', errors='ignore')
+            text = data[pos:].decode("utf-8", errors="ignore")
         except UnicodeDecodeError:
             return None
 
         result = self.longest_prefix_match(text, 0)
         if result:
             phrase, token_id = result
-            return (phrase.encode('utf-8'), token_id)
+            return (phrase.encode("utf-8"), token_id)
         return None
 
     def __len__(self) -> int:

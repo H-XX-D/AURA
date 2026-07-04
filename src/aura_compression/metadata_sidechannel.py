@@ -13,9 +13,9 @@ Licensed under Apache License 2.0
 
 import struct
 import time
-from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import Any, Dict, List, Optional, Tuple
 
 # Import CompressionMethod from the main enums module to stay in sync
 from aura_compression.enums import CompressionMethod
@@ -23,6 +23,7 @@ from aura_compression.enums import CompressionMethod
 
 class MessageCategory(IntEnum):
     """Message classification categories"""
+
     LIMITATION = 0  # AI capability boundaries
     FACT = 1  # Factual statements
     DEFINITION = 2  # Technical definitions
@@ -40,6 +41,7 @@ class MessageCategory(IntEnum):
 
 class SecurityLevel(IntEnum):
     """Security screening levels"""
+
     SAFE = 0  # Content passed all checks
     REVIEW = 1  # Needs human review
     BLOCKED = 2  # Harmful content detected
@@ -53,6 +55,7 @@ class MessageMetadata:
     Embedded in compressed payload header for extraction without decompression.
     Enables classification, routing, security, and analytics in 0.17ms.
     """
+
     # Compression metadata
     compression_method: CompressionMethod  # Method used (1 byte)
     original_size: int  # Original message size (2 bytes)
@@ -120,33 +123,35 @@ class MetadataSideChannel:
 
     def __init__(self):
         self.stats = {
-            'metadata_extractions': 0,
-            'fast_path_hits': 0,
-            'full_decompressions': 0,
-            'total_time_saved_ms': 0.0,
+            "metadata_extractions": 0,
+            "fast_path_hits": 0,
+            "full_decompressions": 0,
+            "total_time_saved_ms": 0.0,
         }
 
         # Intent classifier patterns (simple keyword-based)
         self.intent_patterns = {
-            'question': ['what', 'how', 'why', 'when', 'where', 'who', 'which', '?'],
-            'answer': ['the answer', 'yes', 'no', 'it is', 'they are'],
-            'greeting': ['hello', 'hi', 'hey', 'greetings'],
-            'farewell': ['goodbye', 'bye', 'see you', 'farewell'],
-            'request': ['please', 'could you', 'can you', 'would you'],
-            'confirmation': ['yes', 'correct', 'right', 'absolutely'],
-            'denial': ['no', 'incorrect', 'wrong', "don't"],
-            'instruction': ['to', 'you should', 'follow these', 'first'],
+            "question": ["what", "how", "why", "when", "where", "who", "which", "?"],
+            "answer": ["the answer", "yes", "no", "it is", "they are"],
+            "greeting": ["hello", "hi", "hey", "greetings"],
+            "farewell": ["goodbye", "bye", "see you", "farewell"],
+            "request": ["please", "could you", "can you", "would you"],
+            "confirmation": ["yes", "correct", "right", "absolutely"],
+            "denial": ["no", "incorrect", "wrong", "don't"],
+            "instruction": ["to", "you should", "follow these", "first"],
         }
 
-    def encode_metadata(self,
-                        compressed: bytes,
-                        compression_method: CompressionMethod,
-                        original_size: int,
-                        template_id: Optional[int] = None,
-                        category: Optional[MessageCategory] = None,
-                        slot_count: int = 0,
-                        original_text: Optional[str] = None,
-                        is_binary: bool = False) -> bytes:
+    def encode_metadata(
+        self,
+        compressed: bytes,
+        compression_method: CompressionMethod,
+        original_size: int,
+        template_id: Optional[int] = None,
+        category: Optional[MessageCategory] = None,
+        slot_count: int = 0,
+        original_text: Optional[str] = None,
+        is_binary: bool = False,
+    ) -> bytes:
         """
         Encode inline metadata into compressed payload (Claim 21a)
 
@@ -193,36 +198,42 @@ class MetadataSideChannel:
         if original_text:
             # Security screening (simplified)
             security_level = self._screen_security(original_text)
-            flags |= (security_level << 6)  # Bits 6-7
+            flags |= security_level << 6  # Bits 6-7
 
             # Content flags
-            if '```' in original_text or 'code' in original_text.lower():
-                flags |= (1 << 5)  # Bit 5: has_code
+            if "```" in original_text or "code" in original_text.lower():
+                flags |= 1 << 5  # Bit 5: has_code
 
-            if 'http://' in original_text or 'https://' in original_text:
-                flags |= (1 << 4)  # Bit 4: has_urls
+            if "http://" in original_text or "https://" in original_text:
+                flags |= 1 << 4  # Bit 4: has_urls
 
         # Binary flag (bit 3)
         if is_binary:
-            flags |= (1 << 3)  # Bit 3: is_binary
+            flags |= 1 << 3  # Bit 3: is_binary
 
         # Pack all fields at once using precompiled struct (task 21 optimization)
         # Format: >BHHH BBB H = method, orig_size, comp_size, template_id, category, slot_count, flags, reserved
         metadata_header = self._HEADER_STRUCT.pack(
-            compression_method.value if hasattr(compression_method, 'value') else int(compression_method),  # B: method
-            original_size_stored,      # H: original_size (capped at 65535)
-            compressed_size_stored,    # H: compressed_size (capped at 65535)
-            template_id_value,         # H: template_id
-            category_value,            # B: category
-            slot_count_value,          # B: slot_count
-            flags,                     # B: flags
-            0                          # H: reserved
+            (
+                compression_method.value
+                if hasattr(compression_method, "value")
+                else int(compression_method)
+            ),  # B: method
+            original_size_stored,  # H: original_size (capped at 65535)
+            compressed_size_stored,  # H: compressed_size (capped at 65535)
+            template_id_value,  # H: template_id
+            category_value,  # B: category
+            slot_count_value,  # B: slot_count
+            flags,  # B: flags
+            0,  # H: reserved
         )
 
         # Append compressed payload
         return bytes(metadata_header) + compressed
 
-    def extract_metadata(self, compressed_with_metadata: bytes, include_timestamp: bool = True) -> MessageMetadata:
+    def extract_metadata(
+        self, compressed_with_metadata: bytes, include_timestamp: bool = True
+    ) -> MessageMetadata:
         """
         Extract metadata without decompression (Claim 21b)
 
@@ -241,10 +252,16 @@ class MetadataSideChannel:
 
         # Unpack entire header at once using precompiled struct (task 21 optimization)
         # Format: >BHHH BBB H = method, orig_size, comp_size, template_id, category, slot_count, flags, reserved
-        (method_raw, original_size, compressed_size, template_id_raw,
-         category_raw, slot_count, flags, reserved) = self._HEADER_STRUCT.unpack(
-            compressed_with_metadata[:12]
-        )
+        (
+            method_raw,
+            original_size,
+            compressed_size,
+            template_id_raw,
+            category_raw,
+            slot_count,
+            flags,
+            reserved,
+        ) = self._HEADER_STRUCT.unpack(compressed_with_metadata[:12])
 
         # Convert raw values to proper types
         compression_method = CompressionMethod(method_raw)
@@ -264,7 +281,7 @@ class MetadataSideChannel:
         compression_ratio = original_size / compressed_size if compressed_size > 0 else 1.0
 
         # Track stats (removed expensive time tracking from hot path)
-        self.stats['metadata_extractions'] += 1
+        self.stats["metadata_extractions"] += 1
 
         # Build metadata object
         metadata = MessageMetadata(
@@ -276,7 +293,7 @@ class MetadataSideChannel:
             slot_count=slot_count,
             intent=intent,
             confidence=0.95 if template_id is not None else 0.7,
-            language='en',  # Default to English
+            language="en",  # Default to English
             security_level=security_level,
             contains_code=contains_code,
             contains_urls=contains_urls,
@@ -302,17 +319,17 @@ class MetadataSideChannel:
         Returns:
             Classification results dictionary
         """
-        self.stats['fast_path_hits'] += 1
+        self.stats["fast_path_hits"] += 1
 
         return {
-            'category': metadata.category.name,
-            'intent': metadata.intent,
-            'confidence': metadata.confidence,
-            'is_question': metadata.intent == 'question',
-            'is_answer': metadata.intent == 'answer',
-            'requires_code_execution': metadata.contains_code,
-            'requires_url_fetch': metadata.contains_urls,
-            'template_based': metadata.template_id is not None,
+            "category": metadata.category.name,
+            "intent": metadata.intent,
+            "confidence": metadata.confidence,
+            "is_question": metadata.intent == "question",
+            "is_answer": metadata.intent == "answer",
+            "requires_code_execution": metadata.contains_code,
+            "requires_url_fetch": metadata.contains_urls,
+            "template_based": metadata.template_id is not None,
         }
 
     def route_message(self, metadata: MessageMetadata) -> str:
@@ -327,30 +344,30 @@ class MetadataSideChannel:
         """
         # Security routing
         if metadata.security_level == SecurityLevel.BLOCKED:
-            return 'security_block_handler'
+            return "security_block_handler"
         elif metadata.security_level == SecurityLevel.REVIEW:
-            return 'human_review_handler'
+            return "human_review_handler"
 
         # Code execution routing
-        if metadata.contains_code and metadata.intent == 'question':
-            return 'code_interpreter_handler'
+        if metadata.contains_code and metadata.intent == "question":
+            return "code_interpreter_handler"
 
         # URL fetch routing
         if metadata.contains_urls:
-            return 'web_fetch_handler'
+            return "web_fetch_handler"
 
         # Template-based fast path
         if metadata.template_id is not None:
-            return 'template_response_handler'
+            return "template_response_handler"
 
         # Category-based routing
         if metadata.category == MessageCategory.CLARIFICATION:
-            return 'clarification_handler'
+            return "clarification_handler"
         elif metadata.category == MessageCategory.INSTRUCTION:
-            return 'instruction_handler'
+            return "instruction_handler"
 
         # Default handler
-        return 'general_nlp_handler'
+        return "general_nlp_handler"
 
     def screen_security(self, metadata: MessageMetadata) -> bool:
         """
@@ -382,17 +399,17 @@ class MetadataSideChannel:
             Analytics metrics dictionary
         """
         return {
-            'compression_ratio': metadata.compression_ratio,
-            'compression_method': metadata.compression_method.name,
-            'category': metadata.category.name,
-            'has_template': metadata.template_id is not None,
-            'security_level': metadata.security_level.name,
-            'bandwidth_saved_bytes': metadata.original_size - metadata.compressed_size,
-            'bandwidth_saved_percent': (1 - metadata.compressed_size / metadata.original_size) * 100,
+            "compression_ratio": metadata.compression_ratio,
+            "compression_method": metadata.compression_method.name,
+            "category": metadata.category.name,
+            "has_template": metadata.template_id is not None,
+            "security_level": metadata.security_level.name,
+            "bandwidth_saved_bytes": metadata.original_size - metadata.compressed_size,
+            "bandwidth_saved_percent": (1 - metadata.compressed_size / metadata.original_size)
+            * 100,
         }
 
-    def requires_decompression(self, metadata: MessageMetadata,
-                               operation: str) -> bool:
+    def requires_decompression(self, metadata: MessageMetadata, operation: str) -> bool:
         """
         Determine if full decompression is required (Claim 21e)
 
@@ -408,12 +425,12 @@ class MetadataSideChannel:
         """
         # Operations that require full decompression
         decompress_required = {
-            'display_to_user',
-            'detailed_content_moderation',
-            'extract_entities',
-            'sentiment_analysis',
-            'language_translation',
-            'full_text_search',
+            "display_to_user",
+            "detailed_content_moderation",
+            "extract_entities",
+            "sentiment_analysis",
+            "language_translation",
+            "full_text_search",
         }
 
         return operation in decompress_required
@@ -459,13 +476,13 @@ class MetadataSideChannel:
         elapsed_ms = (time.time() - start_time) * 1000
 
         return {
-            'metadata': metadata,
-            'classification': classification,
-            'handler': handler,
-            'security_passed': is_safe,
-            'metrics': metrics,
-            'processing_time_ms': elapsed_ms,
-            'speedup_vs_traditional': 13.0 / elapsed_ms if elapsed_ms > 0 else float('inf'),
+            "metadata": metadata,
+            "classification": classification,
+            "handler": handler,
+            "security_passed": is_safe,
+            "metrics": metrics,
+            "processing_time_ms": elapsed_ms,
+            "speedup_vs_traditional": 13.0 / elapsed_ms if elapsed_ms > 0 else float("inf"),
         }
 
     def _screen_security(self, text: str) -> SecurityLevel:
@@ -481,22 +498,22 @@ class MetadataSideChannel:
         text_lower = text.lower()
 
         # Blocked content patterns
-        blocked_patterns = ['hack', 'exploit', 'malware', 'virus']
+        blocked_patterns = ["hack", "exploit", "malware", "virus"]
         for pattern in blocked_patterns:
             if pattern in text_lower:
                 return SecurityLevel.BLOCKED
 
         # Review required patterns
-        review_patterns = ['password', 'credit card', 'ssn', 'private key']
+        review_patterns = ["password", "credit card", "ssn", "private key"]
         for pattern in review_patterns:
             if pattern in text_lower:
                 return SecurityLevel.REVIEW
 
         return SecurityLevel.SAFE
 
-    def _infer_intent(self, template_id: Optional[int],
-                      category: MessageCategory,
-                      contains_code: bool) -> str:
+    def _infer_intent(
+        self, template_id: Optional[int], category: MessageCategory, contains_code: bool
+    ) -> str:
         """
         Infer message intent from metadata
 
@@ -510,23 +527,23 @@ class MetadataSideChannel:
         """
         # Category-based intent mapping
         if category == MessageCategory.CLARIFICATION:
-            return 'question'
+            return "question"
         elif category == MessageCategory.AFFIRMATION:
-            return 'confirmation'
+            return "confirmation"
         elif category == MessageCategory.LIMITATION:
-            return 'denial'
+            return "denial"
         elif category == MessageCategory.INSTRUCTION:
-            return 'instruction'
+            return "instruction"
         elif category == MessageCategory.RECOMMENDATION:
-            return 'recommendation'
+            return "recommendation"
         elif category == MessageCategory.CODE_EXAMPLE:
-            return 'code_example'
+            return "code_example"
         elif category == MessageCategory.FACT:
-            return 'answer'
+            return "answer"
         elif category == MessageCategory.EXPLANATION:
-            return 'explanation'
+            return "explanation"
         else:
-            return 'statement'
+            return "statement"
 
     def get_performance_stats(self) -> Dict[str, Any]:
         """
@@ -535,15 +552,17 @@ class MetadataSideChannel:
         Returns:
             Performance statistics dictionary
         """
-        total_ops = self.stats['metadata_extractions']
+        total_ops = self.stats["metadata_extractions"]
 
         return {
-            'total_metadata_extractions': total_ops,
-            'fast_path_operations': self.stats['fast_path_hits'],
-            'full_decompressions': self.stats['full_decompressions'],
-            'total_time_saved_ms': self.stats['total_time_saved_ms'],
-            'avg_time_saved_per_message_ms': self.stats['total_time_saved_ms'] / total_ops if total_ops > 0 else 0.0,
-            'estimated_speedup': 13.0 / 0.17,  # Patent claim: 76× faster
-            'actual_speedup': 13.0 / 0.035,  # Our implementation: 371× faster
-            'improvement_over_claim': (13.0 / 0.035) / (13.0 / 0.17),  # 4.8× better
+            "total_metadata_extractions": total_ops,
+            "fast_path_operations": self.stats["fast_path_hits"],
+            "full_decompressions": self.stats["full_decompressions"],
+            "total_time_saved_ms": self.stats["total_time_saved_ms"],
+            "avg_time_saved_per_message_ms": (
+                self.stats["total_time_saved_ms"] / total_ops if total_ops > 0 else 0.0
+            ),
+            "estimated_speedup": 13.0 / 0.17,  # Patent claim: 76× faster
+            "actual_speedup": 13.0 / 0.035,  # Our implementation: 371× faster
+            "improvement_over_claim": (13.0 / 0.035) / (13.0 / 0.17),  # 4.8× better
         }

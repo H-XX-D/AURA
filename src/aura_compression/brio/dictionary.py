@@ -42,8 +42,7 @@ if len(_PHRASES) > MAX_DICTIONARY_SIZE:
     raise RuntimeError("Dictionary exceeds supported size")
 
 DICTIONARY: List[DictionaryEntry] = [
-    DictionaryEntry(idx + 1, phrase, phrase.encode("utf-8"))
-    for idx, phrase in enumerate(_PHRASES)
+    DictionaryEntry(idx + 1, phrase, phrase.encode("utf-8")) for idx, phrase in enumerate(_PHRASES)
 ]
 
 _LOOKUP = {entry.phrase: entry for entry in DICTIONARY}

@@ -1,7 +1,7 @@
 """Aura-Lite encoder/decoder for lightweight template-aware compression."""
 
-from .encoder import AuraLiteEncoder, AuraLiteEncoded
-from .decoder import AuraLiteDecoder, AuraLiteDecoded
+from .decoder import AuraLiteDecoded, AuraLiteDecoder
+from .encoder import AuraLiteEncoded, AuraLiteEncoder
 
 __all__ = [
     "AuraLiteEncoder",

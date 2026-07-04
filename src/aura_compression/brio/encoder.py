@@ -5,17 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from . import dictionary
+from . import dictionary, lz77
 from .constants import MAX_MATCH, WINDOW_SIZE
-from . import lz77
-from .tokens import (
-    DictionaryToken,
-    LiteralToken,
-    MatchToken,
-    TemplateToken,
-    MetadataEntry,
-    Token,
-)
+from .tokens import DictionaryToken, LiteralToken, MatchToken, MetadataEntry, TemplateToken, Token
 
 _LITERAL_KIND = 0
 _DICT_KIND = 1

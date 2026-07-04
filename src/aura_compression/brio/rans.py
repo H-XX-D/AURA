@@ -81,7 +81,9 @@ def encode(data: Sequence[int], freqs: Sequence[int], cumfreq: Sequence[int]) ->
     return bytes(out)
 
 
-def decode(encoded: bytes, count: int, freqs: Sequence[int], cumfreq: Sequence[int], lookup: Sequence[int]) -> List[int]:
+def decode(
+    encoded: bytes, count: int, freqs: Sequence[int], cumfreq: Sequence[int], lookup: Sequence[int]
+) -> List[int]:
     stream = bytearray(encoded)
     state_bytes = stream[-5:]
     stream = stream[:-5]

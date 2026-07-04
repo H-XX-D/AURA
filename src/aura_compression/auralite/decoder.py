@@ -31,12 +31,12 @@ class AuraLiteDecoder:
             version = (version_flags >> 4) & 0x0F
             # flags = version_flags & 0x0F  # unused for now
             token_length = payload[2]
-            tokens_bytes = payload[3:3 + token_length]
+            tokens_bytes = payload[3 : 3 + token_length]
         elif len(payload) >= 11 and payload[:4] == b"AUL1":
             # Full header format (backward compatibility)
             token_len = int.from_bytes(payload[6:10], "big")
             # metadata_count = payload[10]  # intentionally ignored (sanitized)
-            tokens_bytes = payload[11:11 + token_len]
+            tokens_bytes = payload[11 : 11 + token_len]
         else:
             raise ValueError("Invalid AURA-Lite payload")
 
@@ -55,9 +55,9 @@ class AuraLiteDecoder:
                 pos += 1
                 slots: List[str] = []
                 for _ in range(slot_count):
-                    slot_len = int.from_bytes(tokens_bytes[pos:pos + 2], "big")
+                    slot_len = int.from_bytes(tokens_bytes[pos : pos + 2], "big")
                     pos += 2
-                    slot_bytes = tokens_bytes[pos:pos + slot_len]
+                    slot_bytes = tokens_bytes[pos : pos + slot_len]
                     pos += slot_len
                     slots.append(slot_bytes.decode("utf-8"))
                 template_ids.append(template_id)
@@ -72,7 +72,7 @@ class AuraLiteDecoder:
             elif kind == self.LITERAL_KIND:
                 length = tokens_bytes[pos]
                 pos += 1
-                chunk = tokens_bytes[pos:pos + length]
+                chunk = tokens_bytes[pos : pos + length]
                 pos += length
                 parts.append(chunk.decode("utf-8"))
 

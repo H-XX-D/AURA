@@ -3,15 +3,17 @@
 Metadata Extraction API - Patent Claim 21
 Extract and process metadata without decompression for 76-200x speedup
 """
+
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from aura_compression.enums import CompressionMethod
 
 
 class MetadataKind(Enum):
     """Metadata entry types (Claim 9, 22)"""
+
     TEMPLATE = 0x01  # Template substitution
     LZ77 = 0x02  # LZ77 backreference
     SEMANTIC = 0x03  # Semantic compression
@@ -25,20 +27,21 @@ class MetadataEntry:
     6-byte metadata structure (Claim 9, 22)
     1 byte kind + 5 bytes payload
     """
+
     kind: MetadataKind
     token_index: int  # 2 bytes
     value: int  # 2 bytes
     flags: int  # 1 byte
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> 'MetadataEntry':
+    def from_bytes(cls, data: bytes) -> "MetadataEntry":
         """Parse 6-byte metadata entry"""
         if len(data) != 6:
             raise ValueError(f"Metadata entry must be 6 bytes, got {len(data)}")
 
         kind_byte = data[0]
-        token_index = int.from_bytes(data[1:3], 'big')
-        value = int.from_bytes(data[3:5], 'big')
+        token_index = int.from_bytes(data[1:3], "big")
+        value = int.from_bytes(data[3:5], "big")
         flags = data[5]
 
         try:
@@ -59,6 +62,7 @@ class ExtractedMetadata:
     """
     Metadata extracted from compressed payload without decompression (Claim 21)
     """
+
     compression_method: str  # "brio", "binary_semantic", "uncompressed"
     original_size: Optional[int] = None
     compressed_size: Optional[int] = None
@@ -81,17 +85,17 @@ class ExtractedMetadata:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         return {
-            'compression_method': self.compression_method,
-            'original_size': self.original_size,
-            'compressed_size': self.compressed_size,
-            'plain_token_length': self.plain_token_length,
-            'rans_payload_length': self.rans_payload_length,
-            'metadata_entry_count': self.metadata_entry_count,
-            'template_ids': self.template_ids,
-            'has_lz77_matches': self.has_lz77_matches,
-            'has_literals': self.has_literals,
-            'has_semantic_tokens': self.has_semantic_tokens,
-            'fast_path_candidate': self.fast_path_candidate,
+            "compression_method": self.compression_method,
+            "original_size": self.original_size,
+            "compressed_size": self.compressed_size,
+            "plain_token_length": self.plain_token_length,
+            "rans_payload_length": self.rans_payload_length,
+            "metadata_entry_count": self.metadata_entry_count,
+            "template_ids": self.template_ids,
+            "has_lz77_matches": self.has_lz77_matches,
+            "has_literals": self.has_literals,
+            "has_semantic_tokens": self.has_semantic_tokens,
+            "fast_path_candidate": self.fast_path_candidate,
         }
 
 
@@ -175,7 +179,7 @@ class MetadataExtractor:
             )
 
         token_len = int.from_bytes(payload[6:10], "big")
-        tokens_bytes = payload[11:11 + token_len]
+        tokens_bytes = payload[11 : 11 + token_len]
 
         template_ids: List[int] = []
         has_literals = False
@@ -199,7 +203,7 @@ class MetadataExtractor:
                     if pos + 2 > len(tokens_bytes):
                         pos = len(tokens_bytes)
                         break
-                    slot_len = int.from_bytes(tokens_bytes[pos:pos + 2], "big")
+                    slot_len = int.from_bytes(tokens_bytes[pos : pos + 2], "big")
                     pos += 2 + slot_len
             elif kind == 0x01:  # dictionary token
                 pos += 1
@@ -259,7 +263,7 @@ class MetadataExtractor:
         if metadata_end <= len(payload):
             for i in range(metadata_count):
                 offset = metadata_start + (i * 6)
-                entry_bytes = payload[offset:offset + 6]
+                entry_bytes = payload[offset : offset + 6]
 
                 try:
                     entry = MetadataEntry.from_bytes(entry_bytes)

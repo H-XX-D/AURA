@@ -3,35 +3,44 @@
 Performance Optimizer - Handles SIMD, GPU acceleration
 Extracted from the monolithic ProductionHybridCompressor
 """
+
+import json
 import os
 import re
 import struct
-from pathlib import Path
-import json
-from typing import Dict, List, Tuple, Optional, Any
-from enum import Enum
-from datetime import datetime
 from collections import Counter
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from aura_compression.enums import (
-    CompressionMethod,
-    TEMPLATE_METADATA_KIND,
     _SEMANTIC_PREVIEW_LIMIT,
     _SEMANTIC_TOKEN_LIMIT,
     _SEMANTIC_TOKEN_PATTERN,
+    TEMPLATE_METADATA_KIND,
+    CompressionMethod,
 )
 
 
 class PerformanceOptimizer:
     """
     Handles performance optimizations for compression
-    Hardware acceleration removed - focus on core compression algorithms
     """
 
     def __init__(self):
         """
         Initialize performance optimizer
         """
+        self._cuda_backend = None
+        self._cuda_status = {
+            "available": False,
+            "library_path": None,
+            "device_count": 0,
+            "device_name": None,
+            "error": "not loaded",
+        }
+        self._cuda_min_bytes = int(os.getenv("AURA_CUDA_MIN_BYTES", "512"))
         # Initialize accelerators
         self._load_accelerators()
 
@@ -39,8 +48,27 @@ class PerformanceOptimizer:
         """
         Load available accelerators
         """
-        # Hardware acceleration removed - focus on core compression
-        pass
+        if os.getenv("AURA_DISABLE_CUDA", "").lower() in {"1", "true", "yes", "on"}:
+            self._cuda_status = {
+                **self._cuda_status,
+                "error": "disabled by AURA_DISABLE_CUDA",
+            }
+            return
+
+        try:
+            from aura_compression.cuda_native import CudaNativeBackend
+
+            backend = CudaNativeBackend()
+            status = backend.status()
+            self._cuda_status = status.as_dict()
+            if status.available:
+                self._cuda_backend = backend
+        except Exception as exc:
+            self._cuda_backend = None
+            self._cuda_status = {
+                **self._cuda_status,
+                "error": str(exc),
+            }
 
     def optimize_compression(self, text: str, method: CompressionMethod) -> str:
         """
@@ -53,17 +81,47 @@ class PerformanceOptimizer:
         """
         Get performance statistics
         """
-        # Hardware acceleration removed - return basic stats
         return {
-            'hardware_acceleration': False,
+            "hardware_acceleration": self._cuda_backend is not None,
+            "cuda": self._cuda_status,
+            "entropy_acceleration": self._cuda_backend is not None,
         }
 
     def is_accelerated(self, method: CompressionMethod) -> bool:
         """
         Check if a compression method can be accelerated
         """
-        # Hardware acceleration removed
-        return False
+        return self._cuda_backend is not None and method in {
+            CompressionMethod.UNCOMPRESSED,
+            CompressionMethod.AURALITE,
+            CompressionMethod.BRIO,
+            CompressionMethod.PATTERN_SEMANTIC,
+        }
+
+    def calculate_entropy_text(self, text: str) -> Optional[float]:
+        """
+        Calculate byte-level Shannon entropy through CUDA when available.
+
+        Returns None when CUDA is unavailable or not worth dispatching so callers
+        can use their existing CPU implementation without changing semantics.
+        """
+        if self._cuda_backend is None or not text:
+            return None
+
+        payload = text.encode("utf-8")
+        if len(payload) < self._cuda_min_bytes:
+            return None
+
+        try:
+            return self._cuda_backend.shannon_entropy(payload)
+        except Exception as exc:
+            self._cuda_status = {
+                **self._cuda_status,
+                "available": False,
+                "error": str(exc),
+            }
+            self._cuda_backend = None
+            return None
 
     def get_optimal_batch_size(self, method: CompressionMethod, text_length: int) -> int:
         """
@@ -88,5 +146,5 @@ class PerformanceOptimizer:
         """
         Clean up accelerator resources
         """
-        # Hardware acceleration removed - no cleanup needed
+        # CUDA runtime resources are owned by the native library process context.
         pass

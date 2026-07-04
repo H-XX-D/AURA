@@ -23,7 +23,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Tuple, List, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 ROOT = Path(__file__).resolve().parent.parent / "src"
 if str(ROOT) not in sys.path:
@@ -111,10 +111,10 @@ def _parse_chunk_size(value: Union[str, int]) -> int:
     multipliers = {
         "k": 1024,
         "kb": 1024,
-        "m": 1024 ** 2,
-        "mb": 1024 ** 2,
-        "g": 1024 ** 3,
-        "gb": 1024 ** 3,
+        "m": 1024**2,
+        "mb": 1024**2,
+        "g": 1024**3,
+        "gb": 1024**3,
     }
 
     for suffix, multiplier in multipliers.items():
@@ -152,12 +152,14 @@ def _format_bytes(size: int) -> str:
     return f"{value:.2f} PB"
 
 
-def _compress_chunk_worker(chunk_data: bytes, compressor_config: Dict[str, Any]) -> Tuple[bytes, Dict[str, Any]]:
+def _compress_chunk_worker(
+    chunk_data: bytes, compressor_config: Dict[str, Any]
+) -> Tuple[bytes, Dict[str, Any]]:
     """Worker function for compressing a single chunk in a separate process."""
     # Create an aggressive compressor for this worker
     cache_dir = Path(compressor_config["cache_dir"])
     audit_dir = Path(compressor_config["audit_dir"])
-    
+
     compressor = ProductionHybridCompressor(
         enable_aura=True,
         enable_audit_logging=False,  # Disable audit logging in workers for speed
@@ -169,16 +171,16 @@ def _compress_chunk_worker(chunk_data: bytes, compressor_config: Dict[str, Any])
         enable_ml_selection=True,  # Enable ML for better compression decisions
         template_sync_interval_seconds=None,  # Disable sync in workers
     )
-    
+
     # Decode and compress
     text_chunk = chunk_data.decode("utf-8", errors="surrogateescape")
     payload, method, metadata = compressor.compress(text_chunk)
-    
+
     return payload, {
         "method": method,
         "metadata": metadata,
         "original_size": len(chunk_data),
-        "compressed_size": len(payload)
+        "compressed_size": len(payload),
     }
 
 
@@ -279,7 +281,9 @@ class ProgressTracker:
 
 def _resolve_progress_mode(requested: str, interactive: bool, default_mode: str = "bar") -> str:
     if requested not in PROGRESS_MODES:
-        raise ValueError(f"Invalid progress mode '{requested}'. Choose from {sorted(PROGRESS_MODES)}.")
+        raise ValueError(
+            f"Invalid progress mode '{requested}'. Choose from {sorted(PROGRESS_MODES)}."
+        )
     if requested == "auto":
         return default_mode if interactive else "none"
     return requested
@@ -293,7 +297,11 @@ def _render_stats(stats: Dict[str, object], *, fmt: str = "table") -> str:
     for key in sorted(stats.keys()):
         value = stats[key]
         if isinstance(value, (int, float)) and "size" in key:
-            display = f"{value:,} ({_format_bytes(int(value))})" if isinstance(value, (int, float)) else value
+            display = (
+                f"{value:,} ({_format_bytes(int(value))})"
+                if isinstance(value, (int, float))
+                else value
+            )
         elif isinstance(value, float):
             display = f"{value:,.3f}"
         else:
@@ -368,7 +376,11 @@ def compress_path(
 
     with open(input_path, "rb") as source, open(output_path, "wb") as sink:
         chunk_count_pos = _write_container_header(
-            sink, chunk_size=chunk_size, encoding=encoding, input_path=input_path, start_time=start_time
+            sink,
+            chunk_size=chunk_size,
+            encoding=encoding,
+            input_path=input_path,
+            start_time=start_time,
         )
 
         # Read all chunks first
@@ -380,23 +392,28 @@ def compress_path(
         # Process chunks sequentially
         compressed_results = []
         bytes_processed = 0
-        
+
         for index, raw_chunk in chunks:
             text_chunk = raw_chunk.decode("utf-8", errors="surrogateescape")
             payload, method, metadata = compressor.compress(text_chunk)
-            compressed_results.append((payload, {
-                "method": method,
-                "metadata": metadata,
-                "original_size": len(raw_chunk),
-                "compressed_size": len(payload)
-            }))
+            compressed_results.append(
+                (
+                    payload,
+                    {
+                        "method": method,
+                        "metadata": metadata,
+                        "original_size": len(raw_chunk),
+                        "compressed_size": len(payload),
+                    },
+                )
+            )
             bytes_processed += len(raw_chunk)
             tracker.update(bytes_processed)
 
         # Write results sequentially to maintain order
         for index, (payload, worker_meta) in enumerate(compressed_results):
             raw_chunk = chunks[index][1]
-            
+
             # Use the metadata from compression
             method = worker_meta["method"]
             metadata = worker_meta["metadata"]
@@ -405,7 +422,7 @@ def compress_path(
                 "index": index,
                 "original_size": len(raw_chunk),
                 "compressed_size": len(payload),
-                "compression_method": method.name if hasattr(method, 'name') else str(method),
+                "compression_method": method.name if hasattr(method, "name") else str(method),
                 "metadata": metadata,
             }
 
@@ -440,7 +457,9 @@ def compress_path(
             if templates_meta:
                 chunk_meta["templates"] = templates_meta
 
-            chunk_meta_bytes = json.dumps(chunk_meta, separators=(",", ":"), default=str).encode("utf-8")
+            chunk_meta_bytes = json.dumps(chunk_meta, separators=(",", ":"), default=str).encode(
+                "utf-8"
+            )
 
             sink.write(struct.pack(">I", len(chunk_meta_bytes)))
             sink.write(struct.pack(">Q", len(payload)))
@@ -475,7 +494,9 @@ def compress_path(
         "progress_mode": progress_mode_resolved,
         "throughput_mb_s": throughput,
         "template_ids": sorted(template_ids_seen),
-        "average_chunk_ratio": float(sum(chunk_ratios) / len(chunk_ratios)) if chunk_ratios else None,
+        "average_chunk_ratio": (
+            float(sum(chunk_ratios) / len(chunk_ratios)) if chunk_ratios else None
+        ),
     }
 
 
@@ -534,9 +555,7 @@ def decompress_path(
             text = compressor.decompress(compressed_chunk)
             restored_chunk = text.encode(
                 "utf-8",
-                errors="surrogateescape"
-                if encoding.endswith("surrogateescape")
-                else "strict",
+                errors="surrogateescape" if encoding.endswith("surrogateescape") else "strict",
             )
             if write_output and sink is not None:
                 sink.write(restored_chunk)
@@ -671,14 +690,18 @@ def _build_parser() -> argparse.ArgumentParser:
 
     compress_parser = subparsers.add_parser("compress", help="Compress a file into .aura format")
     compress_parser.add_argument("--input", required=True, type=Path, help="Path to the input file")
-    compress_parser.add_argument("--output", type=Path, help="Destination for the compressed artifact")
+    compress_parser.add_argument(
+        "--output", type=Path, help="Destination for the compressed artifact"
+    )
     compress_parser.add_argument(
         "--chunk-size",
         type=_parse_chunk_size,
         default=DEFAULT_CHUNK_SIZE,
         help="Chunk size per segment. Accepts raw bytes (65536) or suffixes like 64K, 4M.",
     )
-    compress_parser.add_argument("--cache-dir", type=Path, help="Directory for template cache persistence")
+    compress_parser.add_argument(
+        "--cache-dir", type=Path, help="Directory for template cache persistence"
+    )
     compress_parser.add_argument("--audit-dir", type=Path, help="Directory for audit logs")
     compress_parser.add_argument(
         "--sync-every",
@@ -711,9 +734,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     decompress_parser = subparsers.add_parser("decompress", help="Decompress a .aura file")
-    decompress_parser.add_argument("--input", required=True, type=Path, help="Compressed .aura file")
+    decompress_parser.add_argument(
+        "--input", required=True, type=Path, help="Compressed .aura file"
+    )
     decompress_parser.add_argument("--output", type=Path, help="Destination for restored data")
-    decompress_parser.add_argument("--cache-dir", type=Path, help="Directory for template cache persistence")
+    decompress_parser.add_argument(
+        "--cache-dir", type=Path, help="Directory for template cache persistence"
+    )
     decompress_parser.add_argument("--audit-dir", type=Path, help="Directory for audit logs")
     decompress_parser.add_argument(
         "--progress",
@@ -753,9 +780,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional path to save inspection details.",
     )
 
-    verify_parser = subparsers.add_parser("verify", help="Verify container integrity without writing output")
+    verify_parser = subparsers.add_parser(
+        "verify", help="Verify container integrity without writing output"
+    )
     verify_parser.add_argument("--input", required=True, type=Path, help="Compressed .aura file")
-    verify_parser.add_argument("--cache-dir", type=Path, help="Directory for template cache persistence")
+    verify_parser.add_argument(
+        "--cache-dir", type=Path, help="Directory for template cache persistence"
+    )
     verify_parser.add_argument("--audit-dir", type=Path, help="Directory for audit logs")
     verify_parser.add_argument(
         "--progress",

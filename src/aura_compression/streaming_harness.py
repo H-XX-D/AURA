@@ -3,12 +3,13 @@
 Streaming Test Harness - Patent Claim 20
 Demonstrates metadata-only fast paths achieve 60% usage in multi-agent scenarios
 """
-import time
-import threading
+
 import logging
-from dataclasses import dataclass
-from typing import List, Dict, Any
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
 from aura_compression.compressor import ProductionHybridCompressor
 from aura_compression.metadata import MetadataExtractor
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ConversationMessage:
     """Single message in a conversation"""
+
     session_id: str
     message_id: int
     text: str
@@ -61,6 +63,7 @@ class StreamingHarness:
 
     def _setup_routes(self):
         """Setup routes for different message types"""
+
         # Fast-path handler for template-based messages
         def fast_path_handler(metadata: Dict[str, Any]) -> str:
             """Handler that works with metadata only"""
@@ -133,12 +136,14 @@ class StreamingHarness:
                 text = ai_to_ai_messages[i % len(ai_to_ai_messages)]
                 is_ai_to_ai = True
 
-            messages.append(ConversationMessage(
-                session_id=session_id,
-                message_id=i,
-                text=text,
-                is_ai_to_ai=is_ai_to_ai,
-            ))
+            messages.append(
+                ConversationMessage(
+                    session_id=session_id,
+                    message_id=i,
+                    text=text,
+                    is_ai_to_ai=is_ai_to_ai,
+                )
+            )
 
         return messages
 
@@ -173,14 +178,14 @@ class StreamingHarness:
         total_time = (time.time() - start_time) * 1000
 
         return {
-            'session_id': message.session_id,
-            'message_id': message.message_id,
-            'is_ai_to_ai': message.is_ai_to_ai,
-            'compress_time_ms': compress_time,
-            'extract_time_ms': extract_time,
-            'route_time_ms': route_time,
-            'total_time_ms': total_time,
-            'used_fast_path': extracted.fast_path_candidate,
+            "session_id": message.session_id,
+            "message_id": message.message_id,
+            "is_ai_to_ai": message.is_ai_to_ai,
+            "compress_time_ms": compress_time,
+            "extract_time_ms": extract_time,
+            "route_time_ms": route_time,
+            "total_time_ms": total_time,
+            "used_fast_path": extracted.fast_path_candidate,
         }
 
     def run_session(self, session_id: str) -> List[Dict[str, Any]]:
@@ -205,13 +210,13 @@ class StreamingHarness:
         Returns:
             Comprehensive metrics dictionary
         """
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("STREAMING HARNESS - Patent Claim 20")
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info(f"Concurrent sessions: {self.concurrent_sessions}")
         logger.info(f"Messages per session: {self.messages_per_session}")
         logger.info(f"Total messages: {self.concurrent_sessions * self.messages_per_session}")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
         start_time = time.time()
 
@@ -231,43 +236,52 @@ class StreamingHarness:
         total_time = time.time() - start_time
 
         # Analyze results
-        fast_path_count = sum(1 for r in all_results if r['used_fast_path'])
+        fast_path_count = sum(1 for r in all_results if r["used_fast_path"])
         slow_path_count = len(all_results) - fast_path_count
         fast_path_percentage = (fast_path_count / len(all_results)) * 100
 
-        ai_to_ai_messages = [r for r in all_results if r['is_ai_to_ai']]
-        ai_to_ai_fast_path = sum(1 for r in ai_to_ai_messages if r['used_fast_path'])
-        ai_to_ai_percentage = (ai_to_ai_fast_path / len(ai_to_ai_messages)) * 100 if ai_to_ai_messages else 0
+        ai_to_ai_messages = [r for r in all_results if r["is_ai_to_ai"]]
+        ai_to_ai_fast_path = sum(1 for r in ai_to_ai_messages if r["used_fast_path"])
+        ai_to_ai_percentage = (
+            (ai_to_ai_fast_path / len(ai_to_ai_messages)) * 100 if ai_to_ai_messages else 0
+        )
 
-        avg_total_latency = sum(r['total_time_ms'] for r in all_results) / len(all_results)
-        avg_fast_path_latency = sum(r['total_time_ms'] for r in all_results if r['used_fast_path']) / fast_path_count if fast_path_count > 0 else 0
-        avg_slow_path_latency = sum(r['total_time_ms'] for r in all_results if not r['used_fast_path']) / slow_path_count if slow_path_count > 0 else 0
+        avg_total_latency = sum(r["total_time_ms"] for r in all_results) / len(all_results)
+        avg_fast_path_latency = (
+            sum(r["total_time_ms"] for r in all_results if r["used_fast_path"]) / fast_path_count
+            if fast_path_count > 0
+            else 0
+        )
+        avg_slow_path_latency = (
+            sum(r["total_time_ms"] for r in all_results if not r["used_fast_path"])
+            / slow_path_count
+            if slow_path_count > 0
+            else 0
+        )
 
-        speedup = avg_slow_path_latency / avg_fast_path_latency if avg_fast_path_latency > 0 else 1.0
+        speedup = (
+            avg_slow_path_latency / avg_fast_path_latency if avg_fast_path_latency > 0 else 1.0
+        )
 
         # Get router metrics
         router_metrics = self.router.get_metrics()
 
         metrics = {
-            'total_messages': len(all_results),
-            'fast_path_count': fast_path_count,
-            'slow_path_count': slow_path_count,
-            'fast_path_percentage': fast_path_percentage,
-            'target_percentage': 60.0,
-            'meets_target': fast_path_percentage >= 60.0,
-
-            'ai_to_ai_messages': len(ai_to_ai_messages),
-            'ai_to_ai_fast_path_percentage': ai_to_ai_percentage,
-
-            'average_total_latency_ms': avg_total_latency,
-            'average_fast_path_latency_ms': avg_fast_path_latency,
-            'average_slow_path_latency_ms': avg_slow_path_latency,
-            'speedup_factor': speedup,
-
-            'total_execution_time_seconds': total_time,
-            'messages_per_second': len(all_results) / total_time,
-
-            'router_metrics': router_metrics,
+            "total_messages": len(all_results),
+            "fast_path_count": fast_path_count,
+            "slow_path_count": slow_path_count,
+            "fast_path_percentage": fast_path_percentage,
+            "target_percentage": 60.0,
+            "meets_target": fast_path_percentage >= 60.0,
+            "ai_to_ai_messages": len(ai_to_ai_messages),
+            "ai_to_ai_fast_path_percentage": ai_to_ai_percentage,
+            "average_total_latency_ms": avg_total_latency,
+            "average_fast_path_latency_ms": avg_fast_path_latency,
+            "average_slow_path_latency_ms": avg_slow_path_latency,
+            "speedup_factor": speedup,
+            "total_execution_time_seconds": total_time,
+            "messages_per_second": len(all_results) / total_time,
+            "router_metrics": router_metrics,
         }
 
         # Print results
@@ -277,9 +291,9 @@ class StreamingHarness:
 
     def _print_results(self, metrics: Dict[str, Any]):
         """Print streaming harness results"""
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("STREAMING HARNESS RESULTS")
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info(f"Total messages:           {metrics['total_messages']}")
         logger.info(f"Fast-path messages:       {metrics['fast_path_count']}")
         logger.info(f"Slow-path messages:       {metrics['slow_path_count']}")
@@ -294,7 +308,7 @@ class StreamingHarness:
         logger.info(f"Speedup factor:           {metrics['speedup_factor']:.1f}x")
         logger.info(f"Execution time:           {metrics['total_execution_time_seconds']:.2f}s")
         logger.info(f"Messages per second:      {metrics['messages_per_second']:.1f}")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
 
 def run_streaming_harness_demo():

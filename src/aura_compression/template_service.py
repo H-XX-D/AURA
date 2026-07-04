@@ -12,11 +12,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from aura_compression.template_manager import TemplateManager
-from aura_compression.templates import TemplateLibrary
 from aura_compression.background_workers import TemplateDiscoveryWorker
 from aura_compression.persistent_cache import PersistentTemplateCache
-
+from aura_compression.template_manager import TemplateManager
+from aura_compression.templates import TemplateLibrary
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +89,7 @@ class TemplateService:
                         for template_id, pattern in discovered.items():
                             if isinstance(pattern, str):
                                 dynamic_templates[template_id] = pattern
-                        
+
                         # Sync dynamic templates into the template library
                         if dynamic_templates:
                             self.template_library.sync_dynamic_templates(dynamic_templates)
@@ -98,10 +97,12 @@ class TemplateService:
                 # Sync is best-effort, don't fail operations
                 logger.warning("Template sync failed: %s", e)
 
-    def heal_template_cache(self,
-                             text: Optional[str] = None,
-                             template_id: Optional[int] = None,
-                             force_full_reset: bool = False) -> None:
+    def heal_template_cache(
+        self,
+        text: Optional[str] = None,
+        template_id: Optional[int] = None,
+        force_full_reset: bool = False,
+    ) -> None:
         """Self-heal template caches when stale entries are detected."""
         with self._lock:
             if force_full_reset:
@@ -140,12 +141,14 @@ class TemplateService:
             if self.discovery_worker:
                 templates = self.discovery_worker.get_discovered_templates()
                 metadata = self.discovery_worker.get_store_metadata()
-            
+
             return {
-                'version': 1,
-                'templates': templates,
-                'last_updated': metadata.get('last_updated', datetime.now(timezone.utc).isoformat()),
-                'total_templates': len(templates),
+                "version": 1,
+                "templates": templates,
+                "last_updated": metadata.get(
+                    "last_updated", datetime.now(timezone.utc).isoformat()
+                ),
+                "total_templates": len(templates),
             }
 
     def get_template_by_id(self, template_id: int) -> Optional[Dict[str, Any]]:
@@ -157,9 +160,9 @@ class TemplateService:
             pattern = templates.get(template_id)
             if pattern:
                 return {
-                    'id': template_id,
-                    'pattern': pattern,
-                    'version': 1,
+                    "id": template_id,
+                    "pattern": pattern,
+                    "version": 1,
                 }
         return None
 
@@ -170,11 +173,11 @@ class TemplateService:
         with self._lock:
             store_data = self.get_template_store()
             return {
-                'total_templates': store_data.get('total_templates', 0),
-                'store_version': store_data.get('version', 0),
-                'last_updated': store_data.get('last_updated'),
-                'discovery_enabled': self.discovery_worker is not None,
-                'discovery_interval': self.discovery_interval,
+                "total_templates": store_data.get("total_templates", 0),
+                "store_version": store_data.get("version", 0),
+                "last_updated": store_data.get("last_updated"),
+                "discovery_enabled": self.discovery_worker is not None,
+                "discovery_interval": self.discovery_interval,
             }
 
     def record_template_use(self, template_id: int):

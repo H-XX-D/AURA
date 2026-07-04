@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Comprehensive tests for BRIO module"""
 
-from aura_compression.brio import BrioEncoder, BrioDecoder
+from aura_compression.brio import BrioDecoder, BrioEncoder
 from aura_compression.templates import TemplateLibrary
 
 print('='*60)

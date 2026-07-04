@@ -1,7 +1,7 @@
 """BRIO compressor with rANS entropy coding."""
 
-from .encoder import BrioEncoder, BrioCompressed
 from .decoder import BrioDecoder, BrioDecompressed
+from .encoder import BrioCompressed, BrioEncoder
 
 __all__ = [
     "BrioEncoder",

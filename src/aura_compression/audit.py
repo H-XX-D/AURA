@@ -3,19 +3,21 @@
 Audit Logging Infrastructure - Patent Claim 2
 Implements GDPR Article 15, HIPAA 45 CFR 164.312(b), SOC2 CC6.1 compliant logging
 """
+
 import hashlib
 import json
 import os
 import threading
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class AuditLogType(Enum):
     """Types of audit logs per Claim 32"""
+
     CLIENT_DELIVERED = "client_delivered"  # First log: what clients receive (post-moderation)
     AI_GENERATED = "ai_generated"  # Second log: pre-moderation AI output
     METADATA_ONLY = "metadata_only"  # Third log: privacy-preserving analytics
@@ -28,6 +30,7 @@ class AuditEntry:
     Immutable audit log entry with cryptographic integrity
     Satisfies GDPR Article 15 (right to access), HIPAA audit trails, SOC2 CC6.1
     """
+
     timestamp: str  # ISO 8601 format
     entry_id: str  # Unique identifier
     log_type: str  # AuditLogType
@@ -57,19 +60,19 @@ class AuditEntry:
         """Serialize to JSON for storage"""
         data = asdict(self)
         # Convert bytes to hex for JSON serialization
-        if data['compressed_payload'] is not None:
-            data['compressed_payload'] = data['compressed_payload'].hex()
+        if data["compressed_payload"] is not None:
+            data["compressed_payload"] = data["compressed_payload"].hex()
         return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'AuditEntry':
+    def from_json(cls, json_str: str) -> "AuditEntry":
         """Deserialize from JSON"""
         data = json.loads(json_str)
         # Convert hex back to bytes
-        if data.get('compressed_payload'):
-            data['compressed_payload'] = bytes.fromhex(data['compressed_payload'])
-        if 'metadata' in data:
-            data['metadata'] = expand_metadata(data['metadata'])
+        if data.get("compressed_payload"):
+            data["compressed_payload"] = bytes.fromhex(data["compressed_payload"])
+        if "metadata" in data:
+            data["metadata"] = expand_metadata(data["metadata"])
         return cls(**data)
 
 
@@ -77,7 +80,6 @@ from .audit_layer import compact_metadata, expand_metadata
 
 
 class AuditLogger:
-
     """
     Append-only audit logger with cryptographic integrity checks
     Implements Patent Claims 2, 11, 32-35
@@ -114,7 +116,7 @@ class AuditLogger:
             return None
 
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 # Read last line
                 lines = f.readlines()
                 if lines:
@@ -131,8 +133,10 @@ class AuditLogger:
         Creates an immutable chain preventing tampering (Claim 11)
         """
         # Include previous hash to create chain
-        content = f"{previous_hash or 'GENESIS'}{entry.timestamp}{entry.entry_id}{entry.plaintext or ''}"
-        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+        content = (
+            f"{previous_hash or 'GENESIS'}{entry.timestamp}{entry.entry_id}{entry.plaintext or ''}"
+        )
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     def log_compression(
         self,
@@ -165,8 +169,8 @@ class AuditLogger:
             metadata=compacted_metadata,
             session_id=session_id,
             user_id=user_id,
-            compression_method=metadata.get('method'),
-            compression_ratio=metadata.get('ratio'),
+            compression_method=metadata.get("method"),
+            compression_ratio=metadata.get("ratio"),
             integrity_hash=None,  # Will be computed
         )
 
@@ -310,8 +314,8 @@ class AuditLogger:
 
         with self.locks[log_type]:
             # Append-only mode
-            with open(log_file, 'a', encoding='utf-8') as f:
-                f.write(entry.to_json() + '\n')
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(entry.to_json() + "\n")
 
     def verify_integrity(self, log_type: AuditLogType) -> bool:
         """
@@ -324,7 +328,7 @@ class AuditLogger:
         if not log_file.exists():
             return True  # Empty log is valid
 
-        with open(log_file, 'r', encoding='utf-8') as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         previous_hash = None
@@ -366,7 +370,7 @@ class AuditLogger:
             return []
 
         entries = []
-        with open(log_file, 'r', encoding='utf-8') as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             for line in f:
                 try:
                     entry = AuditEntry.from_json(line.strip())

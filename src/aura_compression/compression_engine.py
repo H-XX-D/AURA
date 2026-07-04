@@ -3,50 +3,46 @@
 Compression Engine - Core compression and decompression logic
 Extracted from the monolithic ProductionHybridCompressor
 """
+
+import json
+import logging
 import os
 import re
 import struct
-import logging
-from pathlib import Path
-import json
-from typing import Dict, List, Tuple, Optional, Any
-from enum import Enum
-from datetime import datetime
 from collections import Counter
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+from aura_compression.auralite import AuraLiteDecoder, AuraLiteEncoded, AuraLiteEncoder
+
+# TCP-optimized BRIO for small messages (using enhanced brio_full)
+from aura_compression.brio_full import BrioDecoder
+from aura_compression.brio_full import BrioDecoder as TcpBrioDecoder
+from aura_compression.brio_full import BrioDecompressed
+from aura_compression.brio_full import BrioEncoder
+from aura_compression.brio_full import BrioEncoder as TcpBrioEncoder
+from aura_compression.brio_full.tokens import DictionaryToken as AuraDictionaryToken
+from aura_compression.brio_full.tokens import LiteralToken as AuraLiteralToken
+from aura_compression.brio_full.tokens import LiteralToken as TcpLiteralToken
+from aura_compression.brio_full.tokens import MatchToken as AuraMatchToken
+from aura_compression.brio_full.tokens import MatchToken as TcpMatchToken
+from aura_compression.brio_full.tokens import MetadataEntry as TcpMetadataEntry
+from aura_compression.brio_full.tokens import TemplateToken as AuraTemplateToken
+from aura_compression.brio_full.tokens import TemplateToken as TcpTemplateToken
+from aura_compression.brio_full.tokens import Token as TcpToken
 from aura_compression.enums import (
-    CompressionMethod,
-    TEMPLATE_METADATA_KIND,
     _SEMANTIC_PREVIEW_LIMIT,
     _SEMANTIC_TOKEN_LIMIT,
     _SEMANTIC_TOKEN_PATTERN,
+    TEMPLATE_METADATA_KIND,
+    CompressionMethod,
 )
-
-from aura_compression.brio_full import BrioEncoder, BrioDecoder, BrioDecompressed
-from aura_compression.brio_full.tokens import (
-    LiteralToken as AuraLiteralToken,
-    DictionaryToken as AuraDictionaryToken,
-    MatchToken as AuraMatchToken,
-    TemplateToken as AuraTemplateToken,
-)
-# TCP-optimized BRIO for small messages (using enhanced brio_full)
-from aura_compression.brio_full import BrioEncoder as TcpBrioEncoder, BrioDecoder as TcpBrioDecoder
-from aura_compression.brio_full.tokens import (
-    LiteralToken as TcpLiteralToken,
-    MatchToken as TcpMatchToken,
-    TemplateToken as TcpTemplateToken,
-    MetadataEntry as TcpMetadataEntry,
-    Token as TcpToken,
-)
-from aura_compression.auralite import (
-    AuraLiteEncoder,
-    AuraLiteDecoder,
-    AuraLiteEncoded,
-)
-from aura_compression.templates import TemplateMatch
 from aura_compression.pattern_semantic_large_file import PatternSemanticCompressor
+from aura_compression.templates import TemplateMatch
 
 
 class CompressionEngine:
@@ -55,21 +51,23 @@ class CompressionEngine:
     Handles the actual compression/decompression logic
     """
 
-    def __init__(self,
-                 template_library: Any,
-                 aura_encoder: Optional[BrioEncoder] = None,
-                 aura_decoder: Optional[BrioDecoder] = None,
-                 tcp_brio_encoder: Optional[TcpBrioEncoder] = None,
-                 tcp_brio_decoder: Optional[TcpBrioDecoder] = None,
-                 auralite_encoder: Optional[AuraLiteEncoder] = None,
-                 auralite_decoder: Optional[AuraLiteDecoder] = None,
-                 tcp_brio_threshold: int = 1000,
-                 pattern_semantic_compressor: Optional[PatternSemanticCompressor] = None,
-                 cache_dir: str = ".aura_cache",
-                 enable_sql_cache: bool = True):
+    def __init__(
+        self,
+        template_library: Any,
+        aura_encoder: Optional[BrioEncoder] = None,
+        aura_decoder: Optional[BrioDecoder] = None,
+        tcp_brio_encoder: Optional[TcpBrioEncoder] = None,
+        tcp_brio_decoder: Optional[TcpBrioDecoder] = None,
+        auralite_encoder: Optional[AuraLiteEncoder] = None,
+        auralite_decoder: Optional[AuraLiteDecoder] = None,
+        tcp_brio_threshold: int = 1000,
+        pattern_semantic_compressor: Optional[PatternSemanticCompressor] = None,
+        cache_dir: str = ".aura_cache",
+        enable_sql_cache: bool = True,
+    ):
         """
         Initialize compression engine with encoders/decoders and SQL-backed caching
-        
+
         Args:
             template_library: Template library instance
             aura_encoder: BRIO encoder (auto-created if None)
@@ -90,6 +88,7 @@ class CompressionEngine:
 
         # Initialize SQL-backed persistent cache for pattern discovery
         from aura_compression.persistent_cache import PersistentTemplateCache
+
         self._persistent_cache = None
         if enable_sql_cache:
             try:
@@ -97,7 +96,7 @@ class CompressionEngine:
                     cache_dir=cache_dir,
                     max_size=10000,  # Large cache for aggressive performance
                     save_interval=300.0,  # Save every 5 minutes to avoid overhead
-                    compression_enabled=True  # Compress cache data
+                    compression_enabled=True,  # Compress cache data
                 )
                 logger.info(f"SQL-backed persistent cache enabled in {cache_dir}")
             except Exception as e:
@@ -111,13 +110,33 @@ class CompressionEngine:
         self._tcp_brio_decoder = tcp_brio_decoder or TcpBrioDecoder()
 
         # Auralite encoders/decoders - Always created
-        self._auralite_encoder = auralite_encoder or AuraLiteEncoder(template_library=template_library)
-        self._auralite_decoder = auralite_decoder or AuraLiteDecoder(template_library=template_library)
+        self._auralite_encoder = auralite_encoder or AuraLiteEncoder(
+            template_library=template_library
+        )
+        self._auralite_decoder = auralite_decoder or AuraLiteDecoder(
+            template_library=template_library
+        )
 
         # AI Semantic compressor - Always created
-        self._pattern_semantic_compressor = pattern_semantic_compressor or PatternSemanticCompressor()
+        self._pattern_semantic_compressor = (
+            pattern_semantic_compressor or PatternSemanticCompressor()
+        )
 
-    def compress_binary_semantic(self, text: str, template_match: TemplateMatch) -> Tuple[bytes, dict]:
+    def close(self) -> None:
+        """Release resources owned by the engine."""
+        if self._persistent_cache is not None:
+            self._persistent_cache.shutdown()
+            self._persistent_cache = None
+
+    def __enter__(self) -> "CompressionEngine":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        self.close()
+
+    def compress_binary_semantic(
+        self, text: str, template_match: TemplateMatch
+    ) -> Tuple[bytes, dict]:
         """Compress using binary semantic compression"""
         template_id = template_match.template_id
         slots = template_match.slots
@@ -152,32 +171,32 @@ class CompressionEngine:
         slot_data = []
         slot_lengths = []
         for slot in slots:
-            slot_bytes = slot.encode('utf-8')
+            slot_bytes = slot.encode("utf-8")
             slot_lengths.append(len(slot_bytes))
             slot_data.append(slot_bytes)
 
         # Pack slot lengths
-        slot_lengths_bytes = b''.join(struct.pack(">H", length) for length in slot_lengths)
+        slot_lengths_bytes = b"".join(struct.pack(">H", length) for length in slot_lengths)
 
         # Combine all slot data
-        slots_bytes = b''.join(slot_data)
+        slots_bytes = b"".join(slot_data)
 
         # Create final compressed data
         compressed = (
-            bytes([method_byte]) +
-            template_bytes +
-            slot_count_byte +
-            slot_lengths_bytes +
-            slots_bytes
+            bytes([method_byte])
+            + template_bytes
+            + slot_count_byte
+            + slot_lengths_bytes
+            + slots_bytes
         )
 
         metadata = {
-            'original_size': len(text.encode('utf-8')),
-            'compressed_size': len(compressed),
-            'ratio': len(text.encode('utf-8')) / len(compressed),
-            'method': CompressionMethod.BINARY_SEMANTIC.name.lower(),
-            'template_id': template_id,
-            'slot_count': len(slots),
+            "original_size": len(text.encode("utf-8")),
+            "compressed_size": len(compressed),
+            "ratio": len(text.encode("utf-8")) / len(compressed),
+            "method": CompressionMethod.BINARY_SEMANTIC.name.lower(),
+            "template_id": template_id,
+            "slot_count": len(slots),
         }
 
         return compressed, metadata
@@ -203,9 +222,9 @@ class CompressionEngine:
             raise ValueError("Invalid binary semantic data: truncated slot lengths")
         slot_lengths = []
         for i in range(slot_count):
-            length = struct.unpack(">H", view[i*2:(i+1)*2].tobytes())[0]
+            length = struct.unpack(">H", view[i * 2 : (i + 1) * 2].tobytes())[0]
             slot_lengths.append(length)
-        view = view[slot_count * 2:]
+        view = view[slot_count * 2 :]
 
         # Read slot data
         slots = []
@@ -213,7 +232,7 @@ class CompressionEngine:
             if len(view) < length:
                 raise ValueError("Invalid binary semantic data: truncated slot data")
             slot_bytes = view[:length].tobytes()
-            slot_text = slot_bytes.decode('utf-8')
+            slot_text = slot_bytes.decode("utf-8")
             slots.append(slot_text)
             view = view[length:]
 
@@ -221,9 +240,9 @@ class CompressionEngine:
         text = self.template_library.format_template(template_id, slots)
 
         metadata = {
-            'method': CompressionMethod.BINARY_SEMANTIC.name.lower(),
-            'template_id': template_id,
-            'slot_count': len(slots),
+            "method": CompressionMethod.BINARY_SEMANTIC.name.lower(),
+            "template_id": template_id,
+            "slot_count": len(slots),
         }
 
         return text, metadata
@@ -234,10 +253,10 @@ class CompressionEngine:
         compressed_bytes = compressed.payload
 
         metadata = {
-            'original_size': len(text.encode('utf-8')),
-            'compressed_size': len(compressed_bytes),
-            'ratio': len(text.encode('utf-8')) / len(compressed_bytes),
-            'method': CompressionMethod.AURALITE.name.lower(),
+            "original_size": len(text.encode("utf-8")),
+            "compressed_size": len(compressed_bytes),
+            "ratio": len(text.encode("utf-8")) / len(compressed_bytes),
+            "method": CompressionMethod.AURALITE.name.lower(),
         }
 
         return compressed_bytes, metadata
@@ -253,7 +272,7 @@ class CompressionEngine:
         text = decoded.text
 
         metadata = {
-            'method': CompressionMethod.AURALITE.name.lower(),
+            "method": CompressionMethod.AURALITE.name.lower(),
         }
 
         return text, metadata
@@ -269,15 +288,15 @@ class CompressionEngine:
                 template_ids.append(token.template_id)
                 template_details.append(
                     {
-                        'template_id': token.template_id,
-                        'slot_count': len(token.slots),
+                        "template_id": token.template_id,
+                        "slot_count": len(token.slots),
                     }
                 )
         return template_ids, template_details
 
     def compress_brio(self, text: str, use_tcp: bool = True) -> Tuple[bytes, dict]:
         """Compress using BRIO (TCP-optimized or full)"""
-        original_size = len(text.encode('utf-8'))
+        original_size = len(text.encode("utf-8"))
 
         if use_tcp and original_size < self.tcp_brio_threshold:
             # Use TCP-optimized BRIO
@@ -294,18 +313,20 @@ class CompressionEngine:
             compressed_bytes = compressed.payload
             method = CompressionMethod.BRIO.name.lower()
 
-        template_ids, template_details = self._extract_template_usage(getattr(compressed, "tokens", []))
+        template_ids, template_details = self._extract_template_usage(
+            getattr(compressed, "tokens", [])
+        )
 
         metadata = {
-            'original_size': original_size,
-            'compressed_size': len(compressed_bytes),
-            'ratio': original_size / len(compressed_bytes),
-            'method': method,
-            'tcp_optimized': use_tcp and original_size < self.tcp_brio_threshold,
+            "original_size": original_size,
+            "compressed_size": len(compressed_bytes),
+            "ratio": original_size / len(compressed_bytes),
+            "method": method,
+            "tcp_optimized": use_tcp and original_size < self.tcp_brio_threshold,
         }
         if template_ids:
-            metadata['template_ids'] = template_ids
-            metadata['template_usage'] = template_details
+            metadata["template_ids"] = template_ids
+            metadata["template_usage"] = template_details
 
         return compressed_bytes, metadata
 
@@ -337,12 +358,12 @@ class CompressionEngine:
         template_ids, template_details = self._extract_template_usage(getattr(result, "tokens", []))
 
         metadata = {
-            'method': CompressionMethod.BRIO.name.lower(),
-            'tcp_optimized': tcp_optimized,
+            "method": CompressionMethod.BRIO.name.lower(),
+            "tcp_optimized": tcp_optimized,
         }
         if template_ids:
-            metadata['template_ids'] = template_ids
-            metadata['template_usage'] = template_details
+            metadata["template_ids"] = template_ids
+            metadata["template_usage"] = template_details
 
         return text, metadata
 
@@ -351,14 +372,14 @@ class CompressionEngine:
         compressed, stats = self._pattern_semantic_compressor.compress(text)
 
         metadata = {
-            'original_size': stats.original_size,
-            'compressed_size': stats.compressed_size,
-            'ratio': stats.ratio,
-            'method': CompressionMethod.PATTERN_SEMANTIC.name.lower(),
-            'patterns_found': stats.patterns_found,
-            'dictionary_size': stats.dictionary_size,
-            'semantic_chunks': stats.semantic_chunks,
-            'ai_optimizations': stats.ai_optimizations,
+            "original_size": stats.original_size,
+            "compressed_size": stats.compressed_size,
+            "ratio": stats.ratio,
+            "method": CompressionMethod.PATTERN_SEMANTIC.name.lower(),
+            "patterns_found": stats.patterns_found,
+            "dictionary_size": stats.dictionary_size,
+            "semantic_chunks": stats.semantic_chunks,
+            "ai_optimizations": stats.ai_optimizations,
         }
 
         return compressed, metadata
@@ -373,24 +394,24 @@ class CompressionEngine:
         text = self._pattern_semantic_compressor.decompress(payload)
 
         metadata = {
-            'method': CompressionMethod.PATTERN_SEMANTIC.name.lower(),
+            "method": CompressionMethod.PATTERN_SEMANTIC.name.lower(),
         }
 
         return text, metadata
 
     def compress_uncompressed(self, text: str) -> Tuple[bytes, dict]:
         """Return uncompressed data with method marker"""
-        text_bytes = text.encode('utf-8')
+        text_bytes = text.encode("utf-8")
         compressed = bytes([CompressionMethod.UNCOMPRESSED.value]) + text_bytes
 
         compressed_size = len(compressed)
         effective_size = max(compressed_size - 1, 1)
         metadata = {
-            'original_size': len(text_bytes),
-            'compressed_size': compressed_size,
-            'ratio': len(text_bytes) / effective_size,
-            'ratio_actual': len(text_bytes) / compressed_size if compressed_size else 1.0,
-            'method': CompressionMethod.UNCOMPRESSED.name.lower(),
+            "original_size": len(text_bytes),
+            "compressed_size": compressed_size,
+            "ratio": len(text_bytes) / effective_size,
+            "ratio_actual": len(text_bytes) / compressed_size if compressed_size else 1.0,
+            "method": CompressionMethod.UNCOMPRESSED.name.lower(),
         }
 
         return compressed, metadata
@@ -404,13 +425,13 @@ class CompressionEngine:
         text_bytes = data[1:]
         # Handle potential surrogate bytes from metadata sidechannel or other sources
         try:
-            text = text_bytes.decode('utf-8')
+            text = text_bytes.decode("utf-8")
         except UnicodeDecodeError:
             # If standard UTF-8 fails, try with surrogateescape to handle invalid bytes
-            text = text_bytes.decode('utf-8', errors='surrogateescape')
+            text = text_bytes.decode("utf-8", errors="surrogateescape")
 
         metadata = {
-            'method': CompressionMethod.UNCOMPRESSED.name.lower(),
+            "method": CompressionMethod.UNCOMPRESSED.name.lower(),
         }
 
         return text, metadata

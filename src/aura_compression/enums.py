@@ -2,6 +2,7 @@
 """
 Compression enums and constants
 """
+
 import re
 from enum import Enum
 
@@ -9,9 +10,11 @@ from enum import Enum
 class CompressionMethod(Enum):
     BINARY_SEMANTIC = 0x00
     AURALITE = 0x01  # AuraLite implementation (primary)
-    BRIO = 0x02      # BRIO compression
+    BRIO = 0x02  # BRIO compression
     AURA_HEAVY = 0x04  # High-compression AURA with rANS
-    PATTERN_SEMANTIC = 0x20  # Pattern-based semantic compression for large files (regex + dictionary + zlib)
+    PATTERN_SEMANTIC = (
+        0x20  # Pattern-based semantic compression for large files (regex + dictionary + zlib)
+    )
     UNCOMPRESSED = 0xFF
 
 

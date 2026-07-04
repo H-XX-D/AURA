@@ -5,16 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from .constants import MAGIC, VERSION, WINDOW_SIZE
-from .tokens import (
-    DictionaryToken,
-    LiteralToken,
-    MatchToken,
-    TemplateToken,
-    MetadataEntry,
-    Token,
-)
 from . import dictionary
+from .constants import MAGIC, VERSION, WINDOW_SIZE
+from .tokens import DictionaryToken, LiteralToken, MatchToken, MetadataEntry, TemplateToken, Token
 
 
 @dataclass
@@ -28,6 +21,7 @@ class BrioDecompressed:
 class BrioDecoder:
     def __init__(self, template_library=None):
         self.template_library = template_library
+
     def decompress(self, payload: bytes) -> BrioDecompressed:
         view = memoryview(payload)
         # Check for new "BR" magic (TCP-optimized)
@@ -48,7 +42,9 @@ class BrioDecoder:
                 offset += 2
             else:
                 # 3-byte length
-                payload_len = ((first_byte & 0x3F) << 16) | (view[offset + 1] << 8) | view[offset + 2]
+                payload_len = (
+                    ((first_byte & 0x3F) << 16) | (view[offset + 1] << 8) | view[offset + 2]
+                )
                 offset += 3
 
             # Variable-length decode metadata_count

@@ -4,12 +4,13 @@ Conversation Acceleration - Patent Claims 31, 31A-31E
 Progressive speedup through pattern caching and metadata signature matching
 Achieves 87x speedup: 13ms -> 0.15ms after 50 messages
 """
+
 import hashlib
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any, List, Tuple, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 
 @dataclass
@@ -17,6 +18,7 @@ class MetadataSignature:
     """
     Structural signature of message metadata for fast pattern matching (Claim 31)
     """
+
     compression_method: str
     template_ids: Tuple[int, ...] = field(default_factory=tuple)
     has_lz77: bool = False
@@ -33,6 +35,7 @@ class CachedResponse:
     """
     Cached response for recognized metadata pattern (Claim 31)
     """
+
     response: str
     hit_count: int = 1
     last_accessed: float = field(default_factory=time.time)
@@ -95,7 +98,9 @@ class LRUPatternCache:
         if not self.cache:
             return 0.0
 
-        total_hits = sum(entry.hit_count - 1 for entry in self.cache.values())  # Subtract initial count
+        total_hits = sum(
+            entry.hit_count - 1 for entry in self.cache.values()
+        )  # Subtract initial count
         total_accesses = sum(entry.hit_count for entry in self.cache.values())
 
         return total_hits / total_accesses if total_accesses > 0 else 0.0
@@ -107,9 +112,9 @@ class LRUPatternCache:
 
 DEFAULT_SPEED_PROFILE: Tuple[Tuple[int, float], ...] = (
     # (message_number, observed_latency_ms)
-    (1, 13.0),    # Baseline decompression cost (Claim 31)
-    (10, 1.2),    # Early acceleration milestone (≈10.8× faster)
-    (50, 0.15),   # Fully warmed cache (≈86.7× faster)
+    (1, 13.0),  # Baseline decompression cost (Claim 31)
+    (10, 1.2),  # Early acceleration milestone (≈10.8× faster)
+    (50, 0.15),  # Fully warmed cache (≈86.7× faster)
 )
 
 
@@ -127,7 +132,7 @@ class ConversationAccelerator:
         cache_size: int = 1000,
         decay_rate: float = 0.05,
         enable_platform_wide_learning: bool = False,
-    preload_speed_profile: Union[bool, Sequence[Tuple[int, float]]] = True,
+        preload_speed_profile: Union[bool, Sequence[Tuple[int, float]]] = True,
     ):
         """
         Args:
@@ -156,10 +161,10 @@ class ConversationAccelerator:
 
         # Detailed stats mirror legacy accelerator for dashboards/tests.
         self.stats: Dict[str, Any] = {
-            'total_lookups': 0,
-            'cache_hits': 0,
-            'cache_misses': 0,
-            'speedup_samples': [],
+            "total_lookups": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "speedup_samples": [],
         }
 
         # Preload acceleration statistics so dashboards show meaningful values from the start.
@@ -181,16 +186,16 @@ class ConversationAccelerator:
         Returns:
             MetadataSignature for cache lookup
         """
-        template_ids = metadata.get('template_ids', [])
+        template_ids = metadata.get("template_ids", [])
         if template_ids is None:
             template_ids = []
 
         return MetadataSignature(
-            compression_method=metadata.get('method', 'unknown'),
+            compression_method=metadata.get("method", "unknown"),
             template_ids=tuple(template_ids),
-            has_lz77=metadata.get('has_lz77_matches', False),
-            has_literals=metadata.get('has_literals', False),
-            token_count=metadata.get('plain_token_length', 0),
+            has_lz77=metadata.get("has_lz77_matches", False),
+            has_literals=metadata.get("has_literals", False),
+            token_count=metadata.get("plain_token_length", 0),
         )
 
     def try_fast_path(self, metadata: Dict[str, Any]) -> Optional[str]:
@@ -294,18 +299,18 @@ class ConversationAccelerator:
         speedup = self.get_speedup_factor()
 
         return {
-            'message_count': self.message_count,
-            'cache_hits': self.cache_hits,
-            'cache_misses': self.cache_misses,
-            'hit_rate': hit_rate,
-            'hit_rate_percent': hit_rate * 100,
-            'cache_size': self.session_cache.size(),
-            'max_cache_size': self.cache_size,
-            'average_latency_ms': avg_latency,
-            'baseline_latency_ms': 13.0,
-            'speedup_factor': speedup,
-            'speedup_description': f"{speedup:.1f}x faster",
-            'platform_wide_enabled': self.enable_platform_wide_learning,
+            "message_count": self.message_count,
+            "cache_hits": self.cache_hits,
+            "cache_misses": self.cache_misses,
+            "hit_rate": hit_rate,
+            "hit_rate_percent": hit_rate * 100,
+            "cache_size": self.session_cache.size(),
+            "max_cache_size": self.cache_size,
+            "average_latency_ms": avg_latency,
+            "baseline_latency_ms": 13.0,
+            "speedup_factor": speedup,
+            "speedup_description": f"{speedup:.1f}x faster",
+            "platform_wide_enabled": self.enable_platform_wide_learning,
         }
 
     def apply_temporal_decay(self):
@@ -332,28 +337,28 @@ class ConversationAccelerator:
 
         self.latencies = [sample[1] for sample in ordered_profile]
 
-        self.stats['speedup_samples'] = []
+        self.stats["speedup_samples"] = []
         for message_num, latency_ms in ordered_profile:
             latency_s = max(latency_ms / 1000.0, 1e-6)
             speedup = self.baseline_time / latency_s if latency_s else 1.0
-            self.stats['speedup_samples'].append(
+            self.stats["speedup_samples"].append(
                 {
-                    'message_num': message_num,
-                    'elapsed_ms': latency_ms,
-                    'speedup': speedup,
+                    "message_num": message_num,
+                    "elapsed_ms": latency_ms,
+                    "speedup": speedup,
                 }
             )
 
         last_message = ordered_profile[-1][0]
         self.message_count = last_message
-        self.stats['total_lookups'] = last_message
+        self.stats["total_lookups"] = last_message
 
         # Assume the first observation was a miss and the rest were cache hits.
         assumed_hits = max(last_message - 1, 0)
         self.cache_hits = assumed_hits
         self.cache_misses = 1 if last_message > 0 else 0
-        self.stats['cache_hits'] = self.cache_hits
-        self.stats['cache_misses'] = self.cache_misses
+        self.stats["cache_hits"] = self.cache_hits
+        self.stats["cache_misses"] = self.cache_misses
 
 
 class ConversationSession:

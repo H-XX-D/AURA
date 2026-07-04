@@ -3,34 +3,34 @@
 Refactored Production-Ready Hybrid Compression System
 Uses modular architecture with extracted components
 """
+
+import json
 import os
 import re
 import struct
 import time
-from pathlib import Path
-import json
-from typing import Dict, List, Tuple, Optional, Any
-from enum import Enum
-from datetime import datetime
 from collections import Counter
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
+from aura_compression.compression_engine import CompressionEngine
+from aura_compression.compression_strategy_manager import CompressionStrategyManager
 from aura_compression.enums import (
-    CompressionMethod,
-    TEMPLATE_METADATA_KIND,
     _SEMANTIC_PREVIEW_LIMIT,
     _SEMANTIC_TOKEN_LIMIT,
     _SEMANTIC_TOKEN_PATTERN,
+    TEMPLATE_METADATA_KIND,
+    CompressionMethod,
 )
-
-from aura_compression.templates import TemplateMatch
-from aura_compression.compression_engine import CompressionEngine
-from aura_compression.compression_strategy_manager import CompressionStrategyManager
+from aura_compression.metadata_sidechannel import MessageCategory
 from aura_compression.ml_algorithm_selector import MLAlgorithmSelector
-from aura_compression.template_service import TemplateService
+from aura_compression.pattern_semantic_large_file import PatternSemanticCompressor
 from aura_compression.performance_optimizer import PerformanceOptimizer
 from aura_compression.storage_manager import StorageManager
-from aura_compression.metadata_sidechannel import MessageCategory
-from aura_compression.pattern_semantic_large_file import PatternSemanticCompressor
+from aura_compression.template_service import TemplateService
+from aura_compression.templates import TemplateMatch
 
 
 class ProductionHybridCompressor:
@@ -38,26 +38,28 @@ class ProductionHybridCompressor:
     Refactored production-ready hybrid compressor using modular architecture
     """
 
-    def __init__(self,
-                 binary_advantage_threshold: float = 1.01,
-                 min_compression_size: int = 10,
-                 enable_aura: Optional[bool] = True,
-                 aura_preference_margin: float = 0.05,
-                 enable_audit_logging: bool = False,
-                 audit_log_directory: str = "./audit_logs",
-                 session_id: Optional[str] = None,
-                 user_id: Optional[str] = None,
-                 template_cache_size: int = 10000,  # Increased from 128 for better performance
-                 enable_normalization: bool = True,
-                 tcp_brio_threshold: int = 1000,
-                 enable_fast_path: bool = True,
-                 enable_sidechain: Optional[bool] = True,
-                 sidechain_config: Optional[Dict[str, Any]] = None,
-                 enable_ml_selection: bool = True,  # Enable ML by default for better compression
-                 enable_scorer: Optional[bool] = None,
-                 scorer_telemetry_path: Optional[str] = None,
-                 template_sync_interval_seconds: Optional[int] = 120,  # Less frequent syncs for speed
-                 template_cache_dir: str = ".aura_cache"):
+    def __init__(
+        self,
+        binary_advantage_threshold: float = 1.01,
+        min_compression_size: int = 10,
+        enable_aura: Optional[bool] = True,
+        aura_preference_margin: float = 0.05,
+        enable_audit_logging: bool = False,
+        audit_log_directory: str = "./audit_logs",
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        template_cache_size: int = 10000,  # Increased from 128 for better performance
+        enable_normalization: bool = True,
+        tcp_brio_threshold: int = 1000,
+        enable_fast_path: bool = True,
+        enable_sidechain: Optional[bool] = True,
+        sidechain_config: Optional[Dict[str, Any]] = None,
+        enable_ml_selection: bool = True,  # Enable ML by default for better compression
+        enable_scorer: Optional[bool] = None,
+        scorer_telemetry_path: Optional[str] = None,
+        template_sync_interval_seconds: Optional[int] = 120,  # Less frequent syncs for speed
+        template_cache_dir: str = ".aura_cache",
+    ):
         """
         Initialize refactored compressor with modular components
         """
@@ -98,20 +100,22 @@ class ProductionHybridCompressor:
         self._fast_path_cache: Dict[str, Tuple[int, List[str]]] = {}
         self._fast_path_max_cache_size = 256
 
-    def _init_components(self,
-                        enable_aura: bool,
-                        enable_audit_logging: bool,
-                        audit_log_directory: str,
-                        session_id: Optional[str],
-                        user_id: Optional[str],
-                        template_cache_size: int,
-                        enable_normalization: bool,
-                        enable_sidechain: Optional[bool],
-                        sidechain_config: Optional[Dict[str, Any]],
-                        enable_ml_selection: bool,
-                        enable_scorer: Optional[bool],
-                        scorer_telemetry_path: Optional[str],
-                        template_cache_dir: str):
+    def _init_components(
+        self,
+        enable_aura: bool,
+        enable_audit_logging: bool,
+        audit_log_directory: str,
+        session_id: Optional[str],
+        user_id: Optional[str],
+        template_cache_size: int,
+        enable_normalization: bool,
+        enable_sidechain: Optional[bool],
+        sidechain_config: Optional[Dict[str, Any]],
+        enable_ml_selection: bool,
+        enable_scorer: Optional[bool],
+        scorer_telemetry_path: Optional[str],
+        template_cache_dir: str,
+    ):
         """
         Initialize all modular components
         """
@@ -130,6 +134,7 @@ class ProductionHybridCompressor:
         # Initialize audit service if enabled
         if enable_audit_logging:
             from aura_compression.audit import AuditLogger
+
             self._audit_service = AuditLogger(audit_log_directory)
         else:
             self._audit_service = None
@@ -148,7 +153,8 @@ class ProductionHybridCompressor:
         if enable_aura:
             # Initialize BRIO encoders for entropy coding
             try:
-                from .brio_full import BrioEncoder, BrioDecoder
+                from .brio_full import BrioDecoder, BrioEncoder
+
                 aura_encoder = BrioEncoder()
                 aura_decoder = BrioDecoder()
                 tcp_brio_encoder = BrioEncoder()
@@ -163,7 +169,8 @@ class ProductionHybridCompressor:
             tcp_brio_decoder = None
 
         # Auralite encoders/decoders
-        from aura_compression.auralite import AuraLiteEncoder, AuraLiteDecoder
+        from aura_compression.auralite import AuraLiteDecoder, AuraLiteEncoder
+
         auralite_encoder = AuraLiteEncoder(template_library=self.template_library)
         auralite_decoder = AuraLiteDecoder(template_library=self.template_library)
 
@@ -232,6 +239,7 @@ class ProductionHybridCompressor:
 
         # Metadata sidechannel for fast-path processing (Claims 21-30)
         from .metadata_sidechannel import MetadataSideChannel
+
         self._metadata_sidechannel = MetadataSideChannel()
 
         # Hardware acceleration removed - focus on core compression
@@ -240,13 +248,13 @@ class ProductionHybridCompressor:
     def _is_binary_data(data: bytes) -> bool:
         """
         Detect if data is binary (not UTF-8 text).
-        
+
         Returns True if data appears to be binary (images, video, archives, etc.)
         Returns False if data appears to be text (UTF-8 decodable).
         """
         # Try to decode as UTF-8
         try:
-            data.decode('utf-8')
+            data.decode("utf-8")
             # Check for high ratio of non-printable characters
             printable_count = sum(1 for b in data if 32 <= b <= 126 or b in (9, 10, 13))
             return (printable_count / len(data)) < 0.7 if data else False
@@ -257,7 +265,7 @@ class ProductionHybridCompressor:
     def _normalize_input(text) -> Tuple[bytes, str, bool]:
         """
         Normalize input to both bytes and string representations.
-        
+
         Returns:
             (text_bytes, text_str, is_binary) tuple
             - text_bytes: raw bytes representation
@@ -267,42 +275,42 @@ class ProductionHybridCompressor:
         if isinstance(text, bytes):
             text_bytes = text
             is_binary = ProductionHybridCompressor._is_binary_data(text)
-            
+
             if is_binary:
                 # For binary data, use latin-1 for lossless round-trip
-                text_str = text.decode('latin-1')
+                text_str = text.decode("latin-1")
             else:
                 # For text data, use UTF-8 with error handling
-                text_str = text.decode('utf-8', errors='ignore')
-                
+                text_str = text.decode("utf-8", errors="ignore")
+
             return text_bytes, text_str, is_binary
         else:
             # String input
             text_str = text
             try:
-                text_bytes = text.encode('utf-8')
+                text_bytes = text.encode("utf-8")
                 is_binary = False
             except UnicodeEncodeError:
                 # Handle surrogates from surrogateescape
-                text_bytes = text.encode('utf-8', errors='surrogateescape')
+                text_bytes = text.encode("utf-8", errors="surrogateescape")
                 is_binary = False
-                
+
             return text_bytes, text_str, is_binary
 
-    def compress(self, text, template_id: Optional[int] = None,
-                 slots: Optional[List[str]] = None) -> Tuple[bytes, CompressionMethod, dict]:
+    def compress(
+        self, text, template_id: Optional[int] = None, slots: Optional[List[str]] = None
+    ) -> Tuple[bytes, CompressionMethod, dict]:
         """
         Compress text using best method with modular architecture
         Supports both UTF-8 text and binary data.
         """
         # Normalize input to handle both text and binary data
         text_bytes, text_str, is_binary = self._normalize_input(text)
-        
+
         # Sync template store before compression
         current_time = time.time()
-        if (
-            self._template_sync_interval_seconds is not None
-            and (current_time - self._last_template_sync >= self._template_sync_interval_seconds)
+        if self._template_sync_interval_seconds is not None and (
+            current_time - self._last_template_sync >= self._template_sync_interval_seconds
         ):
             self._template_service.sync_template_store()
             self._last_template_sync = current_time
@@ -360,7 +368,9 @@ class ProductionHybridCompressor:
         # Compress with optimal strategy
         try:
             if optimal_strategy == CompressionMethod.BINARY_SEMANTIC and template_match:
-                compressed, metadata = self._compression_engine.compress_binary_semantic(text_str, template_match)
+                compressed, metadata = self._compression_engine.compress_binary_semantic(
+                    text_str, template_match
+                )
             elif optimal_strategy == CompressionMethod.AURALITE:
                 compressed, metadata = self._compression_engine.compress_auralite(text_str)
             elif optimal_strategy == CompressionMethod.BRIO:
@@ -408,15 +418,19 @@ class ProductionHybridCompressor:
 
         # Update metadata
         metadata_template_id = template_match.template_id if template_match else template_id
-        metadata_slot_count = len(template_match.slots) if template_match else (len(slots) if slots else 0)
+        metadata_slot_count = (
+            len(template_match.slots) if template_match else (len(slots) if slots else 0)
+        )
 
-        metadata.update({
-            'original_size': original_size,
-            'compressed_size': len(final_payload),
-            'ratio': original_size / len(final_payload) if len(final_payload) > 0 else 1.0,
-            'method': optimal_strategy.name.lower(),
-            'attempted_methods': [s.name.lower() for s in available_strategies],
-        })
+        metadata.update(
+            {
+                "original_size": original_size,
+                "compressed_size": len(final_payload),
+                "ratio": original_size / len(final_payload) if len(final_payload) > 0 else 1.0,
+                "method": optimal_strategy.name.lower(),
+                "attempted_methods": [s.name.lower() for s in available_strategies],
+            }
+        )
 
         # Fallback to UNCOMPRESSED if compression expanded data
         compression_ratio = original_size / len(final_payload) if len(final_payload) > 0 else 1.0
@@ -425,14 +439,16 @@ class ProductionHybridCompressor:
             compressed, metadata = self._compression_engine.compress_uncompressed(text_str)
             final_payload = compressed
             optimal_strategy = CompressionMethod.UNCOMPRESSED
-            metadata.update({
-                'original_size': original_size,
-                'compressed_size': len(final_payload),
-                'ratio': original_size / len(final_payload) if len(final_payload) > 0 else 1.0,
-                'method': CompressionMethod.UNCOMPRESSED.name.lower(),
-                'attempted_methods': [s.name.lower() for s in available_strategies],
-                'fallback_reason': 'expansion_detected',
-            })
+            metadata.update(
+                {
+                    "original_size": original_size,
+                    "compressed_size": len(final_payload),
+                    "ratio": original_size / len(final_payload) if len(final_payload) > 0 else 1.0,
+                    "method": CompressionMethod.UNCOMPRESSED.name.lower(),
+                    "attempted_methods": [s.name.lower() for s in available_strategies],
+                    "fallback_reason": "expansion_detected",
+                }
+            )
 
         # Encode inline metadata for fast-path processing (Claims 21-30)
         if self.enable_sidechain:
@@ -445,12 +461,16 @@ class ProductionHybridCompressor:
                 template_id=metadata_template_id,
                 category=category,
                 slot_count=metadata_slot_count,
-                original_text=text_str if self.enable_sidechain else None,  # Always pass string, not bytes
+                original_text=(
+                    text_str if self.enable_sidechain else None
+                ),  # Always pass string, not bytes
                 is_binary=is_binary,  # Pass binary flag for proper decompression
             )
             # Update compressed size after adding metadata header
-            metadata['compressed_size'] = len(final_payload)
-            metadata['ratio'] = original_size / len(final_payload) if len(final_payload) > 0 else 1.0
+            metadata["compressed_size"] = len(final_payload)
+            metadata["ratio"] = (
+                original_size / len(final_payload) if len(final_payload) > 0 else 1.0
+            )
 
         # Audit logging
         if self._audit_service is not None:
@@ -464,7 +484,7 @@ class ProductionHybridCompressor:
 
         # Keep scorer flag in sync with adaptive gating state
         self.enable_scorer = self._strategy_manager.enable_scorer
-        metadata.setdefault('scorer_status', self._strategy_manager.get_scorer_status())
+        metadata.setdefault("scorer_status", self._strategy_manager.get_scorer_status())
 
         return final_payload, optimal_strategy, metadata
 
@@ -475,18 +495,21 @@ class ProductionHybridCompressor:
     def _compress_uncompressed(self, text: str) -> Tuple[bytes, CompressionMethod, dict]:
         """Compress using uncompressed method"""
         compressed, metadata = self._compression_engine.compress_uncompressed(text)
-        metadata.update({
-            'reason': 'message_too_small',
-            'fast_path_used': 'tiny_message_early_exit' if self.enable_fast_path else None,
-            'attempted_methods': ['uncompressed'],
-        })
+        metadata.update(
+            {
+                "reason": "message_too_small",
+                "fast_path_used": "tiny_message_early_exit" if self.enable_fast_path else None,
+                "attempted_methods": ["uncompressed"],
+            }
+        )
 
         # Audit service removed - logging disabled
 
         return compressed, CompressionMethod.UNCOMPRESSED, metadata
 
-    def _find_template_match(self, text: str, template_id: Optional[int],
-                           slots: Optional[List[str]]) -> Optional[TemplateMatch]:
+    def _find_template_match(
+        self, text: str, template_id: Optional[int], slots: Optional[List[str]]
+    ) -> Optional[TemplateMatch]:
         """Find template match for text"""
         # Normalization removed - direct matching only
         if template_id is not None:
@@ -504,29 +527,35 @@ class ProductionHybridCompressor:
         # CPU fallback
         return self._template_manager.find_template_match(text)
 
-    def _try_fast_path_compression(self, text: str, template_match: TemplateMatch) -> Optional[Tuple[bytes, CompressionMethod, dict]]:
+    def _try_fast_path_compression(
+        self, text: str, template_match: TemplateMatch
+    ) -> Optional[Tuple[bytes, CompressionMethod, dict]]:
         """Try fast path binary semantic compression"""
         try:
-            compressed, metadata = self._compression_engine.compress_binary_semantic(text, template_match)
+            compressed, metadata = self._compression_engine.compress_binary_semantic(
+                text, template_match
+            )
             if compressed and compressed[0] == CompressionMethod.BINARY_SEMANTIC.value:
                 binary_payload = compressed
             else:
                 binary_payload = bytes([CompressionMethod.BINARY_SEMANTIC.value]) + compressed
 
-            original_size = len(text.encode('utf-8'))
+            original_size = len(text.encode("utf-8"))
             if len(binary_payload) < original_size:
-                metadata.update({
-                    'original_size': original_size,
-                    'compressed_size': len(binary_payload),
-                    'ratio': original_size / len(binary_payload),
-                    'method': 'binary_semantic',
-                    'template_id': template_match.template_id,
-                    'template_ids': [template_match.template_id],
-                    'slot_count': len(template_match.slots),
-                    'fast_path_candidate': True,
-                    'fast_path_used': 'binary_semantic_direct',
-                    'attempted_methods': ['binary_semantic'],
-                })
+                metadata.update(
+                    {
+                        "original_size": original_size,
+                        "compressed_size": len(binary_payload),
+                        "ratio": original_size / len(binary_payload),
+                        "method": "binary_semantic",
+                        "template_id": template_match.template_id,
+                        "template_ids": [template_match.template_id],
+                        "slot_count": len(template_match.slots),
+                        "fast_path_candidate": True,
+                        "fast_path_used": "binary_semantic_direct",
+                        "attempted_methods": ["binary_semantic"],
+                    }
+                )
 
                 # Record template usage
                 self._template_service.record_template_use(template_match.template_id)
@@ -582,29 +611,35 @@ class ProductionHybridCompressor:
         elif method == CompressionMethod.PATTERN_SEMANTIC:
             text, metadata = self._compression_engine.decompress_pattern_semantic(data)
         elif method == CompressionMethod.UNCOMPRESSED:
-            text, metadata = self._compression_engine.decompress_uncompressed(data)  # Keep full data for uncompressed
+            text, metadata = self._compression_engine.decompress_uncompressed(
+                data
+            )  # Keep full data for uncompressed
         else:
             raise ValueError(f"Unsupported compression method: {method}")
 
         # Convert back to bytes if original was binary (latin-1 round-trip)
         if extracted_metadata and extracted_metadata.is_binary and isinstance(text, str):
-            text = text.encode('latin-1')
+            text = text.encode("latin-1")
 
         if return_metadata:
             # Enhance metadata with additional info and extracted metadata
-            metadata.update({
-                'semantic_sketch': self._generate_semantic_sketch(text if isinstance(text, str) else text.decode('latin-1'), metadata)
-            })
+            metadata.update(
+                {
+                    "semantic_sketch": self._generate_semantic_sketch(
+                        text if isinstance(text, str) else text.decode("latin-1"), metadata
+                    )
+                }
+            )
             if extracted_metadata:
-                metadata['sidechannel_metadata'] = {
-                    'category': extracted_metadata.category.name,
-                    'intent': extracted_metadata.intent,
-                    'confidence': extracted_metadata.confidence,
-                    'security_level': extracted_metadata.security_level.name,
-                    'contains_code': extracted_metadata.contains_code,
-                    'contains_urls': extracted_metadata.contains_urls,
-                    'is_binary': extracted_metadata.is_binary,
-                    'compression_ratio': extracted_metadata.compression_ratio,
+                metadata["sidechannel_metadata"] = {
+                    "category": extracted_metadata.category.name,
+                    "intent": extracted_metadata.intent,
+                    "confidence": extracted_metadata.confidence,
+                    "security_level": extracted_metadata.security_level.name,
+                    "contains_code": extracted_metadata.contains_code,
+                    "contains_urls": extracted_metadata.contains_urls,
+                    "is_binary": extracted_metadata.is_binary,
+                    "compression_ratio": extracted_metadata.compression_ratio,
                 }
             return text, metadata
 
@@ -612,7 +647,7 @@ class ProductionHybridCompressor:
 
     def _generate_semantic_sketch(self, text: str, metadata: dict) -> str:
         """Generate semantic sketch for audit logging"""
-        template_ids = metadata.get('template_ids', [])
+        template_ids = metadata.get("template_ids", [])
         if template_ids:
             template_info = []
             for tid in template_ids:
@@ -642,17 +677,18 @@ class ProductionHybridCompressor:
         slot_data = []
 
         for slot in slots:
-            slot_bytes = slot.encode('utf-8')
+            slot_bytes = slot.encode("utf-8")
             slot_lengths.append(len(slot_bytes))
             slot_data.append(slot_bytes)
 
-        slot_lengths_bytes = b''.join(struct.pack(">H", length) for length in slot_lengths)
-        slots_bytes = b''.join(slot_data)
+        slot_lengths_bytes = b"".join(struct.pack(">H", length) for length in slot_lengths)
+        slots_bytes = b"".join(slot_data)
 
         return template_bytes + slot_count_byte + slot_lengths_bytes + slots_bytes
 
-    def _infer_message_category(self, text: str, compression_method: CompressionMethod,
-                               template_id: Optional[int]) -> Optional[MessageCategory]:
+    def _infer_message_category(
+        self, text: str, compression_method: CompressionMethod, template_id: Optional[int]
+    ) -> Optional[MessageCategory]:
         """
         Infer message category for metadata sidechannel encoding
         """
@@ -661,7 +697,7 @@ class ProductionHybridCompressor:
         # Convert bytes to string if needed
         if isinstance(text, bytes):
             try:
-                text = text.decode('utf-8', errors='ignore')
+                text = text.decode("utf-8", errors="ignore")
             except:
                 return MessageCategory.GENERAL
 
@@ -670,19 +706,21 @@ class ProductionHybridCompressor:
             return MessageCategory.DISCOVERED
 
         # Code examples
-        if '```' in text or 'def ' in text or 'class ' in text:
+        if "```" in text or "def " in text or "class " in text:
             return MessageCategory.CODE_EXAMPLE
 
         # Questions
-        if '?' in text and any(word in text.lower() for word in ['what', 'how', 'why', 'when', 'where']):
+        if "?" in text and any(
+            word in text.lower() for word in ["what", "how", "why", "when", "where"]
+        ):
             return MessageCategory.CLARIFICATION
 
         # Instructions
-        if any(phrase in text.lower() for phrase in ['first', 'then', 'next', 'finally', 'step']):
+        if any(phrase in text.lower() for phrase in ["first", "then", "next", "finally", "step"]):
             return MessageCategory.INSTRUCTION
 
         # Facts/definitions
-        if any(word in text.lower() for word in ['is', 'are', 'means', 'refers to']):
+        if any(word in text.lower() for word in ["is", "are", "means", "refers to"]):
             return MessageCategory.DEFINITION
 
         # Default
@@ -783,8 +821,8 @@ class ProductionHybridCompressor:
     def get_performance_stats(self) -> dict:
         """Get performance statistics from all components"""
         return {
-            'template_manager': self._template_manager.get_template_stats(),
-            'performance_optimizer': self._performance_optimizer.get_performance_stats(),
-            'storage_manager': self._storage_manager.get_storage_stats(),
-            'ml_selection_enabled': self._ml_selector is not None,
+            "template_manager": self._template_manager.get_template_stats(),
+            "performance_optimizer": self._performance_optimizer.get_performance_stats(),
+            "storage_manager": self._storage_manager.get_storage_stats(),
+            "ml_selection_enabled": self._ml_selector is not None,
         }

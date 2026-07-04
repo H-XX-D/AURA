@@ -7,14 +7,15 @@ Automatically derives compression templates from historical audit logs using:
 - Regex inference
 - Prefix/suffix extraction
 """
+
+import hashlib
 import logging
 import re
-import hashlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import List, Dict, Optional, Set, Tuple
 from difflib import SequenceMatcher
+from typing import Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class TemplateCandidate:
     """
     Candidate template discovered from audit logs
     """
+
     pattern: str  # Pattern with {0}, {1}, etc. slots
     frequency: int  # How often this pattern appears
     compression_ratio: float  # Estimated compression advantage
@@ -48,7 +50,7 @@ class TemplateCandidate:
         """Update days since last use"""
         if self.last_used:
             try:
-                last_used_dt = datetime.fromisoformat(self.last_used.replace('Z', '+00:00'))
+                last_used_dt = datetime.fromisoformat(self.last_used.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
                 delta = now - last_used_dt
                 self.days_since_used = delta.days
@@ -57,17 +59,17 @@ class TemplateCandidate:
 
     def to_dict(self) -> Dict:
         return {
-            'pattern': self.pattern,
-            'frequency': self.frequency,
-            'compression_ratio': self.compression_ratio,
-            'slot_count': self.slot_count,
-            'examples': self.examples[:3],  # First 3 examples
-            'safety_approved': self.safety_approved,
-            'version': self.version,
-            'discovered_at': self.discovered_at,
-            'usage_count': self.usage_count,
-            'last_used': self.last_used,
-            'days_since_used': self.days_since_used,
+            "pattern": self.pattern,
+            "frequency": self.frequency,
+            "compression_ratio": self.compression_ratio,
+            "slot_count": self.slot_count,
+            "examples": self.examples[:3],  # First 3 examples
+            "safety_approved": self.safety_approved,
+            "version": self.version,
+            "discovered_at": self.discovered_at,
+            "usage_count": self.usage_count,
+            "last_used": self.last_used,
+            "days_since_used": self.days_since_used,
         }
 
 
@@ -97,14 +99,15 @@ class NGramMiner:
             # Extract n-grams of varying lengths
             for n in range(self.min_ngram_length, min(self.max_ngram_length, len(message))):
                 for i in range(len(message) - n + 1):
-                    ngram = message[i:i + n]
+                    ngram = message[i : i + n]
                     # Skip pure whitespace or special chars
                     if len(ngram.strip()) >= self.min_ngram_length:
                         ngram_counts[ngram] += 1
 
         # Filter by minimum frequency
-        frequent_ngrams = [(ngram, count) for ngram, count in ngram_counts.items()
-                          if count >= min_frequency]
+        frequent_ngrams = [
+            (ngram, count) for ngram, count in ngram_counts.items() if count >= min_frequency
+        ]
 
         # Sort by frequency descending
         frequent_ngrams.sort(key=lambda x: x[1], reverse=True)
@@ -188,7 +191,7 @@ class PatternExtractor:
             return None
 
         # Count slots in pattern (only count our placeholders, not escaped braces)
-        slot_count = pattern.count('{0}') if pattern else 0
+        slot_count = pattern.count("{0}") if pattern else 0
 
         # Estimate compression ratio
         avg_message_len = sum(len(m) for m in messages) / len(messages)
@@ -250,22 +253,22 @@ class PatternExtractor:
 
         # Escape literal braces for Python .format()
         # Replace { with {{ and } with }}, but preserve our placeholders
-        slot_count = pattern.count('{0}')
+        slot_count = pattern.count("{0}")
 
         # Temporarily replace our placeholders
         for i in range(slot_count):
-            pattern = pattern.replace(f'{{{i}}}', f'__SLOT{i}__')
+            pattern = pattern.replace(f"{{{i}}}", f"__SLOT{i}__")
 
         # Escape all remaining braces
-        pattern = pattern.replace('{', '{{').replace('}', '}}')
+        pattern = pattern.replace("{", "{{").replace("}", "}}")
 
         # Restore our placeholders
         for i in range(slot_count):
-            pattern = pattern.replace(f'__SLOT{i}__', f'{{{i}}}')
+            pattern = pattern.replace(f"__SLOT{i}__", f"{{{i}}}")
 
         # Only return pattern if it has some fixed structure
         # Pattern should have both literal content and at least one slot
-        literal_content = pattern.replace('{0}', '')
+        literal_content = pattern.replace("{0}", "")
         if len(literal_content) < 10:  # Need at least 10 chars of fixed content
             return None
 
@@ -281,7 +284,7 @@ class PatternExtractor:
     def _longest_common_suffix(self, s1: str, s2: str) -> str:
         """Find longest common suffix of two strings"""
         i = 0
-        while i < len(s1) and i < len(s2) and s1[-(i+1)] == s2[-(i+1)]:
+        while i < len(s1) and i < len(s2) and s1[-(i + 1)] == s2[-(i + 1)]:
             i += 1
         return s1[-i:] if i > 0 else ""
 
@@ -295,9 +298,21 @@ class SafetyScreener:
     def __init__(self):
         # Harmful patterns to reject
         self.harmful_keywords = {
-            'password', 'secret', 'api_key', 'token', 'credentials',
-            'hack', 'exploit', 'vulnerability', 'inject', 'bypass',
-            'illegal', 'weapon', 'drug', 'harm', 'attack',
+            "password",
+            "secret",
+            "api_key",
+            "token",
+            "credentials",
+            "hack",
+            "exploit",
+            "vulnerability",
+            "inject",
+            "bypass",
+            "illegal",
+            "weapon",
+            "drug",
+            "harm",
+            "attack",
         }
 
     def screen(self, candidate: TemplateCandidate) -> bool:
@@ -359,7 +374,7 @@ class TemplateDiscoveryEngine:
         # Promoted templates (Claim 17)
         self.promoted_templates: Dict[int, TemplateCandidate] = {}
         self.next_template_id = starting_template_id
-        
+
         # Cold storage for retired templates
         self.cold_storage: Dict[int, TemplateCandidate] = {}
         self.min_usage_threshold = 10  # Minimum usage count to avoid retirement
@@ -428,39 +443,45 @@ class TemplateDiscoveryEngine:
         """
         retired_ids = []
         current_time = datetime.now(timezone.utc)
-        
+
         # Update days since used for all templates
         for template in self.promoted_templates.values():
             template.update_days_since_used()
-        
+
         # Find templates to retire
         templates_to_retire = []
         for template_id, template in self.promoted_templates.items():
             should_retire = (
-                template.usage_count < self.min_usage_threshold or
-                template.days_since_used > self.max_days_unused
+                template.usage_count < self.min_usage_threshold
+                or template.days_since_used > self.max_days_unused
             )
             if should_retire:
                 templates_to_retire.append((template_id, template))
-        
+
         # Sort by usage (least used first) and retire
-        templates_to_retire.sort(key=lambda x: (x[1].usage_count, x[1].days_since_used), reverse=False)
-        
+        templates_to_retire.sort(
+            key=lambda x: (x[1].usage_count, x[1].days_since_used), reverse=False
+        )
+
         for template_id, template in templates_to_retire:
             # Move to cold storage
             self.cold_storage[template_id] = template
             del self.promoted_templates[template_id]
             retired_ids.append(template_id)
-            
-            logger.info(f"RETIRED: Template {template_id} (usage: {template.usage_count}, days unused: {template.days_since_used})")
-            
+
+            logger.info(
+                f"RETIRED: Template {template_id} (usage: {template.usage_count}, days unused: {template.days_since_used})"
+            )
+
             # Limit cold storage size
             if len(self.cold_storage) > 1000:
                 # Remove oldest from cold storage
-                oldest_id = min(self.cold_storage.keys(), 
-                              key=lambda x: self.cold_storage[x].last_used or "1970-01-01")
+                oldest_id = min(
+                    self.cold_storage.keys(),
+                    key=lambda x: self.cold_storage[x].last_used or "1970-01-01",
+                )
                 del self.cold_storage[oldest_id]
-        
+
         return retired_ids
 
     def find_available_template_id(self) -> Optional[int]:
@@ -473,11 +494,11 @@ class TemplateDiscoveryEngine:
             # Prefer IDs that were recently retired (higher numbers = more recent)
             available_id = max(self.cold_storage.keys())
             return available_id
-        
+
         # Otherwise increment if under limit
         if self.next_template_id <= self.max_template_id:
             return self.next_template_id
-        
+
         # No IDs available
         return None
 
@@ -491,7 +512,7 @@ class TemplateDiscoveryEngine:
         """
         # Try to find an available template ID
         template_id = self.find_available_template_id()
-        
+
         if template_id is None:
             # No IDs available, try retiring unused templates
             retired_ids = self.retire_unused_templates()
@@ -502,11 +523,11 @@ class TemplateDiscoveryEngine:
                     f"Template ID capacity exhausted and no templates available for retirement. "
                     f"Max ID: {self.max_template_id}, Current templates: {len(self.promoted_templates)}"
                 )
-        
+
         # If we're reusing a retired ID, remove it from cold storage
         if template_id in self.cold_storage:
             del self.cold_storage[template_id]
-        
+
         # Update next_template_id if we're not reusing
         if template_id >= self.next_template_id:
             self.next_template_id = template_id + 1
@@ -572,15 +593,17 @@ class TemplateDiscoveryEngine:
         """
         events = []
         for template_id, template in self.promoted_templates.items():
-            events.append({
-                'template_id': template_id,
-                'pattern': template.pattern,
-                'frequency': template.frequency,
-                'compression_ratio': template.compression_ratio,
-                'safety_approved': template.safety_approved,
-                'version': template.version,
-                'discovered_at': template.discovered_at,
-            })
+            events.append(
+                {
+                    "template_id": template_id,
+                    "pattern": template.pattern,
+                    "frequency": template.frequency,
+                    "compression_ratio": template.compression_ratio,
+                    "safety_approved": template.safety_approved,
+                    "version": template.version,
+                    "discovered_at": template.discovered_at,
+                }
+            )
         return events
 
 
@@ -592,7 +615,9 @@ class PrefixSuffixExtractor:
     def __init__(self, min_length: int = 5):
         self.min_length = min_length
 
-    def extract_prefixes(self, messages: List[str], min_frequency: int = 5) -> List[Tuple[str, int]]:
+    def extract_prefixes(
+        self, messages: List[str], min_frequency: int = 5
+    ) -> List[Tuple[str, int]]:
         """Extract common prefixes"""
         prefix_counts = Counter()
 
@@ -600,14 +625,16 @@ class PrefixSuffixExtractor:
             # Try prefixes of varying lengths
             for length in range(self.min_length, min(50, len(message))):
                 prefix = message[:length]
-                if prefix.endswith(' '):  # End at word boundary
+                if prefix.endswith(" "):  # End at word boundary
                     prefix_counts[prefix.strip()] += 1
 
         frequent = [(p, c) for p, c in prefix_counts.items() if c >= min_frequency]
         frequent.sort(key=lambda x: x[1], reverse=True)
         return frequent
 
-    def extract_suffixes(self, messages: List[str], min_frequency: int = 5) -> List[Tuple[str, int]]:
+    def extract_suffixes(
+        self, messages: List[str], min_frequency: int = 5
+    ) -> List[Tuple[str, int]]:
         """Extract common suffixes"""
         suffix_counts = Counter()
 
@@ -615,7 +642,7 @@ class PrefixSuffixExtractor:
             # Try suffixes of varying lengths
             for length in range(self.min_length, min(50, len(message))):
                 suffix = message[-length:]
-                if suffix.startswith(' '):  # Start at word boundary
+                if suffix.startswith(" "):  # Start at word boundary
                     suffix_counts[suffix.strip()] += 1
 
         frequent = [(s, c) for s, c in suffix_counts.items() if c >= min_frequency]

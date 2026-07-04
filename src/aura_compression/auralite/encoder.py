@@ -7,8 +7,8 @@ from functools import lru_cache
 from typing import Callable, Dict, FrozenSet, List, Optional, Union, cast
 
 from aura_compression.brio_full.dictionary import DICTIONARY, DictionaryEntry
-from aura_compression.templates import TemplateMatch, TemplateLibrary
 from aura_compression.brio_full.trie import DictionaryTrie
+from aura_compression.templates import TemplateLibrary, TemplateMatch
 
 
 @dataclass(frozen=True)
@@ -70,7 +70,9 @@ class AuraLiteEncoder:
         self._cache_enabled = enable_fast_path
         self._fast_path_cache_size = max(0, fast_path_cache_size)
         self._effective_cache_size = 0
-        self._fast_path_encoder: Callable[[str], AuraLiteEncoded] = self._build_fast_path_encoder(self._fast_path_cache_size)
+        self._fast_path_encoder: Callable[[str], AuraLiteEncoded] = self._build_fast_path_encoder(
+            self._fast_path_cache_size
+        )
 
     def _encode_text_only(self, text: str) -> AuraLiteEncoded:
         """Encode text-only payloads without template hints."""
@@ -104,7 +106,9 @@ class AuraLiteEncoder:
 
         return lru_cache(maxsize=effective_size)(self._encode_text_only)
 
-    def configure_fast_path_cache(self, *, enabled: Optional[bool] = None, maxsize: Optional[int] = None) -> None:
+    def configure_fast_path_cache(
+        self, *, enabled: Optional[bool] = None, maxsize: Optional[int] = None
+    ) -> None:
         """Allow callers to tune or disable the fast path cache at runtime."""
         if enabled is not None:
             self._cache_enabled = enabled
@@ -139,7 +143,8 @@ class AuraLiteEncoder:
             template_ids = [template_match.template_id]
         else:
             span_list = [
-                match for match in (template_spans or [])
+                match
+                for match in (template_spans or [])
                 if match.start is not None and match.end is not None
             ]
             span_list.sort(key=lambda m: cast(int, m.start))
@@ -185,7 +190,9 @@ class AuraLiteEncoder:
             token += slot_bytes
         return token
 
-    def _encode_with_spans(self, text: str, spans: List[TemplateMatch]) -> tuple[bytearray, List[int]]:
+    def _encode_with_spans(
+        self, text: str, spans: List[TemplateMatch]
+    ) -> tuple[bytearray, List[int]]:
         if not spans:
             return self._tokenise(text)
 
@@ -289,12 +296,12 @@ class AuraLiteEncoder:
         cache_info_fn = getattr(self._fast_path_encoder, "cache_info", None)
         if cache_info_fn is None:
             return {
-                'enabled': False,
-                'hits': 0,
-                'misses': 0,
-                'size': 0,
-                'maxsize': 0,
-                'hit_rate_percent': 0.0,
+                "enabled": False,
+                "hits": 0,
+                "misses": 0,
+                "size": 0,
+                "maxsize": 0,
+                "hit_rate_percent": 0.0,
             }
 
         cache_info = cache_info_fn()
@@ -302,10 +309,10 @@ class AuraLiteEncoder:
         hit_rate = (cache_info.hits / total_requests * 100.0) if total_requests > 0 else 0.0
 
         return {
-            'enabled': self._effective_cache_size > 0,
-            'hits': cache_info.hits,
-            'misses': cache_info.misses,
-            'size': cache_info.currsize,
-            'maxsize': cache_info.maxsize,
-            'hit_rate_percent': hit_rate,
+            "enabled": self._effective_cache_size > 0,
+            "hits": cache_info.hits,
+            "misses": cache_info.misses,
+            "size": cache_info.currsize,
+            "maxsize": cache_info.maxsize,
+            "hit_rate_percent": hit_rate,
         }

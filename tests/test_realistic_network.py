@@ -19,7 +19,6 @@ from aura_compression.background_workers import TemplateDiscoveryWorker
 from aura_compression.compressor_refactored import ProductionHybridCompressor
 from aura_compression.enums import CompressionMethod
 
-
 NETWORK_MESSAGES: Tuple[str, ...] = (
     "API REQUEST user=1001 action=login latency=45ms region=us-east device=ios",
     "API REQUEST user=1044 action=login latency=47ms region=us-west device=android",
@@ -67,7 +66,9 @@ def compression_env(tmp_path: Path) -> Iterable[Dict[str, object]]:
         compressor.template_library.shutdown()
 
 
-def test_binary_semantic_round_trip_for_conversational_template(compression_env: Dict[str, object]) -> None:
+def test_binary_semantic_round_trip_for_conversational_template(
+    compression_env: Dict[str, object],
+) -> None:
     """Ensure conversational prompts hit the binary semantic fast path."""
     compressor: ProductionHybridCompressor = compression_env["compressor"]  # type: ignore[assignment]
 

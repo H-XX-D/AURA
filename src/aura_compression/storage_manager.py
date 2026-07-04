@@ -3,23 +3,24 @@
 Storage Manager - Handles sidechain storage and data persistence
 Extracted from the monolithic ProductionHybridCompressor
 """
+
+import hashlib
+import json
 import os
 import re
 import struct
-from pathlib import Path
-import json
-import hashlib
-from typing import Dict, List, Tuple, Optional, Any
-from enum import Enum
-from datetime import datetime
 from collections import Counter
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from aura_compression.enums import (
-    CompressionMethod,
-    TEMPLATE_METADATA_KIND,
     _SEMANTIC_PREVIEW_LIMIT,
     _SEMANTIC_TOKEN_LIMIT,
     _SEMANTIC_TOKEN_PATTERN,
+    TEMPLATE_METADATA_KIND,
+    CompressionMethod,
 )
 
 
@@ -28,10 +29,12 @@ class StorageManager:
     Manages sidechain storage and data persistence operations
     """
 
-    def __init__(self,
-                 storage_path: Optional[str] = None,
-                 enable_sidechain: bool = True,
-                 max_storage_size: int = 100 * 1024 * 1024):  # 100MB default
+    def __init__(
+        self,
+        storage_path: Optional[str] = None,
+        enable_sidechain: bool = True,
+        max_storage_size: int = 100 * 1024 * 1024,
+    ):  # 100MB default
         """
         Initialize storage manager
         """
@@ -49,10 +52,10 @@ class StorageManager:
 
         # Storage stats
         self._storage_stats = {
-            'total_size': 0,
-            'file_count': 0,
-            'compression_ratio_sum': 0.0,
-            'access_count': 0,
+            "total_size": 0,
+            "file_count": 0,
+            "compression_ratio_sum": 0.0,
+            "access_count": 0,
         }
 
     def _setup_storage_directories(self):
@@ -66,11 +69,9 @@ class StorageManager:
             # Disable sidechain if we can't create directories
             self.enable_sidechain = False
 
-    def store_compressed_data(self,
-                             key: str,
-                             compressed_data: bytes,
-                             metadata: dict,
-                             ttl_seconds: Optional[int] = None) -> bool:
+    def store_compressed_data(
+        self, key: str, compressed_data: bytes, metadata: dict, ttl_seconds: Optional[int] = None
+    ) -> bool:
         """
         Store compressed data in sidechain storage
         """
@@ -83,10 +84,10 @@ class StorageManager:
 
             # Prepare storage data
             storage_data = {
-                'compressed_data': compressed_data.hex(),
-                'metadata': metadata,
-                'stored_at': datetime.now().isoformat(),
-                'ttl_seconds': ttl_seconds,
+                "compressed_data": compressed_data.hex(),
+                "metadata": metadata,
+                "stored_at": datetime.now().isoformat(),
+                "ttl_seconds": ttl_seconds,
             }
 
             # Check storage size limits
@@ -95,7 +96,7 @@ class StorageManager:
 
             # Store in hot storage first
             file_path = self.storage_path / f"{storage_key}.json"
-            with open(file_path, 'w') as f:
+            with open(file_path, "w") as f:
                 json.dump(storage_data, f)
 
             # Update stats
@@ -136,23 +137,23 @@ class StorageManager:
         Load compressed data from a storage file
         """
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 storage_data = json.load(f)
 
             # Check TTL
-            if storage_data.get('ttl_seconds'):
-                stored_at = datetime.fromisoformat(storage_data['stored_at'])
-                ttl_seconds = storage_data['ttl_seconds']
+            if storage_data.get("ttl_seconds"):
+                stored_at = datetime.fromisoformat(storage_data["stored_at"])
+                ttl_seconds = storage_data["ttl_seconds"]
                 if (datetime.now() - stored_at).total_seconds() > ttl_seconds:
                     # Expired, remove file
                     file_path.unlink()
                     return None
 
-            compressed_data = bytes.fromhex(storage_data['compressed_data'])
-            metadata = storage_data['metadata']
+            compressed_data = bytes.fromhex(storage_data["compressed_data"])
+            metadata = storage_data["metadata"]
 
             # Update access stats
-            self._storage_stats['access_count'] += 1
+            self._storage_stats["access_count"] += 1
 
             return compressed_data, metadata
 
@@ -164,7 +165,7 @@ class StorageManager:
         Generate a storage key from the input key
         """
         # Use SHA256 hash to create a filesystem-safe key
-        return hashlib.sha256(key.encode('utf-8')).hexdigest()
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
     def _check_storage_limits(self, data_size: int) -> bool:
         """
@@ -191,11 +192,11 @@ class StorageManager:
         """
         Update storage statistics
         """
-        self._storage_stats['total_size'] += len(compressed_data)
-        self._storage_stats['file_count'] += 1
+        self._storage_stats["total_size"] += len(compressed_data)
+        self._storage_stats["file_count"] += 1
 
-        if 'ratio' in metadata:
-            self._storage_stats['compression_ratio_sum'] += metadata['ratio']
+        if "ratio" in metadata:
+            self._storage_stats["compression_ratio_sum"] += metadata["ratio"]
 
     def move_to_cold_storage(self, key: str) -> bool:
         """
@@ -231,12 +232,12 @@ class StorageManager:
             # Clean hot storage
             for file_path in self.storage_path.glob("*.json"):
                 try:
-                    with open(file_path, 'r') as f:
+                    with open(file_path, "r") as f:
                         storage_data = json.load(f)
 
-                    if storage_data.get('ttl_seconds'):
-                        stored_at = datetime.fromisoformat(storage_data['stored_at'])
-                        ttl_seconds = storage_data['ttl_seconds']
+                    if storage_data.get("ttl_seconds"):
+                        stored_at = datetime.fromisoformat(storage_data["stored_at"])
+                        ttl_seconds = storage_data["ttl_seconds"]
                         if (datetime.now() - stored_at).total_seconds() > ttl_seconds:
                             file_path.unlink()
                             cleaned_count += 1
@@ -248,12 +249,12 @@ class StorageManager:
             # Clean cold storage
             for file_path in self._cold_storage_path.glob("*.json"):
                 try:
-                    with open(file_path, 'r') as f:
+                    with open(file_path, "r") as f:
                         storage_data = json.load(f)
 
-                    if storage_data.get('ttl_seconds'):
-                        stored_at = datetime.fromisoformat(storage_data['stored_at'])
-                        ttl_seconds = storage_data['ttl_seconds']
+                    if storage_data.get("ttl_seconds"):
+                        stored_at = datetime.fromisoformat(storage_data["stored_at"])
+                        ttl_seconds = storage_data["ttl_seconds"]
                         if (datetime.now() - stored_at).total_seconds() > ttl_seconds:
                             file_path.unlink()
                             cleaned_count += 1
@@ -273,14 +274,20 @@ class StorageManager:
         """
         stats = self._storage_stats.copy()
 
-        if stats['file_count'] > 0:
-            stats['average_compression_ratio'] = stats['compression_ratio_sum'] / stats['file_count']
+        if stats["file_count"] > 0:
+            stats["average_compression_ratio"] = (
+                stats["compression_ratio_sum"] / stats["file_count"]
+            )
         else:
-            stats['average_compression_ratio'] = 0.0
+            stats["average_compression_ratio"] = 0.0
 
-        stats['current_size'] = self._get_current_storage_size()
-        stats['size_limit'] = self.max_storage_size
-        stats['usage_percentage'] = (stats['current_size'] / self.max_storage_size) * 100 if self.max_storage_size > 0 else 0
+        stats["current_size"] = self._get_current_storage_size()
+        stats["size_limit"] = self.max_storage_size
+        stats["usage_percentage"] = (
+            (stats["current_size"] / self.max_storage_size) * 100
+            if self.max_storage_size > 0
+            else 0
+        )
 
         return stats
 
@@ -300,10 +307,10 @@ class StorageManager:
 
             # Reset stats
             self._storage_stats = {
-                'total_size': 0,
-                'file_count': 0,
-                'compression_ratio_sum': 0.0,
-                'access_count': 0,
+                "total_size": 0,
+                "file_count": 0,
+                "compression_ratio_sum": 0.0,
+                "access_count": 0,
             }
 
             return True

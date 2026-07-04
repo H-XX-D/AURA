@@ -4,15 +4,19 @@ Production Router - Patent Claims 20, 26, 28
 Routes messages using metadata without decompression
 Measures fast-path usage percentage
 """
+
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List, Callable
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class RouteDecision(Enum):
     """Route decision result"""
+
     FAST_PATH = "fast_path"  # Routed using metadata only
     SLOW_PATH = "slow_path"  # Required decompression
     CACHED = "cached"  # Served from cache
@@ -24,6 +28,7 @@ class RoutingMetrics:
     Metrics for measuring fast-path usage (Claim 20)
     Target: 60% of messages use metadata-only fast path
     """
+
     total_messages: int = 0
     fast_path_count: int = 0
     slow_path_count: int = 0
@@ -60,15 +65,19 @@ class RoutingMetrics:
     def to_dict(self) -> Dict[str, Any]:
         """Export metrics as dictionary"""
         return {
-            'total_messages': self.total_messages,
-            'fast_path_count': self.fast_path_count,
-            'slow_path_count': self.slow_path_count,
-            'cached_count': self.cached_count,
-            'fast_path_percentage': self.get_fast_path_percentage(),
-            'average_latency_ms': self.get_average_latency(),
-            'fast_path_latency_ms': self.fast_path_latency_ms / self.fast_path_count if self.fast_path_count > 0 else 0,
-            'slow_path_latency_ms': self.slow_path_latency_ms / self.slow_path_count if self.slow_path_count > 0 else 0,
-            'speedup_factor': self.get_speedup_factor(),
+            "total_messages": self.total_messages,
+            "fast_path_count": self.fast_path_count,
+            "slow_path_count": self.slow_path_count,
+            "cached_count": self.cached_count,
+            "fast_path_percentage": self.get_fast_path_percentage(),
+            "average_latency_ms": self.get_average_latency(),
+            "fast_path_latency_ms": (
+                self.fast_path_latency_ms / self.fast_path_count if self.fast_path_count > 0 else 0
+            ),
+            "slow_path_latency_ms": (
+                self.slow_path_latency_ms / self.slow_path_count if self.slow_path_count > 0 else 0
+            ),
+            "speedup_factor": self.get_speedup_factor(),
         }
 
 
@@ -77,6 +86,7 @@ class Route:
     """
     Routing configuration for a handler (Claim 26)
     """
+
     handler_name: str
     handler_function: Callable
     template_ids: List[int] = field(default_factory=list)
@@ -131,7 +141,9 @@ class ProductionRouter:
         """Set default handler for unmatched routes"""
         self.default_handler = handler
 
-    def route(self, metadata: Dict[str, Any], compressed_data: bytes, decompressor: Callable) -> Any:
+    def route(
+        self, metadata: Dict[str, Any], compressed_data: bytes, decompressor: Callable
+    ) -> Any:
         """
         Route message based on metadata (Claims 20, 26)
 
@@ -181,8 +193,8 @@ class ProductionRouter:
 
     def _find_route(self, metadata: Dict[str, Any]) -> Optional[Route]:
         """Find matching route based on metadata (Claim 26)"""
-        template_ids = metadata.get('template_ids', [])
-        function_id = metadata.get('function_id')
+        template_ids = metadata.get("template_ids", [])
+        function_id = metadata.get("function_id")
 
         for route in self.routes:
             # Match by template IDs
@@ -233,12 +245,12 @@ class ProductionRouter:
             Estimated size in bytes
         """
         # Use metadata fields to estimate size
-        compressed_size = metadata.get('compressed_size', 0)
+        compressed_size = metadata.get("compressed_size", 0)
         if compressed_size > 0:
             return compressed_size
 
         # Estimate from other metadata
-        token_count = metadata.get('plain_token_length', 0)
+        token_count = metadata.get("plain_token_length", 0)
         if token_count > 0:
             # Rough estimate: 4 bytes per token
             return token_count * 4
@@ -293,13 +305,17 @@ class LoadBalancer:
         avg_load = total_load / self.worker_count if self.worker_count > 0 else 0
 
         # Calculate load variance (uniformity metric)
-        variance = sum((load - avg_load) ** 2 for load in self.worker_loads) / self.worker_count if self.worker_count > 0 else 0
+        variance = (
+            sum((load - avg_load) ** 2 for load in self.worker_loads) / self.worker_count
+            if self.worker_count > 0
+            else 0
+        )
 
         return {
-            'worker_count': self.worker_count,
-            'worker_loads': self.worker_loads,
-            'total_load': total_load,
-            'average_load': avg_load,
-            'load_variance': variance,
-            'uniformity_score': 1.0 / (1.0 + variance) if variance > 0 else 1.0,
+            "worker_count": self.worker_count,
+            "worker_loads": self.worker_loads,
+            "total_load": total_load,
+            "average_load": avg_load,
+            "load_variance": variance,
+            "uniformity_score": 1.0 / (1.0 + variance) if variance > 0 else 1.0,
         }

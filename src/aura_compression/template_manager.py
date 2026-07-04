@@ -3,25 +3,25 @@
 Template Manager - Handles template matching and management
 Extracted from the monolithic ProductionHybridCompressor
 """
+
+import json
 import os
 import re
 import struct
-from pathlib import Path
-import json
-from typing import Dict, List, Tuple, Optional, Any
-from enum import Enum
-from datetime import datetime
 from collections import Counter
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from aura_compression.enums import (
-    CompressionMethod,
-    TEMPLATE_METADATA_KIND,
     _SEMANTIC_PREVIEW_LIMIT,
     _SEMANTIC_TOKEN_LIMIT,
     _SEMANTIC_TOKEN_PATTERN,
+    TEMPLATE_METADATA_KIND,
+    CompressionMethod,
 )
-
-from aura_compression.templates import TemplateMatch, TemplateLibrary
+from aura_compression.templates import TemplateLibrary, TemplateMatch
 
 
 class TemplateManager:
@@ -97,9 +97,13 @@ class TemplateManager:
         total_cache_entries = len(self._template_cache)
 
         return {
-            'cache_size': total_cache_entries,
-            'cache_hit_rate': cache_hits / total_cache_entries if total_cache_entries > 0 else 0.0,
-            'template_library_size': len(self.template_library.templates) if hasattr(self.template_library, 'templates') else 0,
+            "cache_size": total_cache_entries,
+            "cache_hit_rate": cache_hits / total_cache_entries if total_cache_entries > 0 else 0.0,
+            "template_library_size": (
+                len(self.template_library.templates)
+                if hasattr(self.template_library, "templates")
+                else 0
+            ),
         }
 
     def validate_template_match(self, text: str, template_match: TemplateMatch) -> bool:
@@ -108,8 +112,7 @@ class TemplateManager:
         """
         try:
             reconstructed = self.template_library.format_template(
-                template_match.template_id,
-                template_match.slots
+                template_match.template_id, template_match.slots
             )
             return reconstructed == text
         except Exception:
@@ -129,7 +132,7 @@ class TemplateManager:
 
         # Create preview from first few tokens
         preview_tokens = tokens[:_SEMANTIC_TOKEN_LIMIT]
-        preview = ' '.join(preview_tokens)
+        preview = " ".join(preview_tokens)
 
         # Add length indicator if truncated
         if len(preview) < len(text):
@@ -146,7 +149,7 @@ class TemplateManager:
             # This is a simplified implementation - real implementation would be more sophisticated
             regex_pattern = re.escape(template_pattern)
             # Replace slot placeholders with capture groups
-            regex_pattern = regex_pattern.replace(r'\{\}', r'(.+?)')
+            regex_pattern = regex_pattern.replace(r"\{\}", r"(.+?)")
 
             match = re.match(regex_pattern, text, re.DOTALL)
             if match:
@@ -171,10 +174,10 @@ class TemplateManager:
             entry = self.template_library.get_entry(template_id)
             if entry:
                 return {
-                    'id': template_id,
-                    'slot_count': entry.slot_count,
-                    'pattern': getattr(entry, 'pattern', None),
-                    'category': getattr(entry, 'category', None),
+                    "id": template_id,
+                    "slot_count": entry.slot_count,
+                    "pattern": getattr(entry, "pattern", None),
+                    "category": getattr(entry, "category", None),
                 }
             return None
         except Exception:

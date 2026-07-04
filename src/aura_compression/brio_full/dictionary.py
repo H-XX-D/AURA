@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
+from .common_words import COMMON_WORDS
 from .constants import MAX_DICTIONARY_SIZE
 from .trie import DictionaryTrie
-from .common_words import COMMON_WORDS
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,6 @@ _PHRASES: List[str] = [
     "system",
     "deployment",
     "API",
-
     # Original long phrases (IDs 21-40)
     "I can walk you through the validation checklist so no step gets missed.",
     "Let me outline the diagnostics flow so you have a concrete sequence to follow.",
@@ -61,7 +60,6 @@ _PHRASES: List[str] = [
     "I can share the changelog summary so you have extra background ready.",
     "I'll highlight the pre-deployment checks so you can confirm cluster health first.",
     "I will call out each security setting so you can confirm it before committing the change.",
-
     # Common articles, conjunctions, prepositions (IDs 41-60)
     "the ",
     " the ",
@@ -83,7 +81,6 @@ _PHRASES: List[str] = [
     " how ",
     "with ",
     " with ",
-
     # Common verbs (IDs 61-90)
     "is ",
     " is ",
@@ -117,7 +114,6 @@ _PHRASES: List[str] = [
     " must ",
     "may ",
     " may ",
-
     # Programming keywords (IDs 91-120)
     "function ",
     "method ",
@@ -149,7 +145,6 @@ _PHRASES: List[str] = [
     "true",
     "false",
     "null",
-
     # Web/API terms (IDs 121-150)
     "request ",
     "response ",
@@ -181,7 +176,6 @@ _PHRASES: List[str] = [
     "repository ",
     "model ",
     "view ",
-
     # Time/date terms (IDs 151-170)
     "now",
     "today",
@@ -203,7 +197,6 @@ _PHRASES: List[str] = [
     "UTC",
     "timezone ",
     "epoch ",
-
     # Numbers and quantities (IDs 171-190)
     "zero",
     "one",
@@ -225,7 +218,6 @@ _PHRASES: List[str] = [
     "billion ",
     "count ",
     "total ",
-
     # Technical infrastructure (IDs 191-220)
     "database ",
     "server ",
@@ -257,7 +249,6 @@ _PHRASES: List[str] = [
     "SSL ",
     "certificate ",
     "encryption ",
-
     # Common phrases (IDs 221-254)
     "Please ",
     "Thank you",
@@ -292,8 +283,7 @@ if len(_PHRASES) > MAX_DICTIONARY_SIZE:
     raise RuntimeError("Dictionary exceeds supported size")
 
 DICTIONARY: List[DictionaryEntry] = [
-    DictionaryEntry(idx + 1, phrase, phrase.encode("utf-8"))
-    for idx, phrase in enumerate(_PHRASES)
+    DictionaryEntry(idx + 1, phrase, phrase.encode("utf-8")) for idx, phrase in enumerate(_PHRASES)
 ]
 
 _LOOKUP = {entry.phrase: entry for entry in DICTIONARY}

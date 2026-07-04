@@ -3,17 +3,18 @@
 Background Workers - Automatic Template Discovery and Maintenance
 Implements Claims 3, 17: Continuous template mining from audit logs
 """
+
 import json
 import logging
+import sqlite3
 import threading
 import time
-from pathlib import Path
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
-import sqlite3
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from aura_compression.audit import AuditLogger, AuditLogType
-from aura_compression.discovery import TemplateDiscoveryEngine, TemplateCandidate
+from aura_compression.discovery import TemplateCandidate, TemplateDiscoveryEngine
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +66,10 @@ class TemplateDiscoveryWorker:
             if not user_id:
                 raise ValueError("user_id required for user-specific discovery")
             starting_id = 1016  # Shifted from 224
-            max_id = 1047       # 32 slots per user
+            max_id = 1047  # 32 slots per user
         else:  # platform mode
             starting_id = 149  # Changed from 129
-            max_id = 1000      # Increased from 208 to 1000 for larger template storage
+            max_id = 1000  # Increased from 208 to 1000 for larger template storage
 
         self.discovery_engine = TemplateDiscoveryEngine(
             min_frequency=min_frequency,
@@ -84,7 +85,7 @@ class TemplateDiscoveryWorker:
         self.worker_thread: Optional[threading.Thread] = None
         self.last_discovery_run: Optional[datetime] = None
         self.total_templates_discovered = 0
-        
+
         # In-memory template store for quick access (points to SQL cache)
         self.discovered_templates: Dict[int, str] = {}
         self._scope = f"user:{self.user_id}" if self.discovery_mode == "user" else "platform"
@@ -107,8 +108,7 @@ class TemplateDiscoveryWorker:
         self._db_conn.execute("PRAGMA journal_mode=WAL")
         self._db_conn.execute("PRAGMA synchronous=NORMAL")
         with self._db_lock, self._db_conn:
-            self._db_conn.execute(
-                """
+            self._db_conn.execute("""
                 CREATE TABLE IF NOT EXISTS template_store (
                     template_id INTEGER NOT NULL,
                     scope TEXT NOT NULL,
@@ -119,10 +119,8 @@ class TemplateDiscoveryWorker:
                     updated_at TEXT NOT NULL,
                     PRIMARY KEY (template_id, scope)
                 )
-                """
-            )
-            self._db_conn.execute(
-                """
+                """)
+            self._db_conn.execute("""
                 CREATE TABLE IF NOT EXISTS cold_storage_templates (
                     template_id INTEGER NOT NULL,
                     scope TEXT NOT NULL,
@@ -132,16 +130,13 @@ class TemplateDiscoveryWorker:
                     retired_at TEXT NOT NULL,
                     PRIMARY KEY (template_id, scope)
                 )
-                """
-            )
-            self._db_conn.execute(
-                """
+                """)
+            self._db_conn.execute("""
                 CREATE TABLE IF NOT EXISTS template_metadata (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 )
-                """
-            )
+                """)
 
     def _close_database(self) -> None:
         """Close SQLite connection."""
@@ -154,23 +149,23 @@ class TemplateDiscoveryWorker:
 
     def _candidate_from_payload(self, payload: Dict[str, Any]) -> Optional[TemplateCandidate]:
         """Rehydrate TemplateCandidate from stored JSON payload."""
-        pattern = payload.get('pattern')
+        pattern = payload.get("pattern")
         if not pattern:
             return None
 
         candidate = TemplateCandidate(
             pattern=pattern,
-            frequency=payload.get('frequency', 0),
-            compression_ratio=payload.get('compression_ratio', 1.0),
-            slot_count=payload.get('slot_count') or pattern.count('{'),
-            examples=payload.get('examples', []),
-            safety_approved=payload.get('safety_approved', True),
-            version=payload.get('version', 1),
-            discovered_at=payload.get('discovered_at'),
+            frequency=payload.get("frequency", 0),
+            compression_ratio=payload.get("compression_ratio", 1.0),
+            slot_count=payload.get("slot_count") or pattern.count("{"),
+            examples=payload.get("examples", []),
+            safety_approved=payload.get("safety_approved", True),
+            version=payload.get("version", 1),
+            discovered_at=payload.get("discovered_at"),
         )
-        candidate.usage_count = payload.get('usage_count', 0)
-        candidate.last_used = payload.get('last_used')
-        candidate.days_since_used = payload.get('days_since_used', 0)
+        candidate.usage_count = payload.get("usage_count", 0)
+        candidate.last_used = payload.get("last_used")
+        candidate.days_since_used = payload.get("days_since_used", 0)
         return candidate
 
     def _migrate_legacy_template_store(self) -> None:
@@ -188,11 +183,11 @@ class TemplateDiscoveryWorker:
 
         scope_templates: Dict[int, Dict[str, Any]]
         if self.discovery_mode == "user":
-            scope_templates = data.get('user_templates', {}).get(self.user_id, {}) or {}
+            scope_templates = data.get("user_templates", {}).get(self.user_id, {}) or {}
         else:
-            scope_templates = data.get('platform_templates', {}) or {}
+            scope_templates = data.get("platform_templates", {}) or {}
 
-        cold_templates = data.get('cold_storage_templates', {})
+        cold_templates = data.get("cold_storage_templates", {})
         namespace = f"user:{self.user_id}" if self.discovery_mode == "user" else "platform"
         now = datetime.now(timezone.utc).isoformat()
 
@@ -203,7 +198,7 @@ class TemplateDiscoveryWorker:
                 except ValueError:
                     continue
                 payload = json.dumps(template_data)
-                discovered_by = template_data.get('discovered_by')
+                discovered_by = template_data.get("discovered_by")
                 self._db_conn.execute(
                     """
                     INSERT OR REPLACE INTO template_store
@@ -257,7 +252,9 @@ class TemplateDiscoveryWorker:
             legacy_file.rename(backup_path)
             logger.info(f"Migrated legacy template store to SQLite (backup: {backup_path.name})")
         except OSError:
-            logger.info("Migrated legacy template store to SQLite; original file kept for reference")
+            logger.info(
+                "Migrated legacy template store to SQLite; original file kept for reference"
+            )
 
     def _load_templates_from_db(self) -> None:
         """Populate in-memory structures from SQLite backend."""
@@ -320,7 +317,9 @@ class TemplateDiscoveryWorker:
         self.total_templates_discovered = len(self.discovery_engine.promoted_templates)
 
         if self.discovery_mode == "user":
-            logger.info(f"Loaded {self.total_templates_discovered} user-specific templates for {self.user_id}")
+            logger.info(
+                f"Loaded {self.total_templates_discovered} user-specific templates for {self.user_id}"
+            )
         else:
             logger.info(f"Loaded {self.total_templates_discovered} platform-wide templates")
 
@@ -329,9 +328,9 @@ class TemplateDiscoveryWorker:
         processed_file = Path(self.cache_dir) / "processed_messages.json"
         if processed_file.exists():
             try:
-                with open(processed_file, 'r') as f:
+                with open(processed_file, "r") as f:
                     data = json.load(f)
-                    self.processed_message_ids = set(data.get('processed_ids', []))
+                    self.processed_message_ids = set(data.get("processed_ids", []))
                     logger.info(f"Loaded {len(self.processed_message_ids)} processed message IDs")
             except Exception as e:
                 logger.info(f"Failed to load processed message IDs: {e}")
@@ -344,10 +343,10 @@ class TemplateDiscoveryWorker:
             # Ensure cache directory exists
             Path(self.cache_dir).mkdir(parents=True, exist_ok=True)
             data = {
-                'processed_ids': list(self.processed_message_ids),
-                'last_updated': datetime.now().isoformat()
+                "processed_ids": list(self.processed_message_ids),
+                "last_updated": datetime.now().isoformat(),
             }
-            with open(processed_file, 'w') as f:
+            with open(processed_file, "w") as f:
                 json.dump(data, f)
         except Exception as e:
             logger.warning(f"Failed to save processed message IDs: {e}")
@@ -381,9 +380,9 @@ class TemplateDiscoveryWorker:
                 for template_id, candidate in self.discovery_engine.promoted_templates.items():
                     payload = candidate.to_dict()
                     if self.discovery_mode == "user":
-                        payload['user_id'] = self.user_id
+                        payload["user_id"] = self.user_id
                     elif self.user_id:
-                        payload['discovered_by'] = self.user_id
+                        payload["discovered_by"] = self.user_id
 
                     cursor.execute(
                         """
@@ -397,7 +396,7 @@ class TemplateDiscoveryWorker:
                             self.discovery_mode,
                             self.user_id,
                             json.dumps(payload),
-                            payload.get('discovered_by'),
+                            payload.get("discovered_by"),
                             now,
                         ),
                     )
@@ -405,7 +404,7 @@ class TemplateDiscoveryWorker:
 
                 for template_id, candidate in self.discovery_engine.cold_storage.items():
                     payload = candidate.to_dict()
-                    payload['retired_at'] = now
+                    payload["retired_at"] = now
                     cursor.execute(
                         """
                         INSERT INTO cold_storage_templates
@@ -436,7 +435,10 @@ class TemplateDiscoveryWorker:
                     VALUES (?, ?)
                     ON CONFLICT(key) DO UPDATE SET value=excluded.value
                     """,
-                    (f"audit_log::{self._scope}", json.dumps(self.discovery_engine.export_audit_log())),
+                    (
+                        f"audit_log::{self._scope}",
+                        json.dumps(self.discovery_engine.export_audit_log()),
+                    ),
                 )
 
                 self._db_conn.commit()
@@ -465,7 +467,7 @@ class TemplateDiscoveryWorker:
             )
             row = cursor.fetchone()
             if row and row[0]:
-                metadata['last_updated'] = row[0]
+                metadata["last_updated"] = row[0]
 
             cursor.execute(
                 "SELECT value FROM template_metadata WHERE key=?",
@@ -474,9 +476,9 @@ class TemplateDiscoveryWorker:
             row = cursor.fetchone()
             if row and row[0]:
                 try:
-                    metadata['audit_log'] = json.loads(row[0])
+                    metadata["audit_log"] = json.loads(row[0])
                 except json.JSONDecodeError:
-                    metadata['audit_log'] = row[0]
+                    metadata["audit_log"] = row[0]
 
         return metadata
 
@@ -494,8 +496,12 @@ class TemplateDiscoveryWorker:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         for entry in entries:
             try:
-                entry_time = datetime.fromisoformat(entry.timestamp.replace('Z', '+00:00'))
-                if entry_time >= cutoff and entry.plaintext and entry.entry_id not in self.processed_message_ids:
+                entry_time = datetime.fromisoformat(entry.timestamp.replace("Z", "+00:00"))
+                if (
+                    entry_time >= cutoff
+                    and entry.plaintext
+                    and entry.entry_id not in self.processed_message_ids
+                ):
                     messages.append(entry.plaintext)
                     # Mark as processed immediately
                     self.processed_message_ids.add(entry.entry_id)
@@ -524,7 +530,9 @@ class TemplateDiscoveryWorker:
         messages = self._get_recent_messages(hours=24)
 
         if len(messages) < self.min_messages_for_discovery:
-            logger.info(f"Not enough messages for discovery: {len(messages)} < {self.min_messages_for_discovery}")
+            logger.info(
+                f"Not enough messages for discovery: {len(messages)} < {self.min_messages_for_discovery}"
+            )
             return 0
 
         logger.info(f"Analyzing {len(messages)} messages...")
@@ -535,7 +543,10 @@ class TemplateDiscoveryWorker:
         # Promote qualified candidates (Claim 17)
         new_templates = 0
         for candidate in candidates:
-            if candidate.safety_approved and candidate.compression_ratio >= self.discovery_engine.compression_threshold:
+            if (
+                candidate.safety_approved
+                and candidate.compression_ratio >= self.discovery_engine.compression_threshold
+            ):
                 # Check if similar template already exists
                 is_duplicate = False
                 for existing in self.discovery_engine.promoted_templates.values():
@@ -595,14 +606,14 @@ class TemplateDiscoveryWorker:
 
     def stop(self):
         """Stop background worker"""
-        if not self.running:
-            return
-
+        was_running = self.running
         self.running = False
         if self.worker_thread:
             self.worker_thread.join(timeout=5)
+            self.worker_thread = None
         self._close_database()
-        logger.info("Template discovery worker stopped")
+        if was_running:
+            logger.info("Template discovery worker stopped")
 
     def get_discovered_templates(self) -> Dict[int, str]:
         """Get all discovered templates (template_id -> pattern mapping) from SQL cache"""
@@ -611,11 +622,13 @@ class TemplateDiscoveryWorker:
     def get_status(self) -> Dict[str, Any]:
         """Get worker status for monitoring"""
         return {
-            'running': self.running,
-            'last_discovery_run': self.last_discovery_run.isoformat() if self.last_discovery_run else None,
-            'total_templates_discovered': self.total_templates_discovered,
-            'discovery_interval_seconds': self.discovery_interval,
-            'cache_dir': self.cache_dir,
+            "running": self.running,
+            "last_discovery_run": (
+                self.last_discovery_run.isoformat() if self.last_discovery_run else None
+            ),
+            "total_templates_discovered": self.total_templates_discovered,
+            "discovery_interval_seconds": self.discovery_interval,
+            "cache_dir": self.cache_dir,
         }
 
 
@@ -657,6 +670,7 @@ def stop_discovery_worker():
     global _discovery_worker
     if _discovery_worker:
         _discovery_worker.stop()
+        _discovery_worker = None
 
 
 def get_discovery_worker() -> Optional[TemplateDiscoveryWorker]:

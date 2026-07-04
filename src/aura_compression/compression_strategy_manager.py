@@ -3,30 +3,29 @@
 Compression Strategy Manager - Manages compression strategies and method selection
 Extracted from the monolithic ProductionHybridCompressor
 """
+
 import csv
+import json
 import logging
 import math
 import os
 import struct
-from pathlib import Path
-import json
-from typing import Dict, List, Tuple, Optional, Any
-from enum import Enum
-from datetime import datetime, timezone
 from collections import Counter, OrderedDict
+from datetime import datetime, timezone
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
+from aura_compression.compression_engine import CompressionEngine
 from aura_compression.enums import (
-    CompressionMethod,
-    TEMPLATE_METADATA_KIND,
     _SEMANTIC_PREVIEW_LIMIT,
     _SEMANTIC_TOKEN_LIMIT,
     _SEMANTIC_TOKEN_PATTERN,
+    TEMPLATE_METADATA_KIND,
+    CompressionMethod,
 )
-
-from aura_compression.templates import TemplateMatch
-from aura_compression.compression_engine import CompressionEngine
 from aura_compression.ml_algorithm_selector import CompressionResult
-
+from aura_compression.templates import TemplateMatch
 
 # Common tiny tokens that are frequently compressible despite short length
 _SHORT_COMPRESSIBLE_TOKENS = {
@@ -52,17 +51,20 @@ class CompressionStrategyManager:
     """
     Manages compression strategies and method selection
     """
+
     _METRIC_CACHE_LIMIT = 10000
     _PARTIAL_UNCOMPRESSED_THRESHOLD = 16  # bytes
 
-    def __init__(self,
-                 compression_engine: CompressionEngine,
-                 algorithm_selector: Any,
-                 template_manager: Any,
-                 performance_optimizer: Any,
-                 enable_scorer: bool = False,
-                 scorer_telemetry_path: Optional[str] = None,
-                 enable_validation: bool = False):
+    def __init__(
+        self,
+        compression_engine: CompressionEngine,
+        algorithm_selector: Any,
+        template_manager: Any,
+        performance_optimizer: Any,
+        enable_scorer: bool = False,
+        scorer_telemetry_path: Optional[str] = None,
+        enable_validation: bool = False,
+    ):
         """
         Initialize strategy manager
 
@@ -112,7 +114,9 @@ class CompressionStrategyManager:
         self._scorer_window_total = 0
         self._scorer_window_borderline = 0
 
-        self._scorer_eval_window = self._read_int_env("AURA_SCORER_EVAL_WINDOW", default=500, min_value=1)
+        self._scorer_eval_window = self._read_int_env(
+            "AURA_SCORER_EVAL_WINDOW", default=500, min_value=1
+        )
         self._scorer_min_borderline_ratio = self._read_float_env(
             "AURA_SCORER_MIN_BORDERLINE_RATIO",
             default=0.15,
@@ -122,10 +126,12 @@ class CompressionStrategyManager:
 
         self._hydrate_scorer_stats()
 
-    def _compress_with_strategies(self,
-                                  text: str,
-                                  strategies: List[CompressionMethod],
-                                  template_match: Optional[TemplateMatch] = None) -> Tuple[bytes, dict]:
+    def _compress_with_strategies(
+        self,
+        text: str,
+        strategies: List[CompressionMethod],
+        template_match: Optional[TemplateMatch] = None,
+    ) -> Tuple[bytes, dict]:
         """
         Compress using multiple strategies and return the best result
         """
@@ -138,7 +144,9 @@ class CompressionStrategyManager:
                     # Try full template match first
                     if template_match is None:
                         # Fallback: Try partial template matching
-                        partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                        partial_matches = (
+                            self.template_manager.template_library.find_substring_matches(text)
+                        )
                         if partial_matches:
                             # Use partial matching compression (best match or hybrid)
                             compressed, metadata = self._compress_with_partial_templates(
@@ -149,12 +157,16 @@ class CompressionStrategyManager:
                         else:
                             continue
                     else:
-                        compressed, metadata = self.compression_engine.compress_binary_semantic(text, template_match)
+                        compressed, metadata = self.compression_engine.compress_binary_semantic(
+                            text, template_match
+                        )
 
                 elif strategy == CompressionMethod.AURALITE:
                     # Try partial template matching first for AURALITE too
                     if template_match is None:
-                        partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                        partial_matches = (
+                            self.template_manager.template_library.find_substring_matches(text)
+                        )
                         if partial_matches:
                             # Use partial matching compression
                             compressed, metadata = self._compress_with_partial_templates(
@@ -167,12 +179,16 @@ class CompressionStrategyManager:
                             compressed, metadata = self.compression_engine.compress_auralite(text)
                     else:
                         # Full template match available
-                        compressed, metadata = self.compression_engine.compress_binary_semantic(text, template_match)
+                        compressed, metadata = self.compression_engine.compress_binary_semantic(
+                            text, template_match
+                        )
 
                 elif strategy == CompressionMethod.BRIO:
                     # Try partial template matching first for BRIO too
                     if template_match is None:
-                        partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                        partial_matches = (
+                            self.template_manager.template_library.find_substring_matches(text)
+                        )
                         if partial_matches:
                             # Use partial matching compression
                             compressed, metadata = self._compress_with_partial_templates(
@@ -185,7 +201,9 @@ class CompressionStrategyManager:
                             compressed, metadata = self.compression_engine.compress_brio(text)
                     else:
                         # Full template match available
-                        compressed, metadata = self.compression_engine.compress_binary_semantic(text, template_match)
+                        compressed, metadata = self.compression_engine.compress_binary_semantic(
+                            text, template_match
+                        )
 
                 elif strategy == CompressionMethod.PATTERN_SEMANTIC:
                     # PATTERN_SEMANTIC does NOT use partial template matching (as requested)
@@ -194,7 +212,7 @@ class CompressionStrategyManager:
                 else:
                     continue
 
-                ratio = metadata.get('ratio', 0.0)
+                ratio = metadata.get("ratio", 0.0)
                 if ratio > best_ratio:
                     best_ratio = ratio
                     best_result = (compressed, metadata)
@@ -210,7 +228,7 @@ class CompressionStrategyManager:
         # If the best ratio does not beat the uncompressed baseline, prefer raw text.
         if best_ratio <= 1.0:
             compressed, metadata = best_result
-            if metadata.get('method') == CompressionMethod.UNCOMPRESSED.name.lower():
+            if metadata.get("method") == CompressionMethod.UNCOMPRESSED.name.lower():
                 return best_result
             return self.compression_engine.compress_uncompressed(text)
 
@@ -230,10 +248,9 @@ class CompressionStrategyManager:
 
         return best_result
 
-    def compress_with_method(self,
-                            text: str,
-                            method: CompressionMethod,
-                            template_match: Optional[TemplateMatch] = None) -> Tuple[bytes, dict]:
+    def compress_with_method(
+        self, text: str, method: CompressionMethod, template_match: Optional[TemplateMatch] = None
+    ) -> Tuple[bytes, dict]:
         """
         Compress using a specific method
         All methods (except PATTERN_SEMANTIC) now try partial template matching first
@@ -245,7 +262,9 @@ class CompressionStrategyManager:
         if method == CompressionMethod.BINARY_SEMANTIC:
             if template_match is None:
                 # Try partial template matching
-                partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                partial_matches = self.template_manager.template_library.find_substring_matches(
+                    text
+                )
                 if partial_matches:
                     result = self._compress_with_partial_templates(text, partial_matches, method)
                 else:
@@ -256,7 +275,9 @@ class CompressionStrategyManager:
         elif method == CompressionMethod.AURALITE:
             # Try partial template matching first
             if template_match is None:
-                partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                partial_matches = self.template_manager.template_library.find_substring_matches(
+                    text
+                )
                 if partial_matches:
                     result = self._compress_with_partial_templates(text, partial_matches, method)
                 else:
@@ -267,7 +288,9 @@ class CompressionStrategyManager:
         elif method == CompressionMethod.BRIO:
             # Try partial template matching first
             if template_match is None:
-                partial_matches = self.template_manager.template_library.find_substring_matches(text)
+                partial_matches = self.template_manager.template_library.find_substring_matches(
+                    text
+                )
                 if partial_matches:
                     result = self._compress_with_partial_templates(text, partial_matches, method)
                 else:
@@ -284,44 +307,50 @@ class CompressionStrategyManager:
 
         else:
             raise ValueError(f"Unsupported compression method: {method}")
-        
+
         # Record performance for ML learning
-        if hasattr(self, 'algorithm_selector') and self.algorithm_selector and self.algorithm_selector.enable_learning:
+        if (
+            hasattr(self, "algorithm_selector")
+            and self.algorithm_selector
+            and self.algorithm_selector.enable_learning
+        ):
             compressed_data, metadata = result
             compression_time = time.time() - start_time
-            original_size = len(text.encode('utf-8'))
+            original_size = len(text.encode("utf-8"))
             compressed_size = len(compressed_data)
             ratio = original_size / compressed_size if compressed_size > 0 else 1.0
-            
+
             # Map CompressionMethod enum to string for ML selector
             method_str = {
                 CompressionMethod.BINARY_SEMANTIC: "binary_semantic",
                 CompressionMethod.AURALITE: "auralite",
                 CompressionMethod.BRIO: "brio",
                 CompressionMethod.PATTERN_SEMANTIC: "pattern_semantic",
-                CompressionMethod.UNCOMPRESSED: "uncompressed"
+                CompressionMethod.UNCOMPRESSED: "uncompressed",
             }.get(method, str(method))
-            
+
             perf_result = CompressionResult(
                 method=method_str,
                 original_size=original_size,
                 compressed_size=compressed_size,
                 compression_time=compression_time,
-                ratio=ratio
+                ratio=ratio,
             )
-            
+
             try:
                 self.algorithm_selector.record_performance(text, method_str, perf_result)
             except Exception:
                 # Don't fail compression if ML learning fails
                 pass
-        
+
         return result
 
-    def select_optimal_strategy(self,
-                               text: str,
-                               available_strategies: List[CompressionMethod],
-                               template_match: Optional[TemplateMatch] = None) -> CompressionMethod:
+    def select_optimal_strategy(
+        self,
+        text: str,
+        available_strategies: List[CompressionMethod],
+        template_match: Optional[TemplateMatch] = None,
+    ) -> CompressionMethod:
         """
         Select the optimal compression strategy for the given text
         """
@@ -335,10 +364,12 @@ class CompressionStrategyManager:
                 continue  # Skip BINARY_SEMANTIC if no template match
             filtered_strategies.append(strategy)
 
-        message_byte_length = len(text.encode('utf-8'))
+        message_byte_length = len(text.encode("utf-8"))
         self._record_message_statistics(message_byte_length)
         if message_byte_length < 1_048_576:
-            filtered_strategies = [s for s in filtered_strategies if s != CompressionMethod.PATTERN_SEMANTIC]
+            filtered_strategies = [
+                s for s in filtered_strategies if s != CompressionMethod.PATTERN_SEMANTIC
+            ]
 
         if not filtered_strategies:
             return CompressionMethod.UNCOMPRESSED
@@ -379,48 +410,62 @@ class CompressionStrategyManager:
         # Check if encoders are available
         try:
             # BINARY_SEMANTIC requires template library
-            if hasattr(self.compression_engine, 'template_library') and self.compression_engine.template_library:
+            if (
+                hasattr(self.compression_engine, "template_library")
+                and self.compression_engine.template_library
+            ):
                 strategies.append(CompressionMethod.BINARY_SEMANTIC)
         except (AttributeError, TypeError):
             pass
 
         try:
             # Auralite requires encoder
-            if hasattr(self.compression_engine, '_auralite_encoder') and self.compression_engine._auralite_encoder:
+            if (
+                hasattr(self.compression_engine, "_auralite_encoder")
+                and self.compression_engine._auralite_encoder
+            ):
                 strategies.append(CompressionMethod.AURALITE)
         except (AttributeError, TypeError):
             pass
 
         try:
             # BRIO requires BRIO encoder
-            if hasattr(self.compression_engine, '_aura_encoder') and self.compression_engine._aura_encoder:
+            if (
+                hasattr(self.compression_engine, "_aura_encoder")
+                and self.compression_engine._aura_encoder
+            ):
                 strategies.append(CompressionMethod.BRIO)
         except (AttributeError, TypeError):
             pass
 
         try:
             # PATTERN_SEMANTIC requires AI semantic compressor
-            if hasattr(self.compression_engine, '_pattern_semantic_compressor') and self.compression_engine._pattern_semantic_compressor:
+            if (
+                hasattr(self.compression_engine, "_pattern_semantic_compressor")
+                and self.compression_engine._pattern_semantic_compressor
+            ):
                 strategies.append(CompressionMethod.PATTERN_SEMANTIC)
         except (AttributeError, TypeError):
             pass
 
         return strategies
 
-    def _select_best_method_by_heuristic(self,
-                                         text: str,
-                                         available_strategies: List[CompressionMethod],
-                                         template_match: Optional[TemplateMatch],
-                                         byte_length: Optional[int] = None,
-                                         entropy: Optional[float] = None,
-                                         dict_hit_potential: Optional[float] = None) -> Tuple[CompressionMethod, Optional[float]]:
+    def _select_best_method_by_heuristic(
+        self,
+        text: str,
+        available_strategies: List[CompressionMethod],
+        template_match: Optional[TemplateMatch],
+        byte_length: Optional[int] = None,
+        entropy: Optional[float] = None,
+        dict_hit_potential: Optional[float] = None,
+    ) -> Tuple[CompressionMethod, Optional[float]]:
         """
         Select the best compression method using intelligent heuristics
         Tuned to prefer Auralite/BRIO for medium payloads based on entropy and dictionary hit rate
         """
         # Quick message analysis
         if byte_length is None:
-            byte_length = len(text.encode('utf-8'))
+            byte_length = len(text.encode("utf-8"))
 
         if entropy is None:
             entropy = self._calculate_entropy(text)
@@ -455,7 +500,9 @@ class CompressionStrategyManager:
             # Medium messages: prefer Auralite with dictionary hits, else BRIO
             # Use scorer if enabled for borderline cases
             if self.enable_scorer and 400 <= byte_length <= 2048:
-                scorer_score = self._score_compression_potential(text, byte_length, entropy, dict_hit_potential)
+                scorer_score = self._score_compression_potential(
+                    text, byte_length, entropy, dict_hit_potential
+                )
                 # Score > 0.6: prefer Auralite, Score < 0.4: prefer BRIO, else use dict hits
                 if scorer_score > 0.6 and CompressionMethod.AURALITE in available_strategies:
                     return CompressionMethod.AURALITE, scorer_score
@@ -498,12 +545,14 @@ class CompressionStrategyManager:
 
         return CompressionMethod.UNCOMPRESSED, scorer_score
 
-    def _persist_scorer_telemetry(self,
-                                  payload_size: int,
-                                  entropy: float,
-                                  dict_hit_rate: float,
-                                  score: float,
-                                  selected_method: CompressionMethod) -> None:
+    def _persist_scorer_telemetry(
+        self,
+        payload_size: int,
+        entropy: float,
+        dict_hit_rate: float,
+        score: float,
+        selected_method: CompressionMethod,
+    ) -> None:
         """
         Persist scorer telemetry to CSV for offline analysis.
         """
@@ -514,41 +563,59 @@ class CompressionStrategyManager:
             telemetry_path = self.scorer_telemetry_path
             telemetry_path.parent.mkdir(parents=True, exist_ok=True)
 
-            write_header = (not self._scorer_header_written) or not telemetry_path.exists() or telemetry_path.stat().st_size == 0
+            write_header = (
+                (not self._scorer_header_written)
+                or not telemetry_path.exists()
+                or telemetry_path.stat().st_size == 0
+            )
             with telemetry_path.open("a", newline="", encoding="utf-8") as csvfile:
                 writer = csv.writer(csvfile)
                 if write_header:
-                    writer.writerow([
-                        "timestamp",
-                        "payload_bytes",
-                        "entropy",
-                        "dictionary_hit_rate",
-                        "score",
-                        "selected_method",
-                        "messages_seen",
-                        "borderline_messages",
-                        "global_borderline_ratio",
-                        "window_borderline_ratio",
-                        "scorer_enabled",
-                        "auto_disabled",
-                    ])
+                    writer.writerow(
+                        [
+                            "timestamp",
+                            "payload_bytes",
+                            "entropy",
+                            "dictionary_hit_rate",
+                            "score",
+                            "selected_method",
+                            "messages_seen",
+                            "borderline_messages",
+                            "global_borderline_ratio",
+                            "window_borderline_ratio",
+                            "scorer_enabled",
+                            "auto_disabled",
+                        ]
+                    )
                     self._scorer_header_written = True
-                global_ratio = (self._borderline_messages / self._messages_seen) if self._messages_seen else 0.0
+                global_ratio = (
+                    (self._borderline_messages / self._messages_seen)
+                    if self._messages_seen
+                    else 0.0
+                )
                 window_ratio = self._scorer_last_window_ratio
-                writer.writerow([
-                    datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z"),
-                    payload_size,
-                    f"{entropy:.6f}",
-                    f"{dict_hit_rate:.6f}",
-                    f"{score:.6f}",
-                    selected_method.name if isinstance(selected_method, CompressionMethod) else str(selected_method),
-                    self._messages_seen,
-                    self._borderline_messages,
-                    f"{global_ratio:.6f}",
-                    f"{window_ratio:.6f}" if window_ratio is not None else "",
-                    "1" if self.enable_scorer else "0",
-                    "1" if self._scorer_auto_disabled else "0",
-                ])
+                writer.writerow(
+                    [
+                        datetime.now(timezone.utc)
+                        .isoformat(timespec="microseconds")
+                        .replace("+00:00", "Z"),
+                        payload_size,
+                        f"{entropy:.6f}",
+                        f"{dict_hit_rate:.6f}",
+                        f"{score:.6f}",
+                        (
+                            selected_method.name
+                            if isinstance(selected_method, CompressionMethod)
+                            else str(selected_method)
+                        ),
+                        self._messages_seen,
+                        self._borderline_messages,
+                        f"{global_ratio:.6f}",
+                        f"{window_ratio:.6f}" if window_ratio is not None else "",
+                        "1" if self.enable_scorer else "0",
+                        "1" if self._scorer_auto_disabled else "0",
+                    ]
+                )
         except Exception:
             # Telemetry should never break compression logic
             pass
@@ -591,16 +658,16 @@ class CompressionStrategyManager:
                 "until traffic contains more medium-sized payloads or run targeted regression corpora."
             )
         else:
-            self._scorer_status_recommendation = (
-                f"Borderline share {ratio:.1%} meets threshold {self._scorer_min_borderline_ratio:.1%}; scorer remains enabled."
-            )
+            self._scorer_status_recommendation = f"Borderline share {ratio:.1%} meets threshold {self._scorer_min_borderline_ratio:.1%}; scorer remains enabled."
 
         self._scorer_window_total = 0
         self._scorer_window_borderline = 0
 
     def get_scorer_status(self) -> Dict[str, Any]:
         """Expose current scorer status and adaptive gating metrics."""
-        global_ratio = (self._borderline_messages / self._messages_seen) if self._messages_seen else 0.0
+        global_ratio = (
+            (self._borderline_messages / self._messages_seen) if self._messages_seen else 0.0
+        )
         return {
             "requested": self._scorer_requested,
             "enabled": bool(self.enable_scorer),
@@ -638,7 +705,9 @@ class CompressionStrategyManager:
                             pass
                     if borderline_val:
                         try:
-                            self._borderline_messages = max(self._borderline_messages, int(borderline_val))
+                            self._borderline_messages = max(
+                                self._borderline_messages, int(borderline_val)
+                            )
                         except ValueError:
                             pass
                     if window_ratio_val:
@@ -665,7 +734,9 @@ class CompressionStrategyManager:
             return default
 
     @staticmethod
-    def _read_float_env(name: str, default: float, min_value: float = 0.0, max_value: float = 1.0) -> float:
+    def _read_float_env(
+        name: str, default: float, min_value: float = 0.0, max_value: float = 1.0
+    ) -> float:
         try:
             value = float(os.getenv(name, default))
             return max(min(value, max_value), min_value)
@@ -686,6 +757,17 @@ class CompressionStrategyManager:
         if cached is not None:
             return cached
 
+        entropy_func = getattr(self.performance_optimizer, "calculate_entropy_text", None)
+        if callable(entropy_func):
+            try:
+                accelerated_entropy = entropy_func(sample)
+                if isinstance(accelerated_entropy, (float, int)):
+                    entropy = float(accelerated_entropy)
+                    self._metric_cache_set(self._entropy_cache, cache_key, entropy)
+                    return entropy
+            except Exception:
+                pass
+
         char_counts = Counter(sample)
 
         entropy = 0.0
@@ -697,7 +779,9 @@ class CompressionStrategyManager:
         self._metric_cache_set(self._entropy_cache, cache_key, entropy)
         return entropy
 
-    def _score_compression_potential(self, text: str, byte_length: int, entropy: float, dict_hit_rate: float) -> float:
+    def _score_compression_potential(
+        self, text: str, byte_length: int, entropy: float, dict_hit_rate: float
+    ) -> float:
         """
         Score compression potential for borderline payloads (lightweight ML assist)
         Returns score between 0.0 (prefer uncompressed) and 1.0 (prefer compression)
@@ -780,7 +864,7 @@ class CompressionStrategyManager:
         # Count repeated 3-char sequences
         trigrams = {}
         for i in range(len(sample) - 2):
-            trigram = sample[i:i+3]
+            trigram = sample[i : i + 3]
             trigrams[trigram] = trigrams.get(trigram, 0) + 1
 
         if not trigrams:
@@ -816,22 +900,22 @@ class CompressionStrategyManager:
         xml_chars = 0
         found_words = set()
         common_words = [
-            'the ',
-            ' and ',
-            ' for ',
-            ' that ',
-            ' with ',
-            'data',
-            'message',
-            'error',
-            'request',
-            'response',
-            'status',
+            "the ",
+            " and ",
+            " for ",
+            " that ",
+            " with ",
+            "data",
+            "message",
+            "error",
+            "request",
+            "response",
+            "status",
         ]
 
         for segment in segments:
             json_chars += sum(1 for c in segment if c in '{}[]":,')
-            xml_chars += sum(1 for c in segment if c in '<>/=')
+            xml_chars += sum(1 for c in segment if c in "<>/=")
 
             lower_segment = segment.lower()
             for word in common_words:
@@ -856,7 +940,7 @@ class CompressionStrategyManager:
         midpoint = len(text) // 2
         return (
             text[:sample_size]
-            + text[midpoint - sample_size // 2: midpoint + sample_size // 2]
+            + text[midpoint - sample_size // 2 : midpoint + sample_size // 2]
             + text[-sample_size:]
         )
 
@@ -868,7 +952,7 @@ class CompressionStrategyManager:
         mid_start = max(0, (len(text) // 2) - (segment_size // 2))
         return [
             text[:segment_size],
-            text[mid_start:mid_start + segment_size],
+            text[mid_start : mid_start + segment_size],
             text[-segment_size:],
         ]
 
@@ -976,57 +1060,65 @@ class CompressionStrategyManager:
 
         prefix = text[:start]
         suffix = text[end:]
-        leftover_bytes = len(prefix.encode('utf-8')) + len(suffix.encode('utf-8'))
+        leftover_bytes = len(prefix.encode("utf-8")) + len(suffix.encode("utf-8"))
         match_coverage = match_length / len(text) if text else 0.0
 
         if leftover_bytes == 0:
             try:
-                compressed, metadata = self.compression_engine.compress_binary_semantic(text, best_match)
-                metadata.update({
-                    'partial_match': True,
-                    'match_coverage': match_coverage,
-                    'leftover_bytes': leftover_bytes,
-                    'leftover_strategy': 'exact_match',
-                    'template_id': best_match.template_id,
-                    'target_method': target_method.name.lower(),
-                })
+                compressed, metadata = self.compression_engine.compress_binary_semantic(
+                    text, best_match
+                )
+                metadata.update(
+                    {
+                        "partial_match": True,
+                        "match_coverage": match_coverage,
+                        "leftover_bytes": leftover_bytes,
+                        "leftover_strategy": "exact_match",
+                        "template_id": best_match.template_id,
+                        "target_method": target_method.name.lower(),
+                    }
+                )
                 return compressed, metadata
             except Exception:
                 pass
 
         if leftover_bytes <= self._PARTIAL_UNCOMPRESSED_THRESHOLD:
             compressed, metadata = self.compression_engine.compress_uncompressed(text)
-            metadata.update({
-                'partial_match': True,
-                'match_coverage': match_coverage,
-                'leftover_bytes': leftover_bytes,
-                'leftover_strategy': 'uncompressed_fallback',
-                'template_id': best_match.template_id,
-                'target_method': target_method.name.lower(),
-            })
+            metadata.update(
+                {
+                    "partial_match": True,
+                    "match_coverage": match_coverage,
+                    "leftover_bytes": leftover_bytes,
+                    "leftover_strategy": "uncompressed_fallback",
+                    "template_id": best_match.template_id,
+                    "target_method": target_method.name.lower(),
+                }
+            )
             return compressed, metadata
 
         if target_method == CompressionMethod.BRIO:
             compressed, metadata = self.compression_engine.compress_brio(text)
-            fallback_strategy = 'brio_fallback'
+            fallback_strategy = "brio_fallback"
         elif target_method == CompressionMethod.AURALITE:
             compressed, metadata = self.compression_engine.compress_auralite(text)
-            fallback_strategy = 'auralite_fallback'
+            fallback_strategy = "auralite_fallback"
         elif target_method == CompressionMethod.BINARY_SEMANTIC:
             # No hybrid support yet; prefer auralite over binary partial payloads
             compressed, metadata = self.compression_engine.compress_auralite(text)
-            fallback_strategy = 'auralite_fallback'
+            fallback_strategy = "auralite_fallback"
         else:
             compressed, metadata = self.compression_engine.compress_uncompressed(text)
-            fallback_strategy = 'uncompressed_fallback'
+            fallback_strategy = "uncompressed_fallback"
 
-        metadata.update({
-            'partial_match': True,
-            'match_coverage': match_coverage,
-            'leftover_bytes': leftover_bytes,
-            'leftover_strategy': fallback_strategy,
-            'template_id': best_match.template_id,
-            'target_method': target_method.name.lower(),
-            'note': 'Partial match detected; hybrid compression not yet implemented',
-        })
+        metadata.update(
+            {
+                "partial_match": True,
+                "match_coverage": match_coverage,
+                "leftover_bytes": leftover_bytes,
+                "leftover_strategy": fallback_strategy,
+                "template_id": best_match.template_id,
+                "target_method": target_method.name.lower(),
+                "note": "Partial match detected; hybrid compression not yet implemented",
+            }
+        )
         return compressed, metadata

@@ -8,16 +8,19 @@ but not identical, enabling compression of messages that differ by small variati
 like timestamps, counters, or minor text differences.
 """
 
-import logging
 import difflib
-from typing import List, Tuple, Dict, Any, Optional
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class FuzzyMatch:
     """Result of a fuzzy string match."""
+
     similarity: float  # 0.0 to 1.0, where 1.0 is identical
     distance: int  # Levenshtein distance
     matched_text: str
@@ -28,11 +31,13 @@ class FuzzyMatch:
 class FuzzyMatcher:
     """Fuzzy string matching for similar message compression."""
 
-    def __init__(self,
-                 min_similarity: float = 0.85,
-                 max_distance: int = 50,
-                 enable_caching: bool = True,
-                 cache_size: int = 1000):
+    def __init__(
+        self,
+        min_similarity: float = 0.85,
+        max_distance: int = 50,
+        enable_caching: bool = True,
+        cache_size: int = 1000,
+    ):
         """
         Initialize fuzzy matcher.
 
@@ -116,36 +121,42 @@ class FuzzyMatcher:
 
             if similarity >= self.min_similarity and distance <= self.max_distance:
                 # Find differences using difflib
-                diff = list(difflib.unified_diff(
-                    pattern.splitlines(keepends=True),
-                    text.splitlines(keepends=True),
-                    fromfile='pattern',
-                    tofile='text',
-                    lineterm=''
-                ))
+                diff = list(
+                    difflib.unified_diff(
+                        pattern.splitlines(keepends=True),
+                        text.splitlines(keepends=True),
+                        fromfile="pattern",
+                        tofile="text",
+                        lineterm="",
+                    )
+                )
 
                 differences = []
                 if diff:
                     # Extract actual differences (skip header lines)
                     for line in diff[2:]:
-                        if line.startswith('-'):
-                            differences.append((line[1:].strip(), ''))
-                        elif line.startswith('+'):
-                            differences.append(('', line[1:].strip()))
+                        if line.startswith("-"):
+                            differences.append((line[1:].strip(), ""))
+                        elif line.startswith("+"):
+                            differences.append(("", line[1:].strip()))
 
-                matches.append(FuzzyMatch(
-                    similarity=similarity,
-                    distance=distance,
-                    matched_text=text,
-                    template_pattern=pattern,
-                    differences=differences
-                ))
+                matches.append(
+                    FuzzyMatch(
+                        similarity=similarity,
+                        distance=distance,
+                        matched_text=text,
+                        template_pattern=pattern,
+                        differences=differences,
+                    )
+                )
 
         # Sort by similarity (highest first)
         matches.sort(key=lambda x: x.similarity, reverse=True)
         return matches
 
-    def compress_similar_message(self, text: str, template_patterns: List[str]) -> Optional[Dict[str, Any]]:
+    def compress_similar_message(
+        self, text: str, template_patterns: List[str]
+    ) -> Optional[Dict[str, Any]]:
         """
         Attempt to compress a message using fuzzy matching against templates.
 
@@ -167,12 +178,12 @@ class FuzzyMatcher:
         # Create a template from the differences
         template = best_match.template_pattern
         compressed_data = {
-            'template_id': f"fuzzy_{hash(best_match.template_pattern) % 10000}",
-            'similarity': best_match.similarity,
-            'distance': best_match.distance,
-            'differences': best_match.differences,
-            'original_length': len(text),
-            'compressed_length': len(str(best_match.differences)) + 100  # Estimate
+            "template_id": f"fuzzy_{hash(best_match.template_pattern) % 10000}",
+            "similarity": best_match.similarity,
+            "distance": best_match.distance,
+            "differences": best_match.differences,
+            "original_length": len(text),
+            "compressed_length": len(str(best_match.differences)) + 100,  # Estimate
         }
 
         return compressed_data
@@ -180,19 +191,21 @@ class FuzzyMatcher:
     def get_similarity_stats(self) -> Dict[str, Any]:
         """Get statistics about fuzzy matching performance."""
         return {
-            'min_similarity_threshold': self.min_similarity,
-            'max_distance_threshold': self.max_distance,
-            'caching_enabled': self.enable_caching,
-            'cache_size': self.cache_size,
-            'similarity_cache_size': len(self._similarity_cache) if self.enable_caching else 0,
-            'distance_cache_size': len(self._distance_cache) if self.enable_caching else 0,
+            "min_similarity_threshold": self.min_similarity,
+            "max_distance_threshold": self.max_distance,
+            "caching_enabled": self.enable_caching,
+            "cache_size": self.cache_size,
+            "similarity_cache_size": len(self._similarity_cache) if self.enable_caching else 0,
+            "distance_cache_size": len(self._distance_cache) if self.enable_caching else 0,
         }
 
 
-def create_fuzzy_matcher(min_similarity: float = 0.85,
-                         max_distance: int = 50,
-                         enable_caching: bool = True,
-                         cache_size: int = 1000) -> FuzzyMatcher:
+def create_fuzzy_matcher(
+    min_similarity: float = 0.85,
+    max_distance: int = 50,
+    enable_caching: bool = True,
+    cache_size: int = 1000,
+) -> FuzzyMatcher:
     """
     Factory function to create a FuzzyMatcher instance.
 

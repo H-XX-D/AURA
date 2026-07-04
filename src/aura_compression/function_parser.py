@@ -3,10 +3,11 @@
 Function Call Parser - Patent Claim 19
 Parse and route AI-to-AI function calls using metadata
 """
+
 import json
 import re
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -14,6 +15,7 @@ class FunctionCall:
     """
     Parsed function call from AI traffic (Claim 19)
     """
+
     function_name: str
     arguments: Dict[str, Any]
     function_id: Optional[int] = None  # For metadata encoding
@@ -22,11 +24,11 @@ class FunctionCall:
     def to_metadata(self) -> Dict[str, Any]:
         """Convert to metadata for fast-path routing (Claim 19)"""
         return {
-            'type': 'function_call',
-            'function_name': self.function_name,
-            'function_id': self.function_id,
-            'argument_count': len(self.arguments),
-            'routing_hint': self.routing_hint,
+            "type": "function_call",
+            "function_name": self.function_name,
+            "function_id": self.function_id,
+            "argument_count": len(self.arguments),
+            "routing_hint": self.routing_hint,
         }
 
 
@@ -39,30 +41,30 @@ class FunctionCallParser:
     def __init__(self):
         # Function ID registry (for metadata encoding)
         self.function_registry: Dict[str, int] = {
-            'execute_task': 1,
-            'query_database': 2,
-            'call_api': 3,
-            'process_data': 4,
-            'generate_response': 5,
-            'validate_input': 6,
-            'transform_data': 7,
-            'send_notification': 8,
-            'schedule_job': 9,
-            'get_status': 10,
+            "execute_task": 1,
+            "query_database": 2,
+            "call_api": 3,
+            "process_data": 4,
+            "generate_response": 5,
+            "validate_input": 6,
+            "transform_data": 7,
+            "send_notification": 8,
+            "schedule_job": 9,
+            "get_status": 10,
         }
 
         # Routing hints (which service handles which function)
         self.routing_map: Dict[str, str] = {
-            'execute_task': 'task_executor',
-            'query_database': 'database_service',
-            'call_api': 'api_gateway',
-            'process_data': 'data_processor',
-            'generate_response': 'response_generator',
-            'validate_input': 'validator',
-            'transform_data': 'transformer',
-            'send_notification': 'notification_service',
-            'schedule_job': 'scheduler',
-            'get_status': 'status_service',
+            "execute_task": "task_executor",
+            "query_database": "database_service",
+            "call_api": "api_gateway",
+            "process_data": "data_processor",
+            "generate_response": "response_generator",
+            "validate_input": "validator",
+            "transform_data": "transformer",
+            "send_notification": "notification_service",
+            "schedule_job": "scheduler",
+            "get_status": "status_service",
         }
 
     def parse(self, text: str) -> Optional[FunctionCall]:
@@ -102,8 +104,8 @@ class FunctionCallParser:
         try:
             # Try parsing the entire text as JSON first
             data = json.loads(text.strip())
-            function_name = data.get('function')
-            arguments = data.get('args', data.get('arguments', {}))
+            function_name = data.get("function")
+            arguments = data.get("args", data.get("arguments", {}))
 
             if function_name:
                 return FunctionCall(
@@ -118,8 +120,8 @@ class FunctionCallParser:
                 json_match = re.search(r'\{.*"function".*\}', text, re.DOTALL)
                 if json_match:
                     data = json.loads(json_match.group(0))
-                    function_name = data.get('function')
-                    arguments = data.get('args', data.get('arguments', {}))
+                    function_name = data.get("function")
+                    arguments = data.get("args", data.get("arguments", {}))
 
                     if function_name:
                         return FunctionCall(
@@ -136,7 +138,7 @@ class FunctionCallParser:
     def _parse_python_format(self, text: str) -> Optional[FunctionCall]:
         """Parse Python-style function call format"""
         # Match: function_name(arg1=value1, arg2=value2)
-        pattern = r'(\w+)\s*\((.*?)\)'
+        pattern = r"(\w+)\s*\((.*?)\)"
         match = re.search(pattern, text)
 
         if match:
@@ -147,10 +149,10 @@ class FunctionCallParser:
             arguments = {}
             if args_str:
                 # Simple key=value parsing
-                for arg in args_str.split(','):
-                    if '=' in arg:
-                        key, value = arg.split('=', 1)
-                        arguments[key.strip()] = value.strip().strip('"\'')
+                for arg in args_str.split(","):
+                    if "=" in arg:
+                        key, value = arg.split("=", 1)
+                        arguments[key.strip()] = value.strip().strip("\"'")
 
             # Only return if it's a recognized function
             if function_name in self.function_registry:
@@ -170,7 +172,7 @@ class FunctionCallParser:
         # Look for action keywords
         for function_name in self.function_registry.keys():
             # Convert function_name to natural language (e.g., execute_task -> "execute task")
-            natural_form = function_name.replace('_', ' ')
+            natural_form = function_name.replace("_", " ")
 
             if natural_form in text_lower:
                 # Extract parameters (very simple heuristic)
@@ -194,10 +196,10 @@ class FunctionCallParser:
         # Extract quoted strings as parameters
         quotes = re.findall(r'"([^"]*)"', text)
         for i, quote in enumerate(quotes):
-            params[f'param_{i}'] = quote
+            params[f"param_{i}"] = quote
 
         # Extract key: value patterns
-        kv_pattern = r'(\w+):\s*([^,;.\n]+)'
+        kv_pattern = r"(\w+):\s*([^,;.\n]+)"
         for match in re.finditer(kv_pattern, text):
             key, value = match.groups()
             params[key] = value.strip()
@@ -241,8 +243,8 @@ class AItoAIOrchestrator:
         Returns:
             Routing hint (handler name) or None
         """
-        if metadata.get('type') == 'function_call':
-            return metadata.get('routing_hint')
+        if metadata.get("type") == "function_call":
+            return metadata.get("routing_hint")
 
         return None
 
@@ -264,7 +266,9 @@ class AItoAIOrchestrator:
 
         raise ValueError(f"No handler registered for: {routing_hint}")
 
-    def process_message(self, text: str, compressed_data: bytes, metadata: Dict[str, Any]) -> Tuple[bool, Any]:
+    def process_message(
+        self, text: str, compressed_data: bytes, metadata: Dict[str, Any]
+    ) -> Tuple[bool, Any]:
         """
         Process AI-to-AI message with fast-path routing (Claim 19)
 
@@ -283,9 +287,9 @@ class AItoAIOrchestrator:
             # Fast path: route without full parsing
             # Reconstruct function call from metadata
             function_call = FunctionCall(
-                function_name=metadata.get('function_name', 'unknown'),
+                function_name=metadata.get("function_name", "unknown"),
                 arguments={},  # Would extract from compressed payload if needed
-                function_id=metadata.get('function_id'),
+                function_id=metadata.get("function_id"),
                 routing_hint=routing_hint,
             )
 

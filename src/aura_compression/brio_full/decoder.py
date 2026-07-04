@@ -7,17 +7,9 @@ from typing import List, Optional
 
 from aura_compression.templates import TemplateLibrary
 
+from . import dictionary, rans
 from .constants import MAGIC, VERSION, WINDOW_SIZE
-from .tokens import (
-    DictionaryToken,
-    LiteralToken,
-    MatchToken,
-    MetadataEntry,
-    TemplateToken,
-    Token,
-)
-from . import dictionary
-from . import rans
+from .tokens import DictionaryToken, LiteralToken, MatchToken, MetadataEntry, TemplateToken, Token
 
 _TEMPLATE_KIND = 0x01
 

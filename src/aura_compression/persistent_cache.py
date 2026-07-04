@@ -5,15 +5,15 @@ so the cache survives process restarts while remaining resilient to partial
 writes or concurrent updates. Legacy JSON caches are migrated automatically
 to keep backwards compatibility."""
 
-import json
 import hashlib
+import json
 import logging
 import sqlite3
 import threading
 import time
-from pathlib import Path
-from typing import Dict, Optional, Any, List, Tuple
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,13 @@ class PersistentTemplateCache:
     - Cache warming on startup
     """
 
-    def __init__(self, cache_dir: str = ".aura_cache", max_size: int = 10000,
-                 save_interval: float = 30.0, compression_enabled: bool = True):
+    def __init__(
+        self,
+        cache_dir: str = ".aura_cache",
+        max_size: int = 10000,
+        save_interval: float = 30.0,
+        compression_enabled: bool = True,
+    ):
         """Initialize persistent cache.
 
         Args:
@@ -154,17 +159,21 @@ class PersistentTemplateCache:
             hit_rate = self.hits / total_requests if total_requests > 0 else 0.0
 
             return {
-                'size': len(self._cache),
-                'max_size': self.max_size,
-                'hits': self.hits,
-                'misses': self.misses,
-                'hit_rate': hit_rate,
-                'evictions': self.evictions,
-                'cache_file_size': self.cache_file.stat().st_size if self.cache_file.exists() else 0
+                "size": len(self._cache),
+                "max_size": self.max_size,
+                "hits": self.hits,
+                "misses": self.misses,
+                "hit_rate": hit_rate,
+                "evictions": self.evictions,
+                "cache_file_size": (
+                    self.cache_file.stat().st_size if self.cache_file.exists() else 0
+                ),
             }
 
     def shutdown(self) -> None:
         """Shutdown the cache and save final state."""
+        if self._shutdown:
+            return
         self._shutdown = True
         self._executor.shutdown(wait=True)
         self._save_cache_sync()
@@ -173,10 +182,10 @@ class PersistentTemplateCache:
     def _make_key(self, text: str) -> str:
         """Create cache key from text using SHA-256 hash."""
         try:
-            return hashlib.sha256(text.encode('utf-8')).hexdigest()
+            return hashlib.sha256(text.encode("utf-8")).hexdigest()
         except UnicodeEncodeError:
             # Handle surrogates from surrogateescape decoding
-            return hashlib.sha256(text.encode('utf-8', errors='surrogateescape')).hexdigest()
+            return hashlib.sha256(text.encode("utf-8", errors="surrogateescape")).hexdigest()
 
     def _evict_lru(self) -> Optional[str]:
         """Evict least recently used entry."""
@@ -191,15 +200,13 @@ class PersistentTemplateCache:
     def _initialize_database(self) -> None:
         """Ensure the SQLite backing store is ready for use."""
         with self._conn:
-            self._conn.execute(
-                """
+            self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS template_cache (
                     cache_key TEXT PRIMARY KEY,
                     payload   TEXT NOT NULL,
                     last_access REAL NOT NULL
                 )
-                """
-            )
+                """)
 
     def _migrate_legacy_cache(self) -> None:
         """Import legacy JSON cache data into SQLite if present."""
@@ -380,6 +387,7 @@ class PersistentTemplateCache:
 
     def _start_background_saver(self) -> None:
         """Start background thread for periodic cache saving."""
+
         def saver_thread():
             while not self._shutdown:
                 time.sleep(self.save_interval)
@@ -392,7 +400,7 @@ class PersistentTemplateCache:
 
     def __del__(self):
         """Ensure cache is saved on destruction."""
-        if hasattr(self, '_shutdown') and not self._shutdown:
+        if hasattr(self, "_shutdown") and not self._shutdown:
             self.shutdown()
 
     def _mark_access(self, cache_key: str) -> None:
@@ -416,7 +424,7 @@ class PersistentTemplateCache:
         self._access_order = deduped
 
     def _close_connection(self) -> None:
-        if getattr(self, '_conn', None) is not None:
+        if getattr(self, "_conn", None) is not None:
             try:
                 self._conn.close()
             except sqlite3.Error:

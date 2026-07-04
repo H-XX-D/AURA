@@ -144,8 +144,7 @@ class AuditDatabase:
     def _init_schema(self) -> None:
         with self.lock:
             cursor = self.conn.cursor()
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS audit_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -167,10 +166,8 @@ class AuditDatabase:
                     entry_hash TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-                """
-            )
-            cursor.execute(
-                """
+                """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS security_events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -182,8 +179,7 @@ class AuditDatabase:
                     metadata TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-                """
-            )
+                """)
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_event ON audit_log(event_type)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id)")
@@ -255,13 +251,14 @@ class AuditDatabase:
             for row in cursor.fetchall():
                 entry = dict(zip(columns, row))
                 metadata_blob = entry.get("metadata")
-                entry["metadata"] = expand_metadata(json.loads(metadata_blob)) if metadata_blob else {}
+                entry["metadata"] = (
+                    expand_metadata(json.loads(metadata_blob)) if metadata_blob else {}
+                )
                 rows.append(entry)
             return rows
 
     def aggregate_metrics(self, start_time: str, end_time: str) -> Dict[str, Any]:
-        query_sql = (
-            """
+        query_sql = """
             SELECT method,
                    COUNT(*) as operations,
                    SUM(original_size) as total_in,
@@ -275,7 +272,6 @@ class AuditDatabase:
               AND event_type IN ('compress_success', 'decompress_success')
             GROUP BY method
             """
-        )
         with self.lock:
             cursor = self.conn.cursor()
             cursor.execute(query_sql, (start_time, end_time))
@@ -311,7 +307,15 @@ class AuditDatabase:
                     timestamp, event_type, severity, user_id, source_ip, description, metadata
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (timestamp, event_type, severity, user_id, source_ip, description, json.dumps(metadata)),
+                (
+                    timestamp,
+                    event_type,
+                    severity,
+                    user_id,
+                    source_ip,
+                    description,
+                    json.dumps(metadata),
+                ),
             )
             self.conn.commit()
 
@@ -326,7 +330,9 @@ class AuditDatabase:
 class CompressionAuditor:
     """High-level facade that records compression operations."""
 
-    def __init__(self, db_path: str = "audit/compression_audit.db", enable_chain: bool = True) -> None:
+    def __init__(
+        self, db_path: str = "audit/compression_audit.db", enable_chain: bool = True
+    ) -> None:
         self.db = AuditDatabase(db_path)
         self.enable_chain = enable_chain
         self.last_hash: Optional[str] = None
@@ -360,7 +366,9 @@ class CompressionAuditor:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         timestamp = _iso_utc_now()
-        event_id = hashlib.sha256(f"{timestamp}|{session_id}|{time.time()}".encode("utf-8")).hexdigest()[:16]
+        event_id = hashlib.sha256(
+            f"{timestamp}|{session_id}|{time.time()}".encode("utf-8")
+        ).hexdigest()[:16]
 
         data_hash = hashlib.sha256(data).hexdigest() if data else None
         result_hash = hashlib.sha256(result).hexdigest() if result else None
@@ -424,15 +432,13 @@ class CompressionAuditor:
         if not self.enable_chain:
             return True, []
 
-        query_sql = (
-            """
+        query_sql = """
             SELECT id, timestamp, event_id, event_type, original_size, compressed_size,
                    data_hash, previous_hash, entry_hash
             FROM audit_log
             WHERE id >= ? AND id <= ?
             ORDER BY id ASC
             """
-        )
 
         errors: List[str] = []
         prev_hash: Optional[str] = None
@@ -440,7 +446,17 @@ class CompressionAuditor:
             cursor = self.db.conn.cursor()
             cursor.execute(query_sql, (start_id, end_id))
             for row in cursor.fetchall():
-                _, timestamp, event_id, event_type, original_size, compressed_size, data_hash, previous_hash, entry_hash = row
+                (
+                    _,
+                    timestamp,
+                    event_id,
+                    event_type,
+                    original_size,
+                    compressed_size,
+                    data_hash,
+                    previous_hash,
+                    entry_hash,
+                ) = row
                 if prev_hash is not None and previous_hash != prev_hash:
                     errors.append(f"Previous hash mismatch for event {event_id}")
                 dummy_entry = AuditEntry(

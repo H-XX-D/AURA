@@ -23,19 +23,24 @@ Example Results (tested):
 - JSON/XML:       8-15:1 (vs 2.8:1 zlib)
 - Repetitive data: 50-300:1 (vs 64:1 zlib)
 """
-import re
-import zlib
-import json
-import struct
+
 import hashlib
-from typing import Dict, List, Tuple, Optional, Set
-from dataclasses import dataclass
+import json
+import logging
+import re
+import struct
+import zlib
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from enum import IntEnum
+from typing import Dict, List, Optional, Set, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class AIDictEntry:
     """Smart dictionary entry with semantic understanding."""
+
     def __init__(self, pattern: str, token_id: int, frequency: int = 0, context: str = ""):
         self.pattern = pattern
         self.token_id = token_id
@@ -47,6 +52,7 @@ class AIDictEntry:
 @dataclass
 class CompressionStats:
     """Detailed compression statistics."""
+
     original_size: int
     compressed_size: int
     ratio: float
@@ -71,24 +77,24 @@ class PatternSemanticCompressor:
 
     # File type detection patterns
     CODE_PATTERNS = [
-        r'function\s+\w+\s*\(',
-        r'class\s+\w+\s*[:{]',
-        r'import\s+\w+',
-        r'def\s+\w+\s*\(',
-        r'const\s+\w+\s*=',
-        r'var\s+\w+\s*=',
+        r"function\s+\w+\s*\(",
+        r"class\s+\w+\s*[:{]",
+        r"import\s+\w+",
+        r"def\s+\w+\s*\(",
+        r"const\s+\w+\s*=",
+        r"var\s+\w+\s*=",
     ]
 
     LOG_PATTERNS = [
-        r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}',  # Timestamps
-        r'\[(INFO|DEBUG|ERROR|WARN)\]',
-        r'^\[\d+\]',  # Log levels
+        r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}",  # Timestamps
+        r"\[(INFO|DEBUG|ERROR|WARN)\]",
+        r"^\[\d+\]",  # Log levels
     ]
 
     DATA_PATTERNS = [
-        r'\{[^}]*\}',  # JSON objects
-        r'<[^>]+>',    # XML tags
-        r'^\s*[\w-]+:\s*',  # YAML/config keys
+        r"\{[^}]*\}",  # JSON objects
+        r"<[^>]+>",  # XML tags
+        r"^\s*[\w-]+:\s*",  # YAML/config keys
     ]
 
     # Minimum pattern length to be useful
@@ -118,7 +124,7 @@ class PatternSemanticCompressor:
         4. Apply multi-pass semantic encoding
         5. Final zlib pass on remaining data
         """
-        original_size = len(data.encode('utf-8'))
+        original_size = len(data.encode("utf-8"))
 
         # Step 1: Detect file type and extract semantic info
         self.file_type = self._detect_file_type(data)
@@ -139,7 +145,7 @@ class PatternSemanticCompressor:
             encoded_chunks.append(encoded)
 
         # Step 5: Combine and final compression
-        combined = b''.join(encoded_chunks)
+        combined = b"".join(encoded_chunks)
 
         # Add dictionary for decompression
         dict_bytes = self._serialize_dictionary()
@@ -149,7 +155,7 @@ class PatternSemanticCompressor:
 
         # Add header: [dict_size_uint32][compressed_data]
         dict_size = len(dict_bytes)
-        header = struct.pack('!I', dict_size)  # Just dict_size, no method byte
+        header = struct.pack("!I", dict_size)  # Just dict_size, no method byte
         result = header + final_compressed
 
         stats = CompressionStats(
@@ -158,9 +164,9 @@ class PatternSemanticCompressor:
             ratio=original_size / len(result) if len(result) > 0 else 1.0,
             patterns_found=len(self.dictionary),
             dictionary_size=dict_size,
-            method='PATTERN_SEMANTIC',
+            method="PATTERN_SEMANTIC",
             semantic_chunks=len(chunks),
-            ai_optimizations=len(self.dictionary)
+            ai_optimizations=len(self.dictionary),
         )
 
         return result, stats
@@ -168,7 +174,7 @@ class PatternSemanticCompressor:
     def decompress(self, compressed: bytes) -> str:
         """Decompress AI-compressed data."""
         # Read header
-        dict_size = struct.unpack('!I', compressed[:4])[0]
+        dict_size = struct.unpack("!I", compressed[:4])[0]
 
         # Decompress with zlib
         decompressed = zlib.decompress(compressed[4:])
@@ -198,10 +204,10 @@ class PatternSemanticCompressor:
         log_score = sum(1 for p in self.LOG_PATTERNS if re.search(p, sample, re.MULTILINE))
         data_score = sum(1 for p in self.DATA_PATTERNS if re.search(p, sample))
 
-        scores = {'code': code_score, 'log': log_score, 'data': data_score}
+        scores = {"code": code_score, "log": log_score, "data": data_score}
         max_type = max(scores, key=scores.get)
 
-        return max_type if scores[max_type] > 0 else 'generic'
+        return max_type if scores[max_type] > 0 else "generic"
 
     def _mine_patterns(self, data: str) -> List[Tuple[str, int]]:
         """
@@ -219,7 +225,7 @@ class PatternSemanticCompressor:
 
         for length in range(self.MIN_PATTERN_LENGTH, max_len):
             for i in range(len(data) - length):
-                ngram = data[i:i+length]
+                ngram = data[i : i + length]
                 # Skip pure whitespace or single-character patterns
                 if ngram.strip() and len(set(ngram)) > 1:
                     ngrams[ngram] += 1
@@ -259,10 +265,7 @@ class PatternSemanticCompressor:
                 break
 
             entry = AIDictEntry(
-                pattern=pattern,
-                token_id=self.next_token_id,
-                frequency=freq,
-                context=self.file_type
+                pattern=pattern, token_id=self.next_token_id, frequency=freq, context=self.file_type
             )
             self.dictionary[self.next_token_id] = entry
             self.next_token_id += 1
@@ -277,10 +280,10 @@ class PatternSemanticCompressor:
         - Data: By record
         - Generic: By line
         """
-        if self.file_type == 'code':
+        if self.file_type == "code":
             # Split by function/class definitions, preserving separators
-            pattern = r'(?:function|class|def)\s+\w+'
-            parts = re.split(r'(\n(?=' + pattern + r'))', data)
+            pattern = r"(?:function|class|def)\s+\w+"
+            parts = re.split(r"(\n(?=" + pattern + r"))", data)
             # Rejoin to preserve structure
             chunks = []
             current_chunk = ""
@@ -292,16 +295,16 @@ class PatternSemanticCompressor:
             if current_chunk.strip():
                 chunks.append(current_chunk)
             return chunks
-        elif self.file_type == 'log':
+        elif self.file_type == "log":
             # Chunk by log entries (timestamp-delimited)
-            chunks = re.split(r'\n(?=\d{4}-\d{2}-\d{2}|\[)', data)
-        elif self.file_type == 'data':
+            chunks = re.split(r"\n(?=\d{4}-\d{2}-\d{2}|\[)", data)
+        elif self.file_type == "data":
             # Chunk by records (JSON objects, XML elements)
-            chunks = re.split(r'\n(?=\{|<)', data)
+            chunks = re.split(r"\n(?=\{|<)", data)
         else:
             # Generic: chunk by lines (groups of 100)
-            lines = data.split('\n')
-            chunks = ['\n'.join(lines[i:i+100]) for i in range(0, len(lines), 100)]
+            lines = data.split("\n")
+            chunks = ["\n".join(lines[i : i + 100]) for i in range(0, len(lines), 100)]
 
         return [c for c in chunks if c.strip()]
 
@@ -313,7 +316,7 @@ class PatternSemanticCompressor:
         Uses efficient binary encoding instead of hex markers.
         """
         # Convert to bytes first
-        chunk_bytes = chunk.encode('utf-8')
+        chunk_bytes = chunk.encode("utf-8")
         result = bytearray()
 
         # Sort dictionary by pattern length (longest first)
@@ -322,9 +325,9 @@ class PatternSemanticCompressor:
         # Build efficient pattern replacement map
         pattern_map = {}
         for entry in sorted_dict:
-            pattern_bytes = entry.pattern.encode('utf-8')
+            pattern_bytes = entry.pattern.encode("utf-8")
             # Use marker byte 0xFF followed by 2-byte token ID
-            token = b'\xFF' + struct.pack('!H', entry.token_id)
+            token = b"\xff" + struct.pack("!H", entry.token_id)
             pattern_map[pattern_bytes] = token
 
         # Greedy replacement with efficient scanning
@@ -333,7 +336,7 @@ class PatternSemanticCompressor:
             # Try to match longest pattern first
             matched = False
             for pattern_bytes, token in pattern_map.items():
-                if chunk_bytes[i:i+len(pattern_bytes)] == pattern_bytes:
+                if chunk_bytes[i : i + len(pattern_bytes)] == pattern_bytes:
                     result.extend(token)
                     i += len(pattern_bytes)
                     matched = True
@@ -354,11 +357,11 @@ class PatternSemanticCompressor:
             # Check for marker byte
             if data[i] == 0xFF and i + 2 < len(data):
                 # Read token ID
-                token_id = struct.unpack('!H', data[i+1:i+3])[0]
+                token_id = struct.unpack("!H", data[i + 1 : i + 3])[0]
 
                 # Look up pattern
                 if token_id in self.dictionary:
-                    pattern_bytes = self.dictionary[token_id].pattern.encode('utf-8')
+                    pattern_bytes = self.dictionary[token_id].pattern.encode("utf-8")
                     result.extend(pattern_bytes)
                     i += 3
                 else:
@@ -369,36 +372,33 @@ class PatternSemanticCompressor:
                 result.append(data[i])
                 i += 1
 
-        return bytes(result).decode('utf-8', errors='ignore')
+        return bytes(result).decode("utf-8", errors="ignore")
 
     def _serialize_dictionary(self) -> bytes:
         """Serialize dictionary for transmission."""
         dict_data = {
-            'file_type': self.file_type,
-            'entries': {
-                token_id: {
-                    'pattern': entry.pattern,
-                    'freq': entry.frequency
-                }
+            "file_type": self.file_type,
+            "entries": {
+                token_id: {"pattern": entry.pattern, "freq": entry.frequency}
                 for token_id, entry in self.dictionary.items()
-            }
+            },
         }
-        json_str = json.dumps(dict_data, separators=(',', ':'))
-        return json_str.encode('utf-8')
+        json_str = json.dumps(dict_data, separators=(",", ":"))
+        return json_str.encode("utf-8")
 
     def _deserialize_dictionary(self, data: bytes):
         """Deserialize dictionary for decompression."""
-        dict_data = json.loads(data.decode('utf-8'))
-        self.file_type = dict_data['file_type']
+        dict_data = json.loads(data.decode("utf-8"))
+        self.file_type = dict_data["file_type"]
         self.dictionary = {}
 
-        for token_id_str, entry_data in dict_data['entries'].items():
+        for token_id_str, entry_data in dict_data["entries"].items():
             token_id = int(token_id_str)
             self.dictionary[token_id] = AIDictEntry(
-                pattern=entry_data['pattern'],
+                pattern=entry_data["pattern"],
                 token_id=token_id,
-                frequency=entry_data['freq'],
-                context=self.file_type
+                frequency=entry_data["freq"],
+                context=self.file_type,
             )
 
 
@@ -409,22 +409,22 @@ def compare_with_traditional(data: str) -> Dict:
     ai_compressed, ai_stats = ai_compressor.compress(data)
 
     # Traditional zlib
-    zlib_compressed = zlib.compress(data.encode('utf-8'), level=9)
+    zlib_compressed = zlib.compress(data.encode("utf-8"), level=9)
     zlib_ratio = len(data) / len(zlib_compressed)
 
     # Calculate improvement
     improvement = ((len(zlib_compressed) - len(ai_compressed)) / len(zlib_compressed)) * 100
 
     return {
-        'original_size': len(data),
-        'ai_compressed': len(ai_compressed),
-        'ai_ratio': ai_stats.ratio,
-        'zlib_compressed': len(zlib_compressed),
-        'zlib_ratio': zlib_ratio,
-        'improvement_percent': improvement,
-        'patterns_discovered': ai_stats.patterns_found,
-        'file_type': ai_stats.method,
-        'ai_wins': len(ai_compressed) < len(zlib_compressed)
+        "original_size": len(data),
+        "ai_compressed": len(ai_compressed),
+        "ai_ratio": ai_stats.ratio,
+        "zlib_compressed": len(zlib_compressed),
+        "zlib_ratio": zlib_ratio,
+        "improvement_percent": improvement,
+        "patterns_discovered": ai_stats.patterns_found,
+        "file_type": ai_stats.method,
+        "ai_wins": len(ai_compressed) < len(zlib_compressed),
     }
 
 
@@ -475,9 +475,15 @@ function processProductData(productId, productData) {
     result = compare_with_traditional(code_sample)
 
     logger.info("Test: Repetitive Code (JavaScript)")
-    logger.info(f"  Original Size: {result['original_size']} bytes ({result['original_size']/1024:.1f} KB)")
-    logger.info(f"  AI Compressed: {result['ai_compressed']} bytes ({result['ai_ratio']:.2f}:1 ratio)")
-    logger.info(f"  Zlib Compressed: {result['zlib_compressed']} bytes ({result['zlib_ratio']:.2f}:1 ratio)")
+    logger.info(
+        f"  Original Size: {result['original_size']} bytes ({result['original_size']/1024:.1f} KB)"
+    )
+    logger.info(
+        f"  AI Compressed: {result['ai_compressed']} bytes ({result['ai_ratio']:.2f}:1 ratio)"
+    )
+    logger.info(
+        f"  Zlib Compressed: {result['zlib_compressed']} bytes ({result['zlib_ratio']:.2f}:1 ratio)"
+    )
     logger.info(f"  AI Improvement: {result['improvement_percent']:.1f}% better than zlib")
     logger.info(f"  Patterns Found: {result['patterns_discovered']}")
     logger.info(f"  Winner: {'AI' if result['ai_wins'] else 'Traditional'}")
@@ -497,9 +503,15 @@ function processProductData(productId, productData) {
     result2 = compare_with_traditional(log_sample)
 
     logger.info(f"\nTest: Server Logs")
-    logger.info(f"  Original Size: {result2['original_size']} bytes ({result2['original_size']/1024:.1f} KB)")
-    logger.info(f"  AI Compressed: {result2['ai_compressed']} bytes ({result2['ai_ratio']:.2f}:1 ratio)")
-    logger.info(f"  Zlib Compressed: {result2['zlib_compressed']} bytes ({result2['zlib_ratio']:.2f}:1 ratio)")
+    logger.info(
+        f"  Original Size: {result2['original_size']} bytes ({result2['original_size']/1024:.1f} KB)"
+    )
+    logger.info(
+        f"  AI Compressed: {result2['ai_compressed']} bytes ({result2['ai_ratio']:.2f}:1 ratio)"
+    )
+    logger.info(
+        f"  Zlib Compressed: {result2['zlib_compressed']} bytes ({result2['zlib_ratio']:.2f}:1 ratio)"
+    )
     logger.info(f"  AI Improvement: {result2['improvement_percent']:.1f}% better than zlib")
     logger.info(f"  Patterns Found: {result2['patterns_discovered']}")
     logger.info(f"  Winner: {'AI' if result2['ai_wins'] else 'Traditional'}")

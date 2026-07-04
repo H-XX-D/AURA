@@ -78,7 +78,11 @@ def _find_match(window: bytearray, data: memoryview, pos: int) -> Tuple[int, int
             continue
         length = MIN_MATCH
         # Extend match while bytes continue to align
-        while length < max_len and idx + length < window_len and window_bytes[idx + length] == segment_view[length]:
+        while (
+            length < max_len
+            and idx + length < window_len
+            and window_bytes[idx + length] == segment_view[length]
+        ):
             length += 1
             if length == max_len:
                 break

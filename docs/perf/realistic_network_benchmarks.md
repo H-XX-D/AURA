@@ -85,6 +85,32 @@ estimated as:
 ceil(bandwidth_capacity_exchanges_per_second * projected_p95_seconds / per_agent_window)
 ```
 
+## Run The Fixture Saturation Model
+
+For a fast, reproducible pass that does not open sockets, run the fixture-backed
+saturation benchmark:
+
+```bash
+PYTHONPATH=src python tools/benchmark_aiwire_fixture_saturation.py \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --profiles lan_10m,wifi_busy,lte_good,edge_mesh \
+  --codecs raw,zlib,aitoken,aiwire,aitoken_aiwire \
+  --agent-counts 1,8,64 \
+  --backend python \
+  --markdown-output docs/perf/aiwire_fixture_saturation_2026-07-04.md \
+  --output /tmp/aura_aiwire_fixture_saturation_2026-07-04.json \
+  --format markdown
+```
+
+This model measures codec bytes on the committed public AIWire session fixture,
+then projects saturation using the same realistic profile definitions. It is
+useful for CI and documentation because the traffic corpus is stable and
+public-safe. It complements the live TCP harness; it does not replace real
+round-trip tests across machines.
+
+Current snapshot:
+[AIWire Fixture Bandwidth Saturation](aiwire_fixture_saturation_2026-07-04.md)
+
 ## Run One Manual Profile Across Machines
 
 Start the server using the server-side profile values:

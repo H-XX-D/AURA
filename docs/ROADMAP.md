@@ -75,6 +75,9 @@ Goal: benchmark against realistic protocol-shaped data.
 - Benchmark with small, medium, and bursty message sizes.
 - Add CI-friendly benchmark smoke tests that detect major regressions without
   requiring a full LAN lab.
+- Keep the fixture-backed saturation benchmark current so bandwidth, latency,
+  CPU ceiling, and concurrent-agent requirements are measured on the same
+  public corpus.
 
 Definition of done:
 

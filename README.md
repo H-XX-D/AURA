@@ -245,6 +245,22 @@ High-RTT profiles need enough aggregate in-flight exchanges to fill the link.
 In the stress tool, `--pipeline-window` is per logical agent, so aggregate
 in-flight work is `agent_count * pipeline_window`.
 
+For a fast, reproducible fixture-backed saturation model:
+
+```bash
+PYTHONPATH=src python tools/benchmark_aiwire_fixture_saturation.py \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --profiles lan_10m,wifi_busy,lte_good,edge_mesh \
+  --codecs raw,zlib,aitoken,aiwire,aitoken_aiwire \
+  --agent-counts 1,8,64 \
+  --markdown-output /tmp/aura_aiwire_fixture_saturation.md \
+  --format markdown
+```
+
+This uses the committed public session fixture and reports bytes per exchange,
+bandwidth capacity, p95 latency-window capacity, required concurrent agents,
+message throughput, and raw-bandwidth equivalent.
+
 ## Transport Examples
 
 AIWire frames are ordinary bytes after the session handshake. The repo includes
@@ -294,6 +310,7 @@ delta streams.
 - [Realistic network benchmarks](docs/perf/realistic_network_benchmarks.md)
 - [AI-to-AI messaging metrics](docs/perf/ai_to_ai_messaging_metrics_2026-07-04.md)
 - [AI-to-AI LAN benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
+- [AIWire fixture saturation benchmark](docs/perf/aiwire_fixture_saturation_2026-07-04.md)
 - [Transport examples](examples/README.md)
 - [Large-file and API notes](docs/api/compressor.md)
 
@@ -302,7 +319,7 @@ delta streams.
 ```bash
 PYTHONPATH=src pytest tests/test_ai_wire.py tests/test_ai_wire_token.py \
   tests/test_aiwire_session_fixtures.py tests/test_aiwire_bandwidth_extrapolation.py \
-  tests/test_aiwire_network_profiles.py -q
+  tests/test_aiwire_fixture_saturation.py tests/test_aiwire_network_profiles.py -q
 pytest -q
 ```
 

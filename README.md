@@ -1,15 +1,30 @@
 # AURA
 
-AURA is an experimental compression and structure-negotiation toolkit for
-AI-to-AI traffic. Its strongest current path is **AIWire**: a negotiated
-structure side channel for high-volume agent messages moving over ordinary TCP,
-HTTP, WebSocket, or LAN links.
+AURA is an experimental protocol-aware compression and data-movement toolkit for
+AI systems. Its strongest current path is **AIWire**: a negotiated structure side
+channel that lets peers move semantic deltas, control state, and blob metadata
+over ordinary TCP, HTTP, WebSocket, broker, or LAN links instead of repeatedly
+moving whole JSON-shaped frames.
 
 AIWire is not just "compress each JSON frame." Peers handshake the structure
 first: protocol identity, static dictionary, session templates, and optional
 session-local structure updates. After that, agents send compact changes
 against the handshaked structure instead of repeatedly moving whole JSON-shaped
 frames.
+
+AURA treats AI traffic as three logical lanes:
+
+- **Semantic/message lane**: MCP, A2A, OpenAI-style, JSON-RPC, local-agent,
+  trace, task, tool-call, and result messages. This is where AIWire and AIToken
+  reduce repeated structure and move changed values.
+- **Control/session lane**: handshakes, template discovery, dictionary diffs,
+  ACK/NACK, resume, routing state, heartbeats, safety status, and session reset
+  signals. This lane must stay inspectable without decompressing the semantic
+  stream.
+- **Blob descriptor lane**: metadata for opaque bytes such as media, tensor
+  chunks, model artifacts, logs, archives, and files. The bytes can stay in a
+  normal blob/file/media transport while AIWire carries content type, hashes,
+  chunk manifests, route, priority, and transfer status.
 
 The project also includes broader template, semantic, metadata, and large-file
 compression experiments. Treat those as research components. If you are trying
@@ -28,11 +43,15 @@ repeated structure, and most messages are changes to already-known shapes:
 - OpenAI-style function call and Structured Outputs traffic
 - Local AI clusters where a Mac, workstation, and edge devices exchange many
   small messages
+- Bandwidth-limited edge links that need to leave headroom for telemetry,
+  media, control, and retry traffic
 - Structured logs, traces, and operational events with repeated fields
+- Opaque binary payload routing where agents need metadata, status, and content
+  hashes without pulling the whole payload through the structured-message codec
 
 AURA is not a drop-in replacement for gzip, zstd, brotli, TLS, or a message
-broker. It is a protocol-aware structural side channel for controlled
-environments.
+broker. It is a protocol-aware structural and metadata side channel for
+controlled environments.
 
 The main metric is not compression ratio by itself. The question is how many
 verified semantic exchanges fit through the link once bandwidth, p95 latency,
@@ -64,6 +83,7 @@ Relevant public protocol context:
 | Area | Status |
 |---|---|
 | AIWire structural side channel | Working Python path plus native C++ backend |
+| AIWire lane model | Semantic lane implemented; control/session structures implemented for handshake, template, dictionary, and resume flow; blob descriptor lane specified |
 | AIToken and AIToken+AIWire | Working structural-token path and combined small-frame path |
 | Session templates | Discovery, forced handshake, SHA verification, bounded session dictionaries |
 | Structured message helpers | Working canonical JSON encode/decode helpers |

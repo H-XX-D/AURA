@@ -38,13 +38,28 @@ AIWire side channel
 handshake static dictionary + session templates + update signals
         |
         v
+AIWire lanes
+semantic messages + control/session state + blob descriptors
+        |
+        v
 AIWire data path
 canonical JSON boundary form -> tokens/deltas -> live session history
+blob metadata -> route/type/status/hash side channel
         |
         v
 Normal network transport
 TCP, HTTP, WebSocket, local LAN, broker frame, file stream
 ```
+
+The three lanes have different jobs:
+
+- **Semantic/message lane**: structured agent traffic such as MCP, A2A,
+  OpenAI-style tool calls, JSON-RPC, traces, handoffs, task state, and results.
+- **Control/session lane**: handshake, template discovery, dictionary diffs,
+  ACK/NACK, resume, routing status, heartbeat, safety state, and reset signals.
+- **Blob descriptor lane**: metadata for opaque bytes. The referenced bytes can
+  move through ordinary file, media, byte-stream, object-store, or shared-memory
+  paths while AIWire carries type, route, status, hashes, and chunk manifests.
 
 The rest of the repository supports adjacent research:
 
@@ -77,6 +92,8 @@ AIWire provides:
 
 - A stable protocol identity: `aura.aiwire`
 - A versioned handshake shape
+- Three logical lanes: semantic messages, control/session state, and blob
+  descriptors
 - A static dictionary tuned for AI protocol fields
 - Session-template negotiation and update signals
 - Authenticated append-only session dictionary diffs and ACKs
@@ -194,9 +211,10 @@ compressed traffic without full decompression. It is useful for:
 - Message category classification
 - Operational monitoring
 
-This is adjacent to AIWire but separate from the AIWire structural side channel.
-AIWire's side channel is for negotiated message structure; the metadata
-sidechannel is for routing and inspection.
+This is adjacent to AIWire and informs the blob descriptor lane. AIWire's core
+side channel is for negotiated message structure and session control; the blob
+descriptor lane carries the smaller routing, type, status, hash, and chunk
+metadata needed to keep opaque binaries out of the structured-message codec.
 
 ## Large-File Path
 

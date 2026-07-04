@@ -1,7 +1,7 @@
 # AIWire v1 Protocol Spec
 
 Status: implementation contract for the current Python and native C++ AIWire
-code paths.
+semantic/control paths, plus the v1 blob descriptor lane contract.
 
 AIWire v1 is a session-oriented structure side channel for repetitive
 AI-to-AI messages. It is designed for controlled peers that already have a
@@ -9,6 +9,14 @@ normal transport such as TCP, WebSocket, HTTP streaming, a broker frame, or a
 replay log. AIWire does not define that transport. It defines the handshake,
 compression parameters, session structure state, and safety checks that both
 peers must share before compact frames are exchanged.
+
+AIWire has three logical lanes over that transport:
+
+- A semantic/message lane for structured agent messages and deltas.
+- A control/session lane for handshake, routing, safety, template, dictionary,
+  ACK, and resume state.
+- A blob descriptor lane for opaque payload metadata, hashes, chunk manifests,
+  route hints, and transfer status.
 
 Normative words such as MUST, MUST NOT, SHOULD, and MAY are used intentionally.
 
@@ -18,6 +26,9 @@ AIWire v1 covers:
 
 - Protocol identity and version negotiation.
 - Static dictionary agreement.
+- Semantic/message lane framing for canonical structured messages.
+- Control/session lane messages for connection, state, and safety management.
+- Blob descriptor lane messages for opaque payload metadata.
 - Optional session-template agreement.
 - Ordered data frames encoded with a live raw-deflate stream.
 - Session-template update signals for future compression epochs.
@@ -30,6 +41,8 @@ AIWire v1 does not cover:
 - Message authorization or policy.
 - Cross-transport framing.
 - Encryption.
+- Bulk opaque binary byte transfer.
+- Media, tensor, model-weight, archive, or file compression formats.
 - Loss recovery inside the compressed stream.
 
 Those concerns belong at the transport or application layer.
@@ -44,6 +57,7 @@ Those concerns belong at the transport or application layer.
 | Delta version | `1` |
 | Handshake schema | `aura.aiwire.handshake.v1` |
 | Negotiation schema | `aura.aiwire.negotiation.v1` |
+| Blob descriptor schema | `aura.aiwire.blob_descriptor.v1` |
 | Template update schema | `aura.aiwire.session_templates.update.v1` |
 | Dictionary state schema | `aura.aiwire.session_dictionary.state.v1` |
 | Dictionary diff schema | `aura.aiwire.session_dictionary.diff.v1` |
@@ -73,12 +87,125 @@ UTF-8 JSON bytes before compression:
 json.dumps(message, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 ```
 
-Raw bytes MAY be compressed directly when both peers agree that the payload is
-not structured JSON. String payloads are UTF-8 encoded.
+Raw bytes MAY be compressed directly only for small agreed payloads where both
+peers agree the payload is not structured JSON. Large opaque binaries SHOULD be
+represented by blob descriptor frames and moved through an explicit byte stream,
+file path, object store, shared-memory path, media channel, or other
+application-chosen blob transport. String payloads are UTF-8 encoded.
 
 AIWire control messages are JSON mappings. Hashes and auth tags are computed
 over canonical JSON bytes using the same compact sorted-key encoding unless a
 field definition below states otherwise.
+
+## Logical Lanes
+
+AIWire v1 defines three logical lanes. A carrier MAY multiplex them explicitly
+or carry them as ordered JSON control frames plus ordered data frames. Lane
+identity is semantic unless the carrier defines its own lane ID.
+
+### Semantic/Message Lane
+
+The semantic/message lane carries structured AI messages and deltas:
+
+- `lane`: `semantic`.
+- Payloads are canonical JSON bytes, AIToken frames, or AIWire-compressed
+  frames produced from canonical JSON bytes.
+- Typical messages include JSON-RPC requests and responses, MCP tool calls,
+  A2A task and artifact updates, OpenAI-style tool calls, local agent traces,
+  reviews, memory writes, and result messages.
+- The lane is optimized by the static dictionary, session templates, append-only
+  session dictionary state, and live compression history.
+- Frames inside one compression epoch MUST preserve order.
+
+### Control/Session Lane
+
+The control/session lane carries state needed to keep the semantic lane safe and
+recoverable:
+
+- `lane`: `control`.
+- Messages include handshakes, negotiations, template updates, dictionary
+  state, dictionary diffs, ACK/NACK, resume hello/response, reset requests,
+  heartbeats, route status, safety status, congestion hints, retry hints, and
+  fallback decisions.
+- Control messages MUST be decodable without inflating the semantic/message
+  lane.
+- State-changing control messages SHOULD be idempotent by session ID, epoch,
+  nonce, state hash, or sequence number.
+- Control messages that mutate session structure MUST be bounded by the limits
+  in this document and MUST fail closed on hash mismatch.
+
+### Blob Descriptor Lane
+
+The blob descriptor lane carries metadata for opaque bytes. It lets peers route,
+schedule, verify, resume, and account for binary payloads without sending those
+payloads through the structured-message codec:
+
+- `lane`: `blob_descriptor`.
+- Blob descriptor frames are canonical JSON control frames using
+  `aura.aiwire.blob_descriptor.v1`.
+- Descriptors MAY reference bytes moving over the same transport, a separate
+  byte stream, a file path, shared memory, an object store, a media transport,
+  or an application-defined blob broker.
+- Descriptor processors MAY inspect route, type, priority, status, and digest
+  fields without decompressing or loading the referenced blob bytes.
+- Complete blob descriptors MUST include a content digest. Resumable chunked
+  transfers SHOULD include chunk digests.
+- Descriptor frames MUST NOT carry plaintext encryption keys or unbounded
+  application metadata.
+- Large opaque binaries SHOULD NOT be inserted into the semantic/message lane.
+
+## Blob Descriptor Frame
+
+A blob descriptor frame is a canonical JSON mapping:
+
+| Field | Required | Meaning |
+|---|---:|---|
+| `schema` | yes | `aura.aiwire.blob_descriptor.v1` |
+| `protocol` | yes | `aura.aiwire` |
+| `lane` | yes | `blob_descriptor` |
+| `blob_id` | yes | Stable application or session identifier for this blob |
+| `session_id` | no | AIWire session identifier, when the carrier has one |
+| `semantic_role` | no | Role such as `image`, `audio_frame`, `tensor_chunk`, `model_artifact`, `log_archive`, `tool_file`, or `trace_bundle` |
+| `content_type` | yes | MIME type or application media type |
+| `byte_length` | yes | Non-negative byte length of the complete blob |
+| `digest` | yes | Object with `algorithm` and `value`, for example SHA-256 or BLAKE3 |
+| `chunk` | no | Object with `size`, `count`, optional `index`, and optional chunk `digest` |
+| `route` | no | Object with application-defined `source`, `destination`, `next_hop`, `channel`, and `priority` fields |
+| `status` | yes | `pending`, `available`, `in_flight`, `complete`, `failed`, or `cancelled` |
+| `encryption` | no | Object with non-secret mode and key identifier metadata |
+| `compression` | no | Opaque compression label or object for the blob byte stream |
+| `dependencies` | no | Message IDs, blob IDs, or content hashes required before use |
+| `ttl_ms` | no | Time-to-live hint for routing and cache policy |
+| `metadata` | no | Bounded application metadata |
+
+Blob descriptor rules:
+
+- `blob_id` plus `digest` SHOULD identify immutable bytes. If a mutable name is
+  needed, applications SHOULD put the mutable name in `metadata` or `route`, not
+  in the digest identity.
+- Receivers MUST NOT report `status="complete"` until byte length and digest
+  verification have succeeded.
+- Resent descriptors MUST be safe to apply more than once when `blob_id`,
+  `digest`, `chunk`, and `status` match.
+- A descriptor that changes `digest` for the same immutable `blob_id` MUST be
+  rejected or treated as a new blob by application policy.
+- Descriptor `metadata` MUST be bounded by application policy and SHOULD avoid
+  private host details in persisted public logs.
+
+## Lane Safety
+
+The three lanes share a session but must not depend on hidden decoder state:
+
+- Control/session lane messages MUST remain independently parseable while the
+  semantic/message compression stream is healthy, resyncing, or failed.
+- Blob descriptor lane messages MUST remain parseable without the referenced
+  blob bytes.
+- Blob descriptors MUST NOT mutate the session dictionary. Dictionary changes
+  must use the explicit template update or dictionary diff/ACK flows.
+- Under congestion, peers SHOULD prioritize control/session lane messages ahead
+  of semantic messages and bulk blob bytes.
+- A semantic lane reset SHOULD NOT invalidate completed digest-addressed blob
+  transfers.
 
 ## Ordered Data Frames
 

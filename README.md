@@ -24,7 +24,7 @@ straightforward.
 ## Installation
 
 ```bash
-git clone https://github.com/hendrixx-cnc/AURA.git
+git clone https://github.com/H-XX-D/AURA.git
 cd AURA
 python3 -m venv .venv
 source .venv/bin/activate
@@ -184,7 +184,7 @@ non-commercial use. See `LICENSE` for full text and obligations.
 ## Contact
 
 - Author: Todd Hendricks — `todd@auraprotocol.org`
-- Issues & discussions: [GitHub Issues](https://github.com/hendrixx-cnc/AURA/issues)
+- Issues & discussions: [GitHub Issues](https://github.com/H-XX-D/AURA/issues)
 
 If you do end up using AURA in research or prototyping, feedback on data sets,
 compression ratios, and pain points is greatly appreciated.

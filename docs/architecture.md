@@ -590,7 +590,7 @@ Pass to `ProductionHybridCompressor.__init__()`:
 
 ## References
 
-- **Repository**: https://github.com/hendrixx-cnc/AURA
+- **Repository**: https://github.com/H-XX-D/AURA
 - **License**: Apache 2.0 (see [LICENSE](../LICENSE))
 - **Python Version**: 3.8+
 - **Status**: Alpha (not production-ready)

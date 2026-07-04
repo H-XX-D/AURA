@@ -49,10 +49,10 @@ websocket = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/hendrixx-cnc/AURA"
-Documentation = "https://github.com/hendrixx-cnc/AURA/blob/main/docs/technical/DEVELOPER_GUIDE.md"
-Repository = "https://github.com/hendrixx-cnc/AURA"
-"Bug Tracker" = "https://github.com/hendrixx-cnc/AURA/issues"
+Homepage = "https://github.com/H-XX-D/AURA"
+Documentation = "https://github.com/H-XX-D/AURA#readme"
+Repository = "https://github.com/H-XX-D/AURA"
+"Bug Tracker" = "https://github.com/H-XX-D/AURA/issues"
 
 [tool.black]
 line-length = 100

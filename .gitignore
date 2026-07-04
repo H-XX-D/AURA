@@ -146,6 +146,8 @@ Thumbs.db
 
 # Project specific
 .aura_cache/
+.aura_cache*/
+*.aura
 *.log
 logs/
 audit_logs/
@@ -153,6 +155,7 @@ test_results/
 results/
 data/
 training_data/
+test_*MB*
 *.jsonl
 *.pkl
 *.model

@@ -2,7 +2,7 @@
 
 ## Project Overview
 **AURA Compression System** - Advanced Universal Response Algorithm compression framework
-- **Owner**: hendrixx-cnc
+- **Owner**: H-XX-D
 - **Repository**: AURA
 - **Current Branch**: main
 - **Date**: October 29, 2025

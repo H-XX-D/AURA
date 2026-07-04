@@ -64,6 +64,18 @@ from .ai_wire import (
     verify_aiwire_session_dictionary_ack,
     verify_aiwire_session_resume_response,
 )
+from .ai_wire_fixtures import (
+    AIWIRE_SESSION_FIXTURE_CORPUS_SCHEMA,
+    AIWIRE_SESSION_FIXTURE_SCHEMA,
+    DEFAULT_EXCHANGES_PER_SESSION,
+    DEFAULT_FIXTURE_SEED,
+    DEFAULT_SESSION_COUNT,
+    PUBLIC_FIXTURE_AUTH_KEY,
+    build_aiwire_session_fixture,
+    build_aiwire_session_fixture_corpus,
+    load_aiwire_session_fixture_corpus,
+    write_aiwire_session_fixture_corpus,
+)
 from .ai_wire_token import (
     AI_WIRE_TOKEN_MAGIC,
     AI_WIRE_TOKEN_VERSION,
@@ -222,6 +234,17 @@ __all__ = [
     "normalize_aiwire_session_templates",
     "verify_aiwire_session_dictionary_ack",
     "verify_aiwire_session_resume_response",
+    # AIWire public fixture corpora
+    "AIWIRE_SESSION_FIXTURE_CORPUS_SCHEMA",
+    "AIWIRE_SESSION_FIXTURE_SCHEMA",
+    "DEFAULT_EXCHANGES_PER_SESSION",
+    "DEFAULT_FIXTURE_SEED",
+    "DEFAULT_SESSION_COUNT",
+    "PUBLIC_FIXTURE_AUTH_KEY",
+    "build_aiwire_session_fixture",
+    "build_aiwire_session_fixture_corpus",
+    "load_aiwire_session_fixture_corpus",
+    "write_aiwire_session_fixture_corpus",
     # AIWire structural token codec
     "AI_WIRE_TOKEN_MAGIC",
     "AI_WIRE_TOKEN_VERSION",

@@ -972,6 +972,7 @@ def apply_aiwire_session_dictionary_diff(
     current_epoch: int = 0,
     auth_key: AIWireAuthKey = None,
     replay_cache: set[str] | None = None,
+    ack_nonce: str | None = None,
 ) -> tuple[tuple[int, str], AIWireSessionDictionaryAck]:
     """Validate, apply, and ACK a session dictionary diff proposal."""
 
@@ -1038,6 +1039,7 @@ def apply_aiwire_session_dictionary_diff(
         state_hash=next_state_hash,
         reason=None,
         auth_key=auth_key,
+        nonce=ack_nonce,
     )
 
 

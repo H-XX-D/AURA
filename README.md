@@ -109,6 +109,24 @@ The generic `ProductionHybridCompressor` path is not the right fit for this
 small-message workload yet. AIWire is the intended AURA path for high-volume
 structured AI message streams.
 
+## Fixture Corpus
+
+The repo includes a deterministic public AIWire session corpus:
+[public_session_corpus_v1.json](fixtures/aiwire_sessions/public_session_corpus_v1.json).
+It contains synthetic MCP, A2A, OpenAI Responses, local agent, trace, handoff,
+review, and memory-write messages plus the side-channel transcript around them:
+forced handshake, session-template update, authenticated dictionary diff, ACK,
+and resume negotiation.
+
+Regenerate it with:
+
+```bash
+PYTHONPATH=src python tools/build_aiwire_session_fixture_corpus.py
+```
+
+Details:
+[AIWire session fixtures](docs/aiwire_session_fixtures.md)
+
 ## Install
 
 ```bash
@@ -272,6 +290,7 @@ delta streams.
 - [Current project context](docs/AURA_SYSTEM_CONTEXT.md)
 - [AIWire v1 protocol spec](docs/aiwire_v1_spec.md)
 - [AIWire session dictionary safety](docs/aiwire_session_dictionary.md)
+- [AIWire session fixtures](docs/aiwire_session_fixtures.md)
 - [Realistic network benchmarks](docs/perf/realistic_network_benchmarks.md)
 - [AI-to-AI messaging metrics](docs/perf/ai_to_ai_messaging_metrics_2026-07-04.md)
 - [AI-to-AI LAN benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
@@ -282,7 +301,8 @@ delta streams.
 
 ```bash
 PYTHONPATH=src pytest tests/test_ai_wire.py tests/test_ai_wire_token.py \
-  tests/test_aiwire_bandwidth_extrapolation.py tests/test_aiwire_network_profiles.py -q
+  tests/test_aiwire_session_fixtures.py tests/test_aiwire_bandwidth_extrapolation.py \
+  tests/test_aiwire_network_profiles.py -q
 pytest -q
 ```
 
@@ -302,6 +322,7 @@ The near-term roadmap is to harden AIWire first:
 - Define the session-template update signal and delta/resync behavior
 - Keep benchmark reports reproducible and public-safe
 - Keep improving realistic MCP, A2A, OpenAI, and local agent message corpora
+- Keep public session fixture corpora deterministic and side-channel complete
 - Improve ARM64/native backend performance for edge targets
 - Expand transport examples beyond the current TCP, WebSocket, HTTP streaming,
   and local broker samples

@@ -1,0 +1,4089 @@
+{
+  "exchanges_per_session": 18,
+  "generated_by": "aura_compression.ai_wire_fixtures",
+  "message_count": 72,
+  "schema": "aura.aiwire.fixture_corpus.v1",
+  "seed": 7201,
+  "session_count": 2,
+  "sessions": [
+    {
+      "auth": {
+        "key_id": "public-fixture-key",
+        "mode": "hmac_sha256",
+        "secret_material": "not_included"
+      },
+      "client_handshake": {
+        "backend": "python",
+        "dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+        "dictionary_size": 32768,
+        "fallback_codecs": [
+          "zlib",
+          "raw"
+        ],
+        "flush_mode": "z_sync_flush",
+        "level": 3,
+        "mem_level": 8,
+        "native_version": null,
+        "preferred_version": 1,
+        "protocol": "aura.aiwire",
+        "require_session_templates": true,
+        "schema": "aura.aiwire.handshake.v1",
+        "session_template_count": 4,
+        "session_template_epoch": 0,
+        "session_template_sha256": "675095b6ba1c198cbbb0e8e06f64cb92894eaa57b298ba15fddc729f9fc517f6",
+        "session_templates": [
+          {
+            "pattern": "{\"protocol\":\"mcp\",\"jsonrpc\":\"2.0\",\"id\":",
+            "template_id": 128
+          },
+          {
+            "pattern": "{\"protocol\":\"a2a\",\"jsonrpc\":\"2.0\",\"id\":",
+            "template_id": 129
+          },
+          {
+            "pattern": "{\"protocol\":\"openai.responses\",\"trace_id\":\"",
+            "template_id": 130
+          },
+          {
+            "pattern": "{\"protocol\":\"local.agent\",\"schema\":\"local.agent.",
+            "template_id": 131
+          }
+        ],
+        "use_static_dictionary": true,
+        "versions": [
+          1
+        ],
+        "wbits": -15
+      },
+      "codec_stats_by_epoch": [
+        {
+          "decode_raw_bytes": 9215,
+          "decode_wire_bytes": 2567,
+          "frames": 18,
+          "ratio": 3.589794,
+          "raw_bytes": 9215,
+          "template_epoch": 0,
+          "wire_bytes": 2567,
+          "wire_payload_sha256": "d6b6364da159c508b862d7f17ff6cbf7644257343eee6caa71442059d8a2477c"
+        },
+        {
+          "decode_raw_bytes": 10537,
+          "decode_wire_bytes": 2826,
+          "frames": 18,
+          "ratio": 3.728592,
+          "raw_bytes": 10537,
+          "template_epoch": 1,
+          "wire_bytes": 2826,
+          "wire_payload_sha256": "fe4643dbf8a8ef6d2a7510be28ebaa1255ee4f69d26179b586680c24303ffcb9"
+        }
+      ],
+      "dictionary_ack": {
+        "accepted": true,
+        "auth_tag": "af4c4e43901864107d2cbf52faa971ad7ac8c05cd513a673dff11017024c223b",
+        "delta_version": 1,
+        "diff_id": "a0d24f40d665387725cea7ba44129daa25acad87c1a9e0561ddb2dbd32811bfe",
+        "epoch": 1,
+        "nonce": "ca4cd499190fab2ab19a3f93c8bf1b18",
+        "previous_state_hash": "d2e52c9f46882fd537b921fc7f52fdf6efee38e3645fd1b923f0f174faa2c7d2",
+        "protocol": "aura.aiwire",
+        "reason": null,
+        "schema": "aura.aiwire.session_dictionary.ack.v1",
+        "session_id": "fixture-session-0001",
+        "state_hash": "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf"
+      },
+      "dictionary_diff": {
+        "additions": [
+          {
+            "pattern": "\"schema\":\"local.agent.delta.status.v1\",\"task_id\":\"",
+            "pattern_sha256": "6cf8821a6353abb74ff5e8daf794e654c831c1a98c28ff58052204dfb64c4315",
+            "template_id": 132
+          },
+          {
+            "pattern": "\"event\":\"TaskArtifactUpdateEvent\",\"taskId\":\"",
+            "pattern_sha256": "de74c4316f554ab52bc64f0a11a283c3fee1aea635c9774e22ee077b5b54b9d0",
+            "template_id": 133
+          },
+          {
+            "pattern": "\"type\":\"response.output_text.delta\",\"trace_id\":\"",
+            "pattern_sha256": "35da203c9273bb280223757b506ac1817efe1807da5952263114bc3a3cf195a7",
+            "template_id": 134
+          },
+          {
+            "pattern": "\"protocol\":\"agent.handoff\",\"from\":\"planner\",\"to\":\"",
+            "pattern_sha256": "83df69612a93c994df7777196ae8bc2eecf9f109762d77ce668a29b8b385c463",
+            "template_id": 135
+          }
+        ],
+        "auth_tag": "f16183febe1e843ada5f7225e2867a20f01c6ba6bea032f5f41fd426f20685f7",
+        "delta_version": 1,
+        "diff_id": "a0d24f40d665387725cea7ba44129daa25acad87c1a9e0561ddb2dbd32811bfe",
+        "epoch": 1,
+        "next_count": 8,
+        "next_state_hash": "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf",
+        "nonce": "ad9ae3e42714a99c56bdc736de6ddcad",
+        "previous_count": 4,
+        "previous_state_hash": "d2e52c9f46882fd537b921fc7f52fdf6efee38e3645fd1b923f0f174faa2c7d2",
+        "protocol": "aura.aiwire",
+        "schema": "aura.aiwire.session_dictionary.diff.v1",
+        "session_id": "fixture-session-0001"
+      },
+      "events": [
+        {
+          "direction": "client_to_server",
+          "exchange_index": 0,
+          "kind": "message",
+          "message": {
+            "annotations": [
+              {
+                "title": "Internal synthetic incident note",
+                "type": "url_citation",
+                "url": "https://example.invalid/policy-gateway/tooling/35"
+              }
+            ],
+            "fixture_metadata": {
+              "fixture_sequence": 1,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "item": {
+              "id": "ws_000035",
+              "queries": [
+                "policy-gateway tooling canary rollback"
+              ],
+              "status": "completed",
+              "type": "web_search_call"
+            },
+            "protocol": "openai.responses",
+            "trace_id": "trace-7201-00035",
+            "type": "response.web_search_call.completed"
+          },
+          "method": null,
+          "phase": "openai.response.web_search_call.completed",
+          "protocol": "openai.responses",
+          "raw_bytes": 474,
+          "raw_sha256": "561c5c38f0b0f4b6053effdc7953dac86652e2cc125f96560af8e34911f4f601",
+          "schema": null,
+          "sequence": 1,
+          "template_epoch": 0,
+          "type": "response.web_search_call.completed"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 0,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 2,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "item": {
+              "arguments": "{\"limit\":23,\"path\":\"services/policy-gateway/src/handler_4.py\",\"query\":\"timeout OR retry OR p95 city:Seattle\",\"repository\":\"policy-gateway\"}",
+              "call_id": "call_000031",
+              "id": "fc_000031",
+              "name": "read_file",
+              "type": "function_call"
+            },
+            "protocol": "openai.responses",
+            "trace_id": "trace-7201-00031",
+            "type": "response.output_item.done"
+          },
+          "method": null,
+          "phase": "openai.response.output_item.done",
+          "protocol": "openai.responses",
+          "raw_bytes": 459,
+          "raw_sha256": "b15183054763ac491afb8d20056924dad09ed6f7e14a80d7fe8b58fb1c292b40",
+          "schema": null,
+          "sequence": 2,
+          "template_epoch": 0,
+          "type": "response.output_item.done"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 1,
+          "kind": "message",
+          "message": {
+            "content_index": 4,
+            "delta": "executor sees memory evidence in payments-api; ",
+            "fixture_metadata": {
+              "fixture_sequence": 3,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "item_id": "msg_000001",
+            "output_index": 0,
+            "protocol": "openai.responses",
+            "response_id": "resp_000001",
+            "trace_id": "trace-7201-00004",
+            "type": "response.output_text.delta"
+          },
+          "method": null,
+          "phase": "openai.response.output_text.delta",
+          "protocol": "openai.responses",
+          "raw_bytes": 344,
+          "raw_sha256": "cd24646c46f4804d472b5e1adeb0d0346f9d7d2d1b5d0bf58165fb6b11a01acc",
+          "schema": null,
+          "sequence": 3,
+          "template_epoch": 0,
+          "type": "response.output_text.delta"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 1,
+          "kind": "message",
+          "message": {
+            "contextId": "ctx-0001",
+            "event": "TaskStatusUpdateEvent",
+            "final": false,
+            "fixture_metadata": {
+              "fixture_sequence": 4,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "protocol": "a2a",
+            "status": {
+              "message": {
+                "messageId": "msg-000019",
+                "parts": [
+                  {
+                    "kind": "text",
+                    "text": "Need approval before running canary replay for policy-gateway in Seattle."
+                  }
+                ],
+                "role": "agent"
+              },
+              "state": "input_required"
+            },
+            "taskId": "task-0004"
+          },
+          "method": null,
+          "phase": "a2a.TaskStatusUpdateEvent",
+          "protocol": "a2a",
+          "raw_bytes": 408,
+          "raw_sha256": "5b04b4b54d4bd202e2f3d2c23a59f52a1e850eefa0ade20e270062c7278c1821",
+          "schema": null,
+          "sequence": 4,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 2,
+          "kind": "message",
+          "message": {
+            "agent": "planner",
+            "event": "plan.created",
+            "fixture_metadata": {
+              "fixture_sequence": 5,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "protocol": "agent.trace",
+            "task": {
+              "constraints": [
+                "no schema migration",
+                "rollback must be single commit",
+                "verify with replay"
+              ],
+              "id": "task-0006",
+              "objective": "Reduce payments-api tail latency without increasing error budget burn.",
+              "subgoals": [
+                "read deployment diff",
+                "inspect retry policy",
+                "run focused load probe",
+                "draft patch"
+              ]
+            },
+            "trace_id": "trace-7201-00024"
+          },
+          "method": null,
+          "phase": "agent.trace.plan.created",
+          "protocol": "agent.trace",
+          "raw_bytes": 501,
+          "raw_sha256": "63edb4933a528aef9835fb0ae58118b0086f6adcabfa68c8d55f799b45b49c7c",
+          "schema": null,
+          "sequence": 5,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 2,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 6,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 16,
+            "jsonrpc": "2.0",
+            "protocol": "a2a",
+            "result": {
+              "contextId": "ctx-0001",
+              "history": [],
+              "id": "task-0004",
+              "kind": "task",
+              "metadata": {
+                "repository": "payments-api",
+                "trace_id": "trace-7201-00016"
+              },
+              "status": {
+                "message": {
+                  "messageId": "msg-000016",
+                  "parts": [
+                    {
+                      "kind": "text",
+                      "text": "executor completed evidence pass 1; confidence=0.79"
+                    }
+                  ],
+                  "role": "agent"
+                },
+                "state": "submitted",
+                "timestamp": "2026-07-04T18:16:00Z"
+              }
+            }
+          },
+          "method": null,
+          "phase": "a2a.response",
+          "protocol": "a2a",
+          "raw_bytes": 499,
+          "raw_sha256": "40044a2cbb6c6a1e78494d30ff17654c0156e4c8a521efd3681ce177795eb203",
+          "schema": null,
+          "sequence": 6,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 3,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 7,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 13,
+            "jsonrpc": "2.0",
+            "method": "sampling/createMessage",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "includeContext": "thisServer",
+              "maxTokens": 192,
+              "messages": [
+                {
+                  "content": {
+                    "text": "Draft a safe mitigation summary for retrieval-worker.",
+                    "type": "text"
+                  },
+                  "role": "user"
+                }
+              ]
+            },
+            "protocol": "mcp"
+          },
+          "method": "sampling/createMessage",
+          "phase": "mcp.sampling/createMessage",
+          "protocol": "mcp",
+          "raw_bytes": 635,
+          "raw_sha256": "8588dfebf8fceac4d5a7474b267e6e814ead38cba8dba093f2e6ea6b1d8a875b",
+          "schema": null,
+          "sequence": 7,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 3,
+          "kind": "message",
+          "message": {
+            "body": {
+              "arguments": {
+                "city": "San Jose",
+                "repository": "payments-api",
+                "topic": "rollout"
+              },
+              "name": "continue_task",
+              "type": "command"
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 8,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "headers": {
+              "codec": "aura.aiwire",
+              "route": "coder.rollout",
+              "task_id": "task-0005",
+              "trace_id": "trace-7201-00020"
+            },
+            "offset": 20,
+            "partition": 0,
+            "protocol": "local.agent",
+            "schema": "local.agent.broker.envelope.v1",
+            "topic": "agents.coder.inbox"
+          },
+          "method": null,
+          "phase": "local.local.agent.broker.envelope.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 463,
+          "raw_sha256": "fcc944dbd2e6318fab63c6ba3d81139505685c9f012a596c448581865f662647",
+          "schema": "local.agent.broker.envelope.v1",
+          "sequence": 8,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 4,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 9,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 9,
+            "jsonrpc": "2.0",
+            "protocol": "mcp",
+            "result": {
+              "content": [
+                {
+                  "text": "reviewer found repeated retry budget exhaustion in retrieval-worker; next action is patch validation.",
+                  "type": "text"
+                }
+              ],
+              "isError": false,
+              "resultType": "complete",
+              "structuredContent": {
+                "matches": [
+                  {
+                    "file": "retrieval-worker/handler.py",
+                    "line": 42,
+                    "score": 0.91
+                  },
+                  {
+                    "file": "retrieval-worker/handler.py",
+                    "line": 43,
+                    "score": 0.84
+                  },
+                  {
+                    "file": "retrieval-worker/handler.py",
+                    "line": 44,
+                    "score": 0.77
+                  }
+                ],
+                "trace_id": "trace-7201-00009"
+              }
+            }
+          },
+          "method": null,
+          "phase": "mcp.response",
+          "protocol": "mcp",
+          "raw_bytes": 584,
+          "raw_sha256": "88c2b26b26cfcde92f7b5c78ef15d787704e3b15d6426451ca0f5989b09924ed",
+          "schema": null,
+          "sequence": 9,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 4,
+          "kind": "message",
+          "message": {
+            "agent": "summarizer",
+            "answer": {
+              "actions": [
+                {
+                  "action": "apply retry cap",
+                  "owner": "coder",
+                  "state": "ready"
+                },
+                {
+                  "action": "run canary replay",
+                  "owner": "executor",
+                  "state": "queued"
+                }
+              ],
+              "confidence": 0.83,
+              "summary": "Root cause likely retry fanout in payments-api; mitigation is bounded retries plus replay verification."
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 10,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "protocol": "agent.final",
+            "status": "completed",
+            "task_id": "task-0007",
+            "trace_id": "trace-7201-00028"
+          },
+          "method": null,
+          "phase": "agent.final.event",
+          "protocol": "agent.final",
+          "raw_bytes": 509,
+          "raw_sha256": "1148511c217e1f5eca7fe730a616911f0089beb4fb1374f6883230025de36ae1",
+          "schema": null,
+          "sequence": 10,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 5,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 11,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 15,
+            "jsonrpc": "2.0",
+            "method": "message/stream",
+            "params": {
+              "configuration": {
+                "acceptedOutputModes": [
+                  "text/plain"
+                ],
+                "historyLength": 4
+              },
+              "message": {
+                "contextId": "ctx-0001",
+                "messageId": "msg-000015",
+                "parts": [
+                  {
+                    "kind": "text",
+                    "text": "Stream status for policy-gateway policy."
+                  }
+                ],
+                "role": "user"
+              }
+            },
+            "protocol": "a2a"
+          },
+          "method": "message/stream",
+          "phase": "a2a.message/stream",
+          "protocol": "a2a",
+          "raw_bytes": 406,
+          "raw_sha256": "10cba7e9685d60987c58ea0b63ef763f0ed5fbbce4f6248e6ff4d991713e613e",
+          "schema": null,
+          "sequence": 11,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 5,
+          "kind": "message",
+          "message": {
+            "content_index": 4,
+            "delta": "executor sees memory evidence in aura-bridge; ",
+            "fixture_metadata": {
+              "fixture_sequence": 12,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "item_id": "msg_000011",
+            "output_index": 0,
+            "protocol": "openai.responses",
+            "response_id": "resp_000008",
+            "trace_id": "trace-7201-00034",
+            "type": "response.output_text.delta"
+          },
+          "method": null,
+          "phase": "openai.response.output_text.delta",
+          "protocol": "openai.responses",
+          "raw_bytes": 344,
+          "raw_sha256": "7d68b755905e0beb27f07dec4355f382b528ac24069bc3a87e3fa1b1f3c8ca1f",
+          "schema": null,
+          "sequence": 12,
+          "template_epoch": 0,
+          "type": "response.output_text.delta"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 6,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 13,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 14,
+            "jsonrpc": "2.0",
+            "method": "message/send",
+            "params": {
+              "configuration": {
+                "blocking": false,
+                "historyLength": 6
+              },
+              "message": {
+                "contextId": "ctx-0001",
+                "messageId": "msg-000014",
+                "metadata": {
+                  "task_id": "task-0003",
+                  "trace_id": "trace-7201-00014"
+                },
+                "parts": [
+                  {
+                    "kind": "text",
+                    "text": "Agent coder, produce a remediation plan for aura-bridge using only verified evidence."
+                  },
+                  {
+                    "data": {
+                      "city": "San Jose",
+                      "repository": "aura-bridge",
+                      "topic": "rollout"
+                    },
+                    "kind": "data",
+                    "metadata": {
+                      "schema": "incident_input.v1"
+                    }
+                  }
+                ],
+                "role": "user",
+                "taskId": "task-0003"
+              }
+            },
+            "protocol": "a2a"
+          },
+          "method": "message/send",
+          "phase": "a2a.message/send",
+          "protocol": "a2a",
+          "raw_bytes": 645,
+          "raw_sha256": "3c83149c96242e93fe742f632449d63f63d6688efa1e9a623462674d9a99f2d3",
+          "schema": null,
+          "sequence": 13,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 6,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 14,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 11,
+            "jsonrpc": "2.0",
+            "method": "prompts/get",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "arguments": {
+                "city": "Denver",
+                "repository": "policy-gateway",
+                "topic": "tooling"
+              },
+              "name": "incident_review"
+            },
+            "protocol": "mcp",
+            "result": {
+              "description": "Review an incident using logs, traces, and repository diffs.",
+              "messages": [
+                {
+                  "content": {
+                    "text": "Review policy-gateway tooling regression in Denver.",
+                    "type": "text"
+                  },
+                  "role": "user"
+                }
+              ]
+            }
+          },
+          "method": "prompts/get",
+          "phase": "mcp.prompts/get",
+          "protocol": "mcp",
+          "raw_bytes": 768,
+          "raw_sha256": "bf8f53253aad5f13d4bb3d27a29fee1f46c48439b3522041421f3d249fdfe238",
+          "schema": null,
+          "sequence": 14,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 7,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 15,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "item": {
+              "arguments": "{\"limit\":21,\"path\":\"services/retrieval-worker/src/handler_1.py\",\"query\":\"timeout OR retry OR p95 city:Seattle\",\"repository\":\"retrieval-worker\"}",
+              "call_id": "call_000001",
+              "id": "fc_000001",
+              "name": "read_file",
+              "type": "function_call"
+            },
+            "protocol": "openai.responses",
+            "trace_id": "trace-7201-00001",
+            "type": "response.output_item.done"
+          },
+          "method": null,
+          "phase": "openai.response.output_item.done",
+          "protocol": "openai.responses",
+          "raw_bytes": 464,
+          "raw_sha256": "ca907a33eaf85f6f14c561f116f679b4dfe51ad54624e5e049a3cfd30709fbeb",
+          "schema": null,
+          "sequence": 15,
+          "template_epoch": 0,
+          "type": "response.output_item.done"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 7,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 16,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 10,
+            "jsonrpc": "2.0",
+            "method": "resources/read",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "uri": "repo://aura-bridge/services/executor/incident.md"
+            },
+            "protocol": "mcp",
+            "result": {
+              "contents": [
+                {
+                  "mimeType": "text/markdown",
+                  "text": "# aura-bridge memory\n\nSynthetic incident context for Boston.",
+                  "uri": "repo://aura-bridge/services/executor/incident.md"
+                }
+              ]
+            }
+          },
+          "method": "resources/read",
+          "phase": "mcp.resources/read",
+          "protocol": "mcp",
+          "raw_bytes": 703,
+          "raw_sha256": "158dee8f3f9fbcdd7d064e0f312b1079a7c16ab8062674fe505e6b19db2296e4",
+          "schema": null,
+          "sequence": 16,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 8,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 17,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 8,
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "arguments": {
+                "line_end": 43,
+                "line_start": 18,
+                "session_id": "task-0002",
+                "uri": "repo://payments-api/services/coder/config.yaml"
+              },
+              "name": "write_patch"
+            },
+            "protocol": "mcp"
+          },
+          "method": "tools/call",
+          "phase": "mcp.tools/call",
+          "protocol": "mcp",
+          "raw_bytes": 604,
+          "raw_sha256": "3ad64c1119f567a72fec05f120d14975305f730f67c0abb304af001071153973",
+          "schema": null,
+          "sequence": 17,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 8,
+          "kind": "message",
+          "message": {
+            "delta": {
+              "op": "append",
+              "path": "/tool_results/-",
+              "value": {
+                "elapsed_ms": 41,
+                "name": "search_logs",
+                "ok": true,
+                "summary": "search_logs found tooling evidence for policy-gateway"
+              }
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 18,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "protocol": "local.agent",
+            "schema": "local.agent.delta.tool_result.v1",
+            "tool_call_id": "call_000023",
+            "trace_id": "trace-7201-00023"
+          },
+          "method": null,
+          "phase": "local.local.agent.delta.tool_result.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 405,
+          "raw_sha256": "22107902373bdf152f006cc1493501b02ac3565cc6e6ae3f08caaa2fc44cddbe",
+          "schema": "local.agent.delta.tool_result.v1",
+          "sequence": 18,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 9,
+          "kind": "message",
+          "message": {
+            "annotations": [
+              {
+                "title": "Internal synthetic incident note",
+                "type": "url_citation",
+                "url": "https://example.invalid/retrieval-worker/tooling/5"
+              }
+            ],
+            "fixture_metadata": {
+              "fixture_sequence": 19,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "item": {
+              "id": "ws_000005",
+              "queries": [
+                "retrieval-worker tooling canary rollback"
+              ],
+              "status": "completed",
+              "type": "web_search_call"
+            },
+            "protocol": "openai.responses",
+            "trace_id": "trace-7201-00005",
+            "type": "response.web_search_call.completed"
+          },
+          "method": null,
+          "phase": "openai.response.web_search_call.completed",
+          "protocol": "openai.responses",
+          "raw_bytes": 478,
+          "raw_sha256": "bbc4cb937c8deaa6fd0ed6345c09de5a89608cd60595f6424d1ac839c73cc632",
+          "schema": null,
+          "sequence": 19,
+          "template_epoch": 1,
+          "type": "response.web_search_call.completed"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 9,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 20,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "jsonrpc": "2.0",
+            "method": "notifications/tools/list_changed",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "reason": "deployment",
+              "repository": "payments-api"
+            },
+            "protocol": "mcp"
+          },
+          "method": "notifications/tools/list_changed",
+          "phase": "mcp.notifications/tools/list_changed",
+          "protocol": "mcp",
+          "raw_bytes": 524,
+          "raw_sha256": "cb6cd959ada0ca1f9d5c4212ae0e3cb94903ce9fff5be8db588a3abadd4c1b8e",
+          "schema": null,
+          "sequence": 20,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 10,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 21,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "protocol": "openai.responses",
+            "response": {
+              "id": "resp_000003",
+              "output": [
+                {
+                  "content": [
+                    {
+                      "json": {
+                        "confidence": 0.81,
+                        "evidence": [
+                          "logs://policy-gateway/Chicago/03",
+                          "trace://trace-7201-00003"
+                        ],
+                        "finding": "policy regression isolated in policy-gateway",
+                        "next_action": "run canary replay"
+                      },
+                      "type": "output_json"
+                    }
+                  ],
+                  "role": "assistant",
+                  "type": "message"
+                }
+              ],
+              "status": "completed"
+            },
+            "trace_id": "trace-7201-00003",
+            "type": "response.completed"
+          },
+          "method": null,
+          "phase": "openai.response.completed",
+          "protocol": "openai.responses",
+          "raw_bytes": 523,
+          "raw_sha256": "fec261a456d5fd5d6089bcc715cfeeaff7e51ee191846bd25fad466b4e3849a0",
+          "schema": null,
+          "sequence": 21,
+          "template_epoch": 1,
+          "type": "response.completed"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 10,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 22,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "input": [
+              {
+                "content": "You are the planner agent. Produce executable subgoals and request tools only when needed.",
+                "role": "system"
+              },
+              {
+                "content": "Investigate latency regression in aura-bridge for the Austin deployment.",
+                "role": "user"
+              }
+            ],
+            "metadata": {
+              "priority": 0,
+              "task_id": "task-0007",
+              "tenant": "bench"
+            },
+            "model": "gpt-4.1-mini",
+            "operation": "responses.create",
+            "protocol": "openai.responses",
+            "text": {
+              "format": {
+                "name": "agent_plan",
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "confidence": {
+                      "type": "number"
+                    },
+                    "evidence": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "finding": {
+                      "type": "string"
+                    },
+                    "next_action": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "finding",
+                    "evidence",
+                    "next_action",
+                    "confidence"
+                  ],
+                  "type": "object"
+                },
+                "strict": true,
+                "type": "json_schema"
+              }
+            },
+            "tools": [
+              {
+                "description": "Search structured service logs by query and time range.",
+                "name": "search_logs",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    },
+                    "since_minutes": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "query"
+                  ],
+                  "type": "object"
+                },
+                "type": "function"
+              }
+            ],
+            "trace_id": "trace-7201-00030"
+          },
+          "method": null,
+          "phase": "openai.responses.create",
+          "protocol": "openai.responses",
+          "raw_bytes": 1186,
+          "raw_sha256": "cb2d142e843bf490061c033f307c95ed307c23d4f4bb8c3a90e255da4f32ce75",
+          "schema": null,
+          "sequence": 22,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 11,
+          "kind": "message",
+          "message": {
+            "clock": {
+              "lamport": 1022,
+              "source": "executor"
+            },
+            "delta": {
+              "op": "replace",
+              "path": "/status/state",
+              "previous": "working",
+              "value": "input_required"
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 23,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "protocol": "local.agent",
+            "schema": "local.agent.delta.status.v1",
+            "task_id": "task-0005",
+            "trace_id": "trace-7201-00022"
+          },
+          "method": null,
+          "phase": "local.local.agent.delta.status.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 360,
+          "raw_sha256": "75cd3da581db2396280412c23661fbbaf40f181ca90c07f31489018d61980131",
+          "schema": "local.agent.delta.status.v1",
+          "sequence": 23,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 11,
+          "kind": "message",
+          "message": {
+            "call_id": "call_000032",
+            "fixture_metadata": {
+              "fixture_sequence": 24,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "output": "{\"elapsed_ms\":50,\"ok\":true,\"rows\":5,\"summary\":\"payments-api has retry fanout warnings in San Jose\"}",
+            "protocol": "openai.responses",
+            "trace_id": "trace-7201-00032",
+            "type": "function_call_output"
+          },
+          "method": null,
+          "phase": "openai.function_call_output",
+          "protocol": "openai.responses",
+          "raw_bytes": 340,
+          "raw_sha256": "d2eed1a8bf4f51bbdc75ea60465076dc0471d2c2bbe2f83cbd21408e7bd06b8c",
+          "schema": null,
+          "sequence": 24,
+          "template_epoch": 1,
+          "type": "function_call_output"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 12,
+          "kind": "message",
+          "message": {
+            "body": "coder observed matching latency spike and retry count increase in San Jose.",
+            "confidence": 0.78,
+            "evidence": {
+              "contradicts": [],
+              "source_refs": [
+                "logs://aura-bridge/San Jose/02",
+                "repo://aura-bridge/deploy/0"
+              ],
+              "supports": []
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 25,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "kind": "observation",
+            "protocol": "memory.write",
+            "title": "aura-bridge retry fanout suspected",
+            "trace_id": "trace-7201-00026"
+          },
+          "method": null,
+          "phase": "memory.write",
+          "protocol": "memory.write",
+          "raw_bytes": 453,
+          "raw_sha256": "ec25fbcc107588696e78f3bf557591bfbe9096a246b69039228b884490611e9d",
+          "schema": null,
+          "sequence": 25,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 12,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 26,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 7,
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00000"
+              },
+              "cursor": "page-1"
+            },
+            "protocol": "mcp",
+            "result": {
+              "cacheScope": "public",
+              "resultType": "complete",
+              "tools": [
+                {
+                  "description": "Operate on synthetic policy-gateway retrieval data.",
+                  "inputSchema": {
+                    "properties": {
+                      "limit": {
+                        "type": "integer",
+                        "x-mcp-header": "limit"
+                      },
+                      "query": {
+                        "type": "string"
+                      },
+                      "repository": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "repository",
+                      "query"
+                    ],
+                    "type": "object"
+                  },
+                  "name": "read_file",
+                  "title": "Read File Tool"
+                }
+              ],
+              "ttlMs": 300000
+            }
+          },
+          "method": "tools/list",
+          "phase": "mcp.tools/list",
+          "protocol": "mcp",
+          "raw_bytes": 861,
+          "raw_sha256": "e15565845db383c97b609e41926bd73937e3d77f375a7516097c040d85164bc4",
+          "schema": null,
+          "sequence": 26,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 13,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 27,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "from": "planner",
+            "handoff": {
+              "requested_output_schema": {
+                "required": [
+                  "finding",
+                  "evidence",
+                  "next_action",
+                  "confidence"
+                ],
+                "type": "object"
+              },
+              "task_id": "task-0006",
+              "working_memory": {
+                "facts": [
+                  "retrieval-worker p95 increased in Seattle",
+                  "no database saturation observed",
+                  "retry fanout changed in latest deploy"
+                ],
+                "open_questions": [
+                  "does circuit breaker trip before retry budget?",
+                  "are cache misses correlated with provider region?"
+                ]
+              }
+            },
+            "protocol": "agent.handoff",
+            "to": "researcher",
+            "trace_id": "trace-7201-00025"
+          },
+          "method": null,
+          "phase": "agent.handoff.event",
+          "protocol": "agent.handoff",
+          "raw_bytes": 603,
+          "raw_sha256": "da9a9116b32897bd4e9b466fdb3b535cefb1210c79fa8c93c95e10999ae080ca",
+          "schema": null,
+          "sequence": 27,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 13,
+          "kind": "message",
+          "message": {
+            "call_id": "call_000002",
+            "fixture_metadata": {
+              "fixture_sequence": 28,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "output": "{\"elapsed_ms\":20,\"ok\":true,\"rows\":5,\"summary\":\"aura-bridge has retry fanout warnings in San Jose\"}",
+            "protocol": "openai.responses",
+            "trace_id": "trace-7201-00002",
+            "type": "function_call_output"
+          },
+          "method": null,
+          "phase": "openai.function_call_output",
+          "protocol": "openai.responses",
+          "raw_bytes": 339,
+          "raw_sha256": "673facc810f69c61ceb93b05b80485dfeb6dd63a1a7aad525522f59246a92c4d",
+          "schema": null,
+          "sequence": 28,
+          "template_epoch": 1,
+          "type": "function_call_output"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 14,
+          "kind": "message",
+          "message": {
+            "comments": [
+              {
+                "line": 58,
+                "severity": "medium",
+                "text": "Add replay test for retry budget boundary."
+              },
+              {
+                "line": 91,
+                "severity": "low",
+                "text": "Name the metric with service prefix."
+              }
+            ],
+            "fixture_metadata": {
+              "fixture_sequence": 29,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "patch": {
+              "diff_summary": [
+                "cap retry fanout per upstream request",
+                "add histogram bucket for retry exhaustion",
+                "preserve existing timeout envelope"
+              ],
+              "files_changed": [
+                "services/policy-gateway/retry.py",
+                "services/policy-gateway/tests/test_retry_policy.py"
+              ],
+              "repo": "policy-gateway"
+            },
+            "protocol": "agent.review",
+            "reviewer": "reviewer",
+            "trace_id": "trace-7201-00027",
+            "verdict": "approve"
+          },
+          "method": null,
+          "phase": "agent.review.event",
+          "protocol": "agent.review",
+          "raw_bytes": 653,
+          "raw_sha256": "3e3c85bc7165ec86a43f92f08c90474fb632da8ac731b887303127b70695b51f",
+          "schema": null,
+          "sequence": 29,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 14,
+          "kind": "message",
+          "message": {
+            "capabilities": {
+              "delta_frames": true,
+              "resume": true,
+              "route_before_decompress": true,
+              "templates": true
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 30,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "peer": {
+              "id": "reviewer",
+              "runtime": "python",
+              "version": "0.1"
+            },
+            "protocol": "local.agent",
+            "schema": "local.agent.session.handshake.v1",
+            "session": {
+              "dictionary_epoch": 3,
+              "id": "session-7201-00002",
+              "template_sha256": "00001c36"
+            },
+            "trace_id": "trace-7201-00021"
+          },
+          "method": null,
+          "phase": "local.local.agent.session.handshake.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 451,
+          "raw_sha256": "82823f68b8e10092db1a3e23333172aa8b74b4fbee1189ee20c96936252ecd49",
+          "schema": "local.agent.session.handshake.v1",
+          "sequence": 30,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 15,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 31,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 6,
+            "jsonrpc": "2.0",
+            "method": "initialize",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00000"
+              },
+              "capabilities": {
+                "roots": {
+                  "listChanged": true
+                },
+                "sampling": {}
+              },
+              "clientInfo": {
+                "name": "aura-corpus",
+                "version": "0.1"
+              },
+              "protocolVersion": "2025-11-25"
+            },
+            "protocol": "mcp"
+          },
+          "method": "initialize",
+          "phase": "mcp.initialize",
+          "protocol": "mcp",
+          "raw_bytes": 602,
+          "raw_sha256": "b5582da23d1ff8802ff8df52455002a8ba48d75f5f025118c27eed5ad4175ae5",
+          "schema": null,
+          "sequence": 31,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 15,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 32,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "protocol": "openai.responses",
+            "response": {
+              "id": "resp_000033",
+              "output": [
+                {
+                  "content": [
+                    {
+                      "json": {
+                        "confidence": 0.81,
+                        "evidence": [
+                          "logs://retrieval-worker/Chicago/09",
+                          "trace://trace-7201-00033"
+                        ],
+                        "finding": "policy regression isolated in retrieval-worker",
+                        "next_action": "run canary replay"
+                      },
+                      "type": "output_json"
+                    }
+                  ],
+                  "role": "assistant",
+                  "type": "message"
+                }
+              ],
+              "status": "completed"
+            },
+            "trace_id": "trace-7201-00033",
+            "type": "response.completed"
+          },
+          "method": null,
+          "phase": "openai.response.completed",
+          "protocol": "openai.responses",
+          "raw_bytes": 527,
+          "raw_sha256": "1af59d93ad847326e7b89116160335ea3d4de3e1bfbffc360d201b28ae84a714",
+          "schema": null,
+          "sequence": 32,
+          "template_epoch": 1,
+          "type": "response.completed"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 16,
+          "kind": "message",
+          "message": {
+            "append": true,
+            "artifact": {
+              "artifactId": "artifact-000017",
+              "name": "diagnostic-summary",
+              "parts": [
+                {
+                  "kind": "text",
+                  "text": "p95 latency increased after retry fanout change"
+                },
+                {
+                  "data": {
+                    "city": "Denver",
+                    "p95_delta_ms": 40,
+                    "repository": "retrieval-worker"
+                  },
+                  "kind": "data",
+                  "metadata": {
+                    "schema": "diagnostic_summary.v1"
+                  }
+                }
+              ]
+            },
+            "contextId": "ctx-0001",
+            "event": "TaskArtifactUpdateEvent",
+            "fixture_metadata": {
+              "fixture_sequence": 33,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "lastChunk": false,
+            "protocol": "a2a",
+            "taskId": "task-0004"
+          },
+          "method": null,
+          "phase": "a2a.TaskArtifactUpdateEvent",
+          "protocol": "a2a",
+          "raw_bytes": 524,
+          "raw_sha256": "2c4af6b7a3b96344ee8437065fee48ad5254389e6ba60d683f055af389219daf",
+          "schema": null,
+          "sequence": 33,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 16,
+          "kind": "message",
+          "message": {
+            "control": {
+              "epoch": 7,
+              "kind": "session_template_update",
+              "reason": "recurring message shape crossed threshold"
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 34,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "hash_modifiers": {
+              "repository": "retrieval-worker",
+              "task_bucket": 1,
+              "tenant": "bench"
+            },
+            "protocol": "local.agent",
+            "route": {
+              "priority": "normal",
+              "requires_decompression": false,
+              "shard": "retrieval-worker-1",
+              "topic": "agents.summarizer.events"
+            },
+            "schema": "local.agent.route_hint.v1",
+            "trace_id": "trace-7201-00029"
+          },
+          "method": null,
+          "phase": "local.local.agent.route_hint.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 514,
+          "raw_sha256": "43bc10164a986cecd92f538ff1c267914a4954e04e1dee0592a3fa3528a4fd55",
+          "schema": "local.agent.route_hint.v1",
+          "sequence": 34,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 17,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 35,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "id": 18,
+            "jsonrpc": "2.0",
+            "method": "tasks/get",
+            "params": {
+              "historyLength": 10,
+              "id": "task-0004",
+              "metadata": {
+                "trace_id": "trace-7201-00018"
+              }
+            },
+            "protocol": "a2a",
+            "result": {
+              "artifacts": [
+                {
+                  "artifactId": "artifact-000018",
+                  "name": "diagnostic-summary"
+                }
+              ],
+              "contextId": "ctx-0001",
+              "id": "task-0004",
+              "status": {
+                "state": "working"
+              }
+            }
+          },
+          "method": "tasks/get",
+          "phase": "a2a.tasks/get",
+          "protocol": "a2a",
+          "raw_bytes": 412,
+          "raw_sha256": "b968d6c0cc86d07abce639928898962c4164e2c7be0d1b11c3286918681af307",
+          "schema": null,
+          "sequence": 35,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 17,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 36,
+              "fixture_session_id": "fixture-session-0001",
+              "synthetic": true
+            },
+            "input": [
+              {
+                "content": "You are the planner agent. Produce executable subgoals and request tools only when needed.",
+                "role": "system"
+              },
+              {
+                "content": "Investigate latency regression in payments-api for the Austin deployment.",
+                "role": "user"
+              }
+            ],
+            "metadata": {
+              "priority": 0,
+              "task_id": "task-0000",
+              "tenant": "bench"
+            },
+            "model": "gpt-4.1-mini",
+            "operation": "responses.create",
+            "protocol": "openai.responses",
+            "text": {
+              "format": {
+                "name": "agent_plan",
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "confidence": {
+                      "type": "number"
+                    },
+                    "evidence": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "finding": {
+                      "type": "string"
+                    },
+                    "next_action": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "finding",
+                    "evidence",
+                    "next_action",
+                    "confidence"
+                  ],
+                  "type": "object"
+                },
+                "strict": true,
+                "type": "json_schema"
+              }
+            },
+            "tools": [
+              {
+                "description": "Search structured service logs by query and time range.",
+                "name": "search_logs",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    },
+                    "since_minutes": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "query"
+                  ],
+                  "type": "object"
+                },
+                "type": "function"
+              }
+            ],
+            "trace_id": "trace-7201-00000"
+          },
+          "method": null,
+          "phase": "openai.responses.create",
+          "protocol": "openai.responses",
+          "raw_bytes": 1187,
+          "raw_sha256": "3df403784375c02fcea95ab24d0865caa884634f30f03ff99be4a7513d1d3454",
+          "schema": null,
+          "sequence": 36,
+          "template_epoch": 1,
+          "type": null
+        }
+      ],
+      "exchange_count": 18,
+      "initial_session_templates": [
+        {
+          "pattern": "{\"protocol\":\"mcp\",\"jsonrpc\":\"2.0\",\"id\":",
+          "pattern_sha256": "f3dbc38b8a14c6e5318132c854bfafef6f00b79d4381a81f8e62de6b3ff40851",
+          "template_id": 128
+        },
+        {
+          "pattern": "{\"protocol\":\"a2a\",\"jsonrpc\":\"2.0\",\"id\":",
+          "pattern_sha256": "2ee7a7a26eb75ba668a79b4c759056501c5a51f8e6091de57f05f58c76ee603a",
+          "template_id": 129
+        },
+        {
+          "pattern": "{\"protocol\":\"openai.responses\",\"trace_id\":\"",
+          "pattern_sha256": "62b11c0f4fddc5e439542023a4f2aba3d117f66b0655d931a469ddcdd1ff38c6",
+          "template_id": 130
+        },
+        {
+          "pattern": "{\"protocol\":\"local.agent\",\"schema\":\"local.agent.",
+          "pattern_sha256": "6bb947c7af65eebef9f519c05b58e932347b0e314aafb26c9dbc0006db757bcf",
+          "template_id": 131
+        }
+      ],
+      "message_count": 36,
+      "protocol": "aura.aiwire",
+      "resume_hello": {
+        "app_namespace": "aura.aiwire.fixture",
+        "auth_tag": "46dbcb17cc0eeb490437aa3a7f9e823546b7faf27875fb703c4984f2d483550a",
+        "cached_state_hashes": [
+          "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf"
+        ],
+        "nonce": "97c976cbe83ee647de0e31b4c651f6a4",
+        "peer_id": "fixture-agent-7201",
+        "protocol": "aura.aiwire",
+        "schema": "aura.aiwire.session_resume.hello.v1",
+        "static_dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+        "supported_delta_versions": [
+          1
+        ]
+      },
+      "resume_response": {
+        "accepted": true,
+        "auth_tag": "b3c40ec98d1bc8432bc5d080b05eb9c6a6caccb30e2513c0409189c561d43a15",
+        "hello_nonce": "97c976cbe83ee647de0e31b4c651f6a4",
+        "nonce": "f721bcfea1fdbbaeb7d1837cf2a78576",
+        "protocol": "aura.aiwire",
+        "reason": null,
+        "resume_state_hash": "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf",
+        "schema": "aura.aiwire.session_resume.response.v1",
+        "selected_delta_version": 1,
+        "static_dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117"
+      },
+      "schema": "aura.aiwire.session_fixture.v1",
+      "seed": 7201,
+      "server_negotiation": {
+        "accepted": true,
+        "codec": "aiwire",
+        "reason": null,
+        "schema": "aura.aiwire.negotiation.v1",
+        "server": {
+          "backend": "python",
+          "dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+          "dictionary_size": 32768,
+          "fallback_codecs": [
+            "zlib",
+            "raw"
+          ],
+          "flush_mode": "z_sync_flush",
+          "level": 3,
+          "mem_level": 8,
+          "native_version": null,
+          "preferred_version": 1,
+          "protocol": "aura.aiwire",
+          "require_session_templates": true,
+          "schema": "aura.aiwire.handshake.v1",
+          "session_template_count": 4,
+          "session_template_epoch": 0,
+          "session_template_sha256": "675095b6ba1c198cbbb0e8e06f64cb92894eaa57b298ba15fddc729f9fc517f6",
+          "session_templates": [
+            {
+              "pattern": "{\"protocol\":\"mcp\",\"jsonrpc\":\"2.0\",\"id\":",
+              "template_id": 128
+            },
+            {
+              "pattern": "{\"protocol\":\"a2a\",\"jsonrpc\":\"2.0\",\"id\":",
+              "template_id": 129
+            },
+            {
+              "pattern": "{\"protocol\":\"openai.responses\",\"trace_id\":\"",
+              "template_id": 130
+            },
+            {
+              "pattern": "{\"protocol\":\"local.agent\",\"schema\":\"local.agent.",
+              "template_id": 131
+            }
+          ],
+          "use_static_dictionary": true,
+          "versions": [
+            1
+          ],
+          "wbits": -15
+        },
+        "version": 1
+      },
+      "session_dictionary_state_hashes": {
+        "epoch_0": "d2e52c9f46882fd537b921fc7f52fdf6efee38e3645fd1b923f0f174faa2c7d2",
+        "epoch_1": "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf"
+      },
+      "session_id": "fixture-session-0001",
+      "static_dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+      "summary": {
+        "fixture_sha256": "64a5df990b50865b2fbcbb1ebde53ec7bc771ed2cc09eb36433385bd6be7ea3d",
+        "protocol_mix": {
+          "a2a": 6,
+          "agent.final": 1,
+          "agent.handoff": 1,
+          "agent.review": 1,
+          "agent.trace": 1,
+          "local.agent": 5,
+          "mcp": 8,
+          "memory.write": 1,
+          "openai.responses": 12
+        },
+        "raw_bytes": 19752
+      },
+      "synthetic_public_data": true,
+      "template_discovery_preview": {
+        "message_window": {
+          "count": 36,
+          "start": 0
+        },
+        "source": "discover_ai_wire_session_templates",
+        "starting_template_id": 192,
+        "templates": [
+          {
+            "pattern": "{{\"fixture_metadata\":{{\"fixture_sequence\":{0}0\"}}",
+            "pattern_sha256": "2ea9206e76e8c25bd3793478e12170da553c945548a2ae842b180cb948b7e1d3",
+            "template_id": 192
+          },
+          {
+            "pattern": "{{\"fixture_metadata\":{{\"fixture_sequence\":{0}3\",\"type\":\"response.completed\"}}",
+            "pattern_sha256": "6e7cfbb35ca2044e61e384c06e4e3e172ea47b8158e490454d5ca12cb98ee08e",
+            "template_id": 193
+          },
+          {
+            "pattern": "{{\"fixture_metadata\":{{\"fixture_sequence\":{0}1\",\"type\":\"response.output_item.done\"}}",
+            "pattern_sha256": "6987ffea219b410d1e6ca65e9b39da50eb0f7f3df6e59d863f9191835ebf0331",
+            "template_id": 194
+          },
+          {
+            "pattern": "{{\"content_index\":4,\"delta\":\"executor sees memory evidence in {0}4\",\"type\":\"response.output_text.delta\"}}",
+            "pattern_sha256": "67a40fa733b6728296fdc40d06f13b845208f67d81df1e2afd3cd463dd0671d2",
+            "template_id": 195
+          },
+          {
+            "pattern": "{{\"annotations\":[{{\"title\":\"Internal synthetic incident note\",\"type\":\"url_citation\",\"url\":\"https://example.invalid/{0}5\",\"type\":\"response.web_search_call.completed\"}}",
+            "pattern_sha256": "db685911309206280d9c8fea67a073f40030746344f4b5c255ff0ed1fec500e6",
+            "template_id": 196
+          }
+        ],
+        "used_for_handshake": false
+      },
+      "template_hashes": {
+        "initial": "675095b6ba1c198cbbb0e8e06f64cb92894eaa57b298ba15fddc729f9fc517f6",
+        "updated": "1797e19dc003b6c9b7b5d7549a99b45a7ccb5911927387a4215d24a0aea020d6"
+      },
+      "template_update": {
+        "add_or_update": [
+          {
+            "pattern": "\"schema\":\"local.agent.delta.status.v1\",\"task_id\":\"",
+            "template_id": 132
+          },
+          {
+            "pattern": "\"event\":\"TaskArtifactUpdateEvent\",\"taskId\":\"",
+            "template_id": 133
+          },
+          {
+            "pattern": "\"type\":\"response.output_text.delta\",\"trace_id\":\"",
+            "template_id": 134
+          },
+          {
+            "pattern": "\"protocol\":\"agent.handoff\",\"from\":\"planner\",\"to\":\"",
+            "template_id": 135
+          }
+        ],
+        "epoch": 1,
+        "next_count": 8,
+        "next_sha256": "1797e19dc003b6c9b7b5d7549a99b45a7ccb5911927387a4215d24a0aea020d6",
+        "previous_count": 4,
+        "previous_sha256": "675095b6ba1c198cbbb0e8e06f64cb92894eaa57b298ba15fddc729f9fc517f6",
+        "protocol": "aura.aiwire",
+        "remove": [],
+        "requires_session_reset": true,
+        "schema": "aura.aiwire.session_templates.update.v1"
+      },
+      "template_update_after_exchange": 9,
+      "updated_session_templates": [
+        {
+          "pattern": "{\"protocol\":\"mcp\",\"jsonrpc\":\"2.0\",\"id\":",
+          "pattern_sha256": "f3dbc38b8a14c6e5318132c854bfafef6f00b79d4381a81f8e62de6b3ff40851",
+          "template_id": 128
+        },
+        {
+          "pattern": "{\"protocol\":\"a2a\",\"jsonrpc\":\"2.0\",\"id\":",
+          "pattern_sha256": "2ee7a7a26eb75ba668a79b4c759056501c5a51f8e6091de57f05f58c76ee603a",
+          "template_id": 129
+        },
+        {
+          "pattern": "{\"protocol\":\"openai.responses\",\"trace_id\":\"",
+          "pattern_sha256": "62b11c0f4fddc5e439542023a4f2aba3d117f66b0655d931a469ddcdd1ff38c6",
+          "template_id": 130
+        },
+        {
+          "pattern": "{\"protocol\":\"local.agent\",\"schema\":\"local.agent.",
+          "pattern_sha256": "6bb947c7af65eebef9f519c05b58e932347b0e314aafb26c9dbc0006db757bcf",
+          "template_id": 131
+        },
+        {
+          "pattern": "\"schema\":\"local.agent.delta.status.v1\",\"task_id\":\"",
+          "pattern_sha256": "6cf8821a6353abb74ff5e8daf794e654c831c1a98c28ff58052204dfb64c4315",
+          "template_id": 132
+        },
+        {
+          "pattern": "\"event\":\"TaskArtifactUpdateEvent\",\"taskId\":\"",
+          "pattern_sha256": "de74c4316f554ab52bc64f0a11a283c3fee1aea635c9774e22ee077b5b54b9d0",
+          "template_id": 133
+        },
+        {
+          "pattern": "\"type\":\"response.output_text.delta\",\"trace_id\":\"",
+          "pattern_sha256": "35da203c9273bb280223757b506ac1817efe1807da5952263114bc3a3cf195a7",
+          "template_id": 134
+        },
+        {
+          "pattern": "\"protocol\":\"agent.handoff\",\"from\":\"planner\",\"to\":\"",
+          "pattern_sha256": "83df69612a93c994df7777196ae8bc2eecf9f109762d77ce668a29b8b385c463",
+          "template_id": 135
+        }
+      ],
+      "version": 1
+    },
+    {
+      "auth": {
+        "key_id": "public-fixture-key",
+        "mode": "hmac_sha256",
+        "secret_material": "not_included"
+      },
+      "client_handshake": {
+        "backend": "python",
+        "dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+        "dictionary_size": 32768,
+        "fallback_codecs": [
+          "zlib",
+          "raw"
+        ],
+        "flush_mode": "z_sync_flush",
+        "level": 3,
+        "mem_level": 8,
+        "native_version": null,
+        "preferred_version": 1,
+        "protocol": "aura.aiwire",
+        "require_session_templates": true,
+        "schema": "aura.aiwire.handshake.v1",
+        "session_template_count": 4,
+        "session_template_epoch": 0,
+        "session_template_sha256": "675095b6ba1c198cbbb0e8e06f64cb92894eaa57b298ba15fddc729f9fc517f6",
+        "session_templates": [
+          {
+            "pattern": "{\"protocol\":\"mcp\",\"jsonrpc\":\"2.0\",\"id\":",
+            "template_id": 128
+          },
+          {
+            "pattern": "{\"protocol\":\"a2a\",\"jsonrpc\":\"2.0\",\"id\":",
+            "template_id": 129
+          },
+          {
+            "pattern": "{\"protocol\":\"openai.responses\",\"trace_id\":\"",
+            "template_id": 130
+          },
+          {
+            "pattern": "{\"protocol\":\"local.agent\",\"schema\":\"local.agent.",
+            "template_id": 131
+          }
+        ],
+        "use_static_dictionary": true,
+        "versions": [
+          1
+        ],
+        "wbits": -15
+      },
+      "codec_stats_by_epoch": [
+        {
+          "decode_raw_bytes": 10080,
+          "decode_wire_bytes": 2899,
+          "frames": 18,
+          "ratio": 3.477061,
+          "raw_bytes": 10080,
+          "template_epoch": 0,
+          "wire_bytes": 2899,
+          "wire_payload_sha256": "57498cb818233f77c0c1e984360b4af1b82ee4169f61ad055fa9d26e45dece78"
+        },
+        {
+          "decode_raw_bytes": 9672,
+          "decode_wire_bytes": 2975,
+          "frames": 18,
+          "ratio": 3.251092,
+          "raw_bytes": 9672,
+          "template_epoch": 1,
+          "wire_bytes": 2975,
+          "wire_payload_sha256": "0bed560a78468bbe494eae6752b4cb1fa48c6fc098453cc85891460907efaa8a"
+        }
+      ],
+      "dictionary_ack": {
+        "accepted": true,
+        "auth_tag": "85465ac83e6d39a7e82a32f6cd0d58d0132e991c71948f7cb4db941e679386e7",
+        "delta_version": 1,
+        "diff_id": "9f4b13fd311e512e9fb76a0c513dad23b0bdb1455c7687cbb8a27cb07d7ad1a0",
+        "epoch": 1,
+        "nonce": "c5b672d4a208d0e38405220b29850de4",
+        "previous_state_hash": "d2e52c9f46882fd537b921fc7f52fdf6efee38e3645fd1b923f0f174faa2c7d2",
+        "protocol": "aura.aiwire",
+        "reason": null,
+        "schema": "aura.aiwire.session_dictionary.ack.v1",
+        "session_id": "fixture-session-0002",
+        "state_hash": "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf"
+      },
+      "dictionary_diff": {
+        "additions": [
+          {
+            "pattern": "\"schema\":\"local.agent.delta.status.v1\",\"task_id\":\"",
+            "pattern_sha256": "6cf8821a6353abb74ff5e8daf794e654c831c1a98c28ff58052204dfb64c4315",
+            "template_id": 132
+          },
+          {
+            "pattern": "\"event\":\"TaskArtifactUpdateEvent\",\"taskId\":\"",
+            "pattern_sha256": "de74c4316f554ab52bc64f0a11a283c3fee1aea635c9774e22ee077b5b54b9d0",
+            "template_id": 133
+          },
+          {
+            "pattern": "\"type\":\"response.output_text.delta\",\"trace_id\":\"",
+            "pattern_sha256": "35da203c9273bb280223757b506ac1817efe1807da5952263114bc3a3cf195a7",
+            "template_id": 134
+          },
+          {
+            "pattern": "\"protocol\":\"agent.handoff\",\"from\":\"planner\",\"to\":\"",
+            "pattern_sha256": "83df69612a93c994df7777196ae8bc2eecf9f109762d77ce668a29b8b385c463",
+            "template_id": 135
+          }
+        ],
+        "auth_tag": "483998a6aee6ade65d10417150755cf2c75c78f8eccbe96452eac80160f92d93",
+        "delta_version": 1,
+        "diff_id": "9f4b13fd311e512e9fb76a0c513dad23b0bdb1455c7687cbb8a27cb07d7ad1a0",
+        "epoch": 1,
+        "next_count": 8,
+        "next_state_hash": "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf",
+        "nonce": "8d6f85dea42d5fb4fe2f1e390fa2551d",
+        "previous_count": 4,
+        "previous_state_hash": "d2e52c9f46882fd537b921fc7f52fdf6efee38e3645fd1b923f0f174faa2c7d2",
+        "protocol": "aura.aiwire",
+        "schema": "aura.aiwire.session_dictionary.diff.v1",
+        "session_id": "fixture-session-0002"
+      },
+      "events": [
+        {
+          "direction": "client_to_server",
+          "exchange_index": 0,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 1,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 11,
+            "jsonrpc": "2.0",
+            "method": "prompts/get",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "arguments": {
+                "city": "Denver",
+                "repository": "policy-gateway",
+                "topic": "tooling"
+              },
+              "name": "incident_review"
+            },
+            "protocol": "mcp",
+            "result": {
+              "description": "Review an incident using logs, traces, and repository diffs.",
+              "messages": [
+                {
+                  "content": {
+                    "text": "Review policy-gateway tooling regression in Denver.",
+                    "type": "text"
+                  },
+                  "role": "user"
+                }
+              ]
+            }
+          },
+          "method": "prompts/get",
+          "phase": "mcp.prompts/get",
+          "protocol": "mcp",
+          "raw_bytes": 767,
+          "raw_sha256": "297b58cc28bb63c5ab12ecc2f1c1052a7a5939757e6a4d0d3f812d77d8a348bf",
+          "schema": null,
+          "sequence": 1,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 0,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 2,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 10,
+            "jsonrpc": "2.0",
+            "method": "resources/read",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "uri": "repo://aura-bridge/services/executor/incident.md"
+            },
+            "protocol": "mcp",
+            "result": {
+              "contents": [
+                {
+                  "mimeType": "text/markdown",
+                  "text": "# aura-bridge memory\n\nSynthetic incident context for Boston.",
+                  "uri": "repo://aura-bridge/services/executor/incident.md"
+                }
+              ]
+            }
+          },
+          "method": "resources/read",
+          "phase": "mcp.resources/read",
+          "protocol": "mcp",
+          "raw_bytes": 702,
+          "raw_sha256": "34574611a6461e50a3a83f0e83eec0aae17f34b302d3b37026de07622b4ef622",
+          "schema": null,
+          "sequence": 2,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 1,
+          "kind": "message",
+          "message": {
+            "append": true,
+            "artifact": {
+              "artifactId": "artifact-000017",
+              "name": "diagnostic-summary",
+              "parts": [
+                {
+                  "kind": "text",
+                  "text": "p95 latency increased after retry fanout change"
+                },
+                {
+                  "data": {
+                    "city": "Denver",
+                    "p95_delta_ms": 40,
+                    "repository": "retrieval-worker"
+                  },
+                  "kind": "data",
+                  "metadata": {
+                    "schema": "diagnostic_summary.v1"
+                  }
+                }
+              ]
+            },
+            "contextId": "ctx-0001",
+            "event": "TaskArtifactUpdateEvent",
+            "fixture_metadata": {
+              "fixture_sequence": 3,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "lastChunk": false,
+            "protocol": "a2a",
+            "taskId": "task-0004"
+          },
+          "method": null,
+          "phase": "a2a.TaskArtifactUpdateEvent",
+          "protocol": "a2a",
+          "raw_bytes": 523,
+          "raw_sha256": "7daf6c6721f5daa67a045b629a5c9e858982f51fb53365beb9352170368bbbc6",
+          "schema": null,
+          "sequence": 3,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 1,
+          "kind": "message",
+          "message": {
+            "call_id": "call_000002",
+            "fixture_metadata": {
+              "fixture_sequence": 4,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "output": "{\"elapsed_ms\":20,\"ok\":true,\"rows\":5,\"summary\":\"aura-bridge has retry fanout warnings in San Jose\"}",
+            "protocol": "openai.responses",
+            "trace_id": "trace-7302-00002",
+            "type": "function_call_output"
+          },
+          "method": null,
+          "phase": "openai.function_call_output",
+          "protocol": "openai.responses",
+          "raw_bytes": 338,
+          "raw_sha256": "c779a7d84f43ed06c71dc187c9cb5aac5902e6c2605715348fb10f2cd51f4495",
+          "schema": null,
+          "sequence": 4,
+          "template_epoch": 0,
+          "type": "function_call_output"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 2,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 5,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "input": [
+              {
+                "content": "You are the planner agent. Produce executable subgoals and request tools only when needed.",
+                "role": "system"
+              },
+              {
+                "content": "Investigate latency regression in aura-bridge for the Austin deployment.",
+                "role": "user"
+              }
+            ],
+            "metadata": {
+              "priority": 0,
+              "task_id": "task-0007",
+              "tenant": "bench"
+            },
+            "model": "gpt-4.1-mini",
+            "operation": "responses.create",
+            "protocol": "openai.responses",
+            "text": {
+              "format": {
+                "name": "agent_plan",
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "confidence": {
+                      "type": "number"
+                    },
+                    "evidence": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "finding": {
+                      "type": "string"
+                    },
+                    "next_action": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "finding",
+                    "evidence",
+                    "next_action",
+                    "confidence"
+                  ],
+                  "type": "object"
+                },
+                "strict": true,
+                "type": "json_schema"
+              }
+            },
+            "tools": [
+              {
+                "description": "Search structured service logs by query and time range.",
+                "name": "search_logs",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    },
+                    "since_minutes": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "query"
+                  ],
+                  "type": "object"
+                },
+                "type": "function"
+              }
+            ],
+            "trace_id": "trace-7302-00030"
+          },
+          "method": null,
+          "phase": "openai.responses.create",
+          "protocol": "openai.responses",
+          "raw_bytes": 1185,
+          "raw_sha256": "2c883ec98e926ea2562cd67c37dc8eab8af5688e92e54bfd9de64242ac41acbe",
+          "schema": null,
+          "sequence": 5,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 2,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 6,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "from": "planner",
+            "handoff": {
+              "requested_output_schema": {
+                "required": [
+                  "finding",
+                  "evidence",
+                  "next_action",
+                  "confidence"
+                ],
+                "type": "object"
+              },
+              "task_id": "task-0006",
+              "working_memory": {
+                "facts": [
+                  "retrieval-worker p95 increased in Seattle",
+                  "no database saturation observed",
+                  "retry fanout changed in latest deploy"
+                ],
+                "open_questions": [
+                  "does circuit breaker trip before retry budget?",
+                  "are cache misses correlated with provider region?"
+                ]
+              }
+            },
+            "protocol": "agent.handoff",
+            "to": "researcher",
+            "trace_id": "trace-7302-00025"
+          },
+          "method": null,
+          "phase": "agent.handoff.event",
+          "protocol": "agent.handoff",
+          "raw_bytes": 602,
+          "raw_sha256": "6694e42e933e9bdf658c9e2192cefa912abcb53a473d20e47fa9d8cfe835a87e",
+          "schema": null,
+          "sequence": 6,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 3,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 7,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 6,
+            "jsonrpc": "2.0",
+            "method": "initialize",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00000"
+              },
+              "capabilities": {
+                "roots": {
+                  "listChanged": true
+                },
+                "sampling": {}
+              },
+              "clientInfo": {
+                "name": "aura-corpus",
+                "version": "0.1"
+              },
+              "protocolVersion": "2025-11-25"
+            },
+            "protocol": "mcp"
+          },
+          "method": "initialize",
+          "phase": "mcp.initialize",
+          "protocol": "mcp",
+          "raw_bytes": 601,
+          "raw_sha256": "4c0fe31ba70686432e2d1f7f20918d45de3a8cd7feeb9fb28b8bc34552e708be",
+          "schema": null,
+          "sequence": 7,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 3,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 8,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "item": {
+              "arguments": "{\"limit\":21,\"path\":\"services/retrieval-worker/src/handler_1.py\",\"query\":\"timeout OR retry OR p95 city:Seattle\",\"repository\":\"retrieval-worker\"}",
+              "call_id": "call_000001",
+              "id": "fc_000001",
+              "name": "read_file",
+              "type": "function_call"
+            },
+            "protocol": "openai.responses",
+            "trace_id": "trace-7302-00001",
+            "type": "response.output_item.done"
+          },
+          "method": null,
+          "phase": "openai.response.output_item.done",
+          "protocol": "openai.responses",
+          "raw_bytes": 463,
+          "raw_sha256": "2a1ab0bd92ac45c71264a6f95992710215e901e8d5198424ec8abfa71ff5b477",
+          "schema": null,
+          "sequence": 8,
+          "template_epoch": 0,
+          "type": "response.output_item.done"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 4,
+          "kind": "message",
+          "message": {
+            "agent": "summarizer",
+            "answer": {
+              "actions": [
+                {
+                  "action": "apply retry cap",
+                  "owner": "coder",
+                  "state": "ready"
+                },
+                {
+                  "action": "run canary replay",
+                  "owner": "executor",
+                  "state": "queued"
+                }
+              ],
+              "confidence": 0.83,
+              "summary": "Root cause likely retry fanout in payments-api; mitigation is bounded retries plus replay verification."
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 9,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "protocol": "agent.final",
+            "status": "completed",
+            "task_id": "task-0007",
+            "trace_id": "trace-7302-00028"
+          },
+          "method": null,
+          "phase": "agent.final.event",
+          "protocol": "agent.final",
+          "raw_bytes": 508,
+          "raw_sha256": "f0af5421ce34bcaecf07202ccb6ed32149684fc8b85c3a9479e2ef1d30bb157f",
+          "schema": null,
+          "sequence": 9,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 4,
+          "kind": "message",
+          "message": {
+            "clock": {
+              "lamport": 1022,
+              "source": "executor"
+            },
+            "delta": {
+              "op": "replace",
+              "path": "/status/state",
+              "previous": "working",
+              "value": "input_required"
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 10,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "protocol": "local.agent",
+            "schema": "local.agent.delta.status.v1",
+            "task_id": "task-0005",
+            "trace_id": "trace-7302-00022"
+          },
+          "method": null,
+          "phase": "local.local.agent.delta.status.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 360,
+          "raw_sha256": "8cdff7a5a754ee227c5f1c742b807fbf95a091b54fd60e9fd933c1a48a5cc13b",
+          "schema": "local.agent.delta.status.v1",
+          "sequence": 10,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 5,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 11,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 16,
+            "jsonrpc": "2.0",
+            "protocol": "a2a",
+            "result": {
+              "contextId": "ctx-0001",
+              "history": [],
+              "id": "task-0004",
+              "kind": "task",
+              "metadata": {
+                "repository": "payments-api",
+                "trace_id": "trace-7302-00016"
+              },
+              "status": {
+                "message": {
+                  "messageId": "msg-000016",
+                  "parts": [
+                    {
+                      "kind": "text",
+                      "text": "executor completed evidence pass 1; confidence=0.79"
+                    }
+                  ],
+                  "role": "agent"
+                },
+                "state": "submitted",
+                "timestamp": "2026-07-04T18:16:00Z"
+              }
+            }
+          },
+          "method": null,
+          "phase": "a2a.response",
+          "protocol": "a2a",
+          "raw_bytes": 500,
+          "raw_sha256": "c5850e9ce5c7e2d450e4b1984fbcc7e207e9c8552017e1a8b95be2bbe4f62a99",
+          "schema": null,
+          "sequence": 11,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 5,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 12,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 14,
+            "jsonrpc": "2.0",
+            "method": "message/send",
+            "params": {
+              "configuration": {
+                "blocking": false,
+                "historyLength": 6
+              },
+              "message": {
+                "contextId": "ctx-0001",
+                "messageId": "msg-000014",
+                "metadata": {
+                  "task_id": "task-0003",
+                  "trace_id": "trace-7302-00014"
+                },
+                "parts": [
+                  {
+                    "kind": "text",
+                    "text": "Agent coder, produce a remediation plan for aura-bridge using only verified evidence."
+                  },
+                  {
+                    "data": {
+                      "city": "San Jose",
+                      "repository": "aura-bridge",
+                      "topic": "rollout"
+                    },
+                    "kind": "data",
+                    "metadata": {
+                      "schema": "incident_input.v1"
+                    }
+                  }
+                ],
+                "role": "user",
+                "taskId": "task-0003"
+              }
+            },
+            "protocol": "a2a"
+          },
+          "method": "message/send",
+          "phase": "a2a.message/send",
+          "protocol": "a2a",
+          "raw_bytes": 645,
+          "raw_sha256": "83c0618bf87dbdf372cb02f90ff8f1ed6d9b3f0caf63f74c832d1685bbdf354b",
+          "schema": null,
+          "sequence": 12,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 6,
+          "kind": "message",
+          "message": {
+            "content_index": 4,
+            "delta": "executor sees memory evidence in aura-bridge; ",
+            "fixture_metadata": {
+              "fixture_sequence": 13,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "item_id": "msg_000011",
+            "output_index": 0,
+            "protocol": "openai.responses",
+            "response_id": "resp_000008",
+            "trace_id": "trace-7302-00034",
+            "type": "response.output_text.delta"
+          },
+          "method": null,
+          "phase": "openai.response.output_text.delta",
+          "protocol": "openai.responses",
+          "raw_bytes": 344,
+          "raw_sha256": "0581d71a4c6d2b5f648ffbaeeff1036c598e7a0e5a58a50570c6c520e10e5fae",
+          "schema": null,
+          "sequence": 13,
+          "template_epoch": 0,
+          "type": "response.output_text.delta"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 6,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 14,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 13,
+            "jsonrpc": "2.0",
+            "method": "sampling/createMessage",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "includeContext": "thisServer",
+              "maxTokens": 192,
+              "messages": [
+                {
+                  "content": {
+                    "text": "Draft a safe mitigation summary for retrieval-worker.",
+                    "type": "text"
+                  },
+                  "role": "user"
+                }
+              ]
+            },
+            "protocol": "mcp"
+          },
+          "method": "sampling/createMessage",
+          "phase": "mcp.sampling/createMessage",
+          "protocol": "mcp",
+          "raw_bytes": 636,
+          "raw_sha256": "8aa7a2a7899389b6aa0a0956406c76c9db19bce9c8e02f7fd6b8810d0ee6db00",
+          "schema": null,
+          "sequence": 14,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 7,
+          "kind": "message",
+          "message": {
+            "control": {
+              "epoch": 7,
+              "kind": "session_template_update",
+              "reason": "recurring message shape crossed threshold"
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 15,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "hash_modifiers": {
+              "repository": "retrieval-worker",
+              "task_bucket": 1,
+              "tenant": "bench"
+            },
+            "protocol": "local.agent",
+            "route": {
+              "priority": "normal",
+              "requires_decompression": false,
+              "shard": "retrieval-worker-1",
+              "topic": "agents.summarizer.events"
+            },
+            "schema": "local.agent.route_hint.v1",
+            "trace_id": "trace-7302-00029"
+          },
+          "method": null,
+          "phase": "local.local.agent.route_hint.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 514,
+          "raw_sha256": "be7b4a7a3b4626b3d299a1da33f481e5373efedd64a6ed045a0c112eda5d21fd",
+          "schema": "local.agent.route_hint.v1",
+          "sequence": 15,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 7,
+          "kind": "message",
+          "message": {
+            "delta": {
+              "op": "append",
+              "path": "/tool_results/-",
+              "value": {
+                "elapsed_ms": 41,
+                "name": "search_logs",
+                "ok": true,
+                "summary": "search_logs found tooling evidence for policy-gateway"
+              }
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 16,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "protocol": "local.agent",
+            "schema": "local.agent.delta.tool_result.v1",
+            "tool_call_id": "call_000023",
+            "trace_id": "trace-7302-00023"
+          },
+          "method": null,
+          "phase": "local.local.agent.delta.tool_result.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 405,
+          "raw_sha256": "fffc7e2b13b325ed68a21007125b2609663d81e053dbbab49be4d266adad9dae",
+          "schema": "local.agent.delta.tool_result.v1",
+          "sequence": 16,
+          "template_epoch": 0,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 8,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 17,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "item": {
+              "arguments": "{\"limit\":23,\"path\":\"services/policy-gateway/src/handler_4.py\",\"query\":\"timeout OR retry OR p95 city:Seattle\",\"repository\":\"policy-gateway\"}",
+              "call_id": "call_000031",
+              "id": "fc_000031",
+              "name": "read_file",
+              "type": "function_call"
+            },
+            "protocol": "openai.responses",
+            "trace_id": "trace-7302-00031",
+            "type": "response.output_item.done"
+          },
+          "method": null,
+          "phase": "openai.response.output_item.done",
+          "protocol": "openai.responses",
+          "raw_bytes": 460,
+          "raw_sha256": "67d1bcb5227f9944f6e3688a60af841d117141620a7da028fbbc06c467175b62",
+          "schema": null,
+          "sequence": 17,
+          "template_epoch": 0,
+          "type": "response.output_item.done"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 8,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 18,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "protocol": "openai.responses",
+            "response": {
+              "id": "resp_000033",
+              "output": [
+                {
+                  "content": [
+                    {
+                      "json": {
+                        "confidence": 0.81,
+                        "evidence": [
+                          "logs://retrieval-worker/Chicago/09",
+                          "trace://trace-7302-00033"
+                        ],
+                        "finding": "policy regression isolated in retrieval-worker",
+                        "next_action": "run canary replay"
+                      },
+                      "type": "output_json"
+                    }
+                  ],
+                  "role": "assistant",
+                  "type": "message"
+                }
+              ],
+              "status": "completed"
+            },
+            "trace_id": "trace-7302-00033",
+            "type": "response.completed"
+          },
+          "method": null,
+          "phase": "openai.response.completed",
+          "protocol": "openai.responses",
+          "raw_bytes": 527,
+          "raw_sha256": "43a1f559bfd4827ac385c5691cf9525894f86cfe4f21db6225ffe723ea9a5c8a",
+          "schema": null,
+          "sequence": 18,
+          "template_epoch": 0,
+          "type": "response.completed"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 9,
+          "kind": "message",
+          "message": {
+            "contextId": "ctx-0001",
+            "event": "TaskStatusUpdateEvent",
+            "final": false,
+            "fixture_metadata": {
+              "fixture_sequence": 19,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "protocol": "a2a",
+            "status": {
+              "message": {
+                "messageId": "msg-000019",
+                "parts": [
+                  {
+                    "kind": "text",
+                    "text": "Need approval before running canary replay for policy-gateway in Seattle."
+                  }
+                ],
+                "role": "agent"
+              },
+              "state": "input_required"
+            },
+            "taskId": "task-0004"
+          },
+          "method": null,
+          "phase": "a2a.TaskStatusUpdateEvent",
+          "protocol": "a2a",
+          "raw_bytes": 409,
+          "raw_sha256": "e6151d1d5e0f01f574ef367fc2e7d8521df7b858ee830faf34b763de1759e71a",
+          "schema": null,
+          "sequence": 19,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 9,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 20,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 8,
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "arguments": {
+                "line_end": 43,
+                "line_start": 18,
+                "session_id": "task-0002",
+                "uri": "repo://payments-api/services/coder/config.yaml"
+              },
+              "name": "write_patch"
+            },
+            "protocol": "mcp"
+          },
+          "method": "tools/call",
+          "phase": "mcp.tools/call",
+          "protocol": "mcp",
+          "raw_bytes": 604,
+          "raw_sha256": "3105ee8dc6ee7f3a90a71b1d0599d17b093b0be65799d9946f3f193410f61437",
+          "schema": null,
+          "sequence": 20,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 10,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 21,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 15,
+            "jsonrpc": "2.0",
+            "method": "message/stream",
+            "params": {
+              "configuration": {
+                "acceptedOutputModes": [
+                  "text/plain"
+                ],
+                "historyLength": 4
+              },
+              "message": {
+                "contextId": "ctx-0001",
+                "messageId": "msg-000015",
+                "parts": [
+                  {
+                    "kind": "text",
+                    "text": "Stream status for policy-gateway policy."
+                  }
+                ],
+                "role": "user"
+              }
+            },
+            "protocol": "a2a"
+          },
+          "method": "message/stream",
+          "phase": "a2a.message/stream",
+          "protocol": "a2a",
+          "raw_bytes": 406,
+          "raw_sha256": "f5293577f4db576e5b33d08fe5f32579293428baf87c6d7bbffc4e5013a9c2b4",
+          "schema": null,
+          "sequence": 21,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 10,
+          "kind": "message",
+          "message": {
+            "comments": [
+              {
+                "line": 58,
+                "severity": "medium",
+                "text": "Add replay test for retry budget boundary."
+              },
+              {
+                "line": 91,
+                "severity": "low",
+                "text": "Name the metric with service prefix."
+              }
+            ],
+            "fixture_metadata": {
+              "fixture_sequence": 22,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "patch": {
+              "diff_summary": [
+                "cap retry fanout per upstream request",
+                "add histogram bucket for retry exhaustion",
+                "preserve existing timeout envelope"
+              ],
+              "files_changed": [
+                "services/policy-gateway/retry.py",
+                "services/policy-gateway/tests/test_retry_policy.py"
+              ],
+              "repo": "policy-gateway"
+            },
+            "protocol": "agent.review",
+            "reviewer": "reviewer",
+            "trace_id": "trace-7302-00027",
+            "verdict": "approve"
+          },
+          "method": null,
+          "phase": "agent.review.event",
+          "protocol": "agent.review",
+          "raw_bytes": 653,
+          "raw_sha256": "70759c745fbfd2093e02cd9b97b1849a676b0970e82ae200c263a9126f216a6f",
+          "schema": null,
+          "sequence": 22,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 11,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 23,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "input": [
+              {
+                "content": "You are the planner agent. Produce executable subgoals and request tools only when needed.",
+                "role": "system"
+              },
+              {
+                "content": "Investigate latency regression in payments-api for the Austin deployment.",
+                "role": "user"
+              }
+            ],
+            "metadata": {
+              "priority": 0,
+              "task_id": "task-0000",
+              "tenant": "bench"
+            },
+            "model": "gpt-4.1-mini",
+            "operation": "responses.create",
+            "protocol": "openai.responses",
+            "text": {
+              "format": {
+                "name": "agent_plan",
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "confidence": {
+                      "type": "number"
+                    },
+                    "evidence": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "finding": {
+                      "type": "string"
+                    },
+                    "next_action": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "finding",
+                    "evidence",
+                    "next_action",
+                    "confidence"
+                  ],
+                  "type": "object"
+                },
+                "strict": true,
+                "type": "json_schema"
+              }
+            },
+            "tools": [
+              {
+                "description": "Search structured service logs by query and time range.",
+                "name": "search_logs",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "query": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    },
+                    "since_minutes": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "query"
+                  ],
+                  "type": "object"
+                },
+                "type": "function"
+              }
+            ],
+            "trace_id": "trace-7302-00000"
+          },
+          "method": null,
+          "phase": "openai.responses.create",
+          "protocol": "openai.responses",
+          "raw_bytes": 1187,
+          "raw_sha256": "5e3ddf63c23c86e49a39dbc5efe1b84c6704664958c4275afcf25e2d6ca9b7e5",
+          "schema": null,
+          "sequence": 23,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 11,
+          "kind": "message",
+          "message": {
+            "annotations": [
+              {
+                "title": "Internal synthetic incident note",
+                "type": "url_citation",
+                "url": "https://example.invalid/retrieval-worker/tooling/5"
+              }
+            ],
+            "fixture_metadata": {
+              "fixture_sequence": 24,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "item": {
+              "id": "ws_000005",
+              "queries": [
+                "retrieval-worker tooling canary rollback"
+              ],
+              "status": "completed",
+              "type": "web_search_call"
+            },
+            "protocol": "openai.responses",
+            "trace_id": "trace-7302-00005",
+            "type": "response.web_search_call.completed"
+          },
+          "method": null,
+          "phase": "openai.response.web_search_call.completed",
+          "protocol": "openai.responses",
+          "raw_bytes": 478,
+          "raw_sha256": "ff4abe619e360af3fb517d749eb0beb4b3d2f271d0a7c9cd70c366e767cf9a1c",
+          "schema": null,
+          "sequence": 24,
+          "template_epoch": 1,
+          "type": "response.web_search_call.completed"
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 12,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 25,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 18,
+            "jsonrpc": "2.0",
+            "method": "tasks/get",
+            "params": {
+              "historyLength": 10,
+              "id": "task-0004",
+              "metadata": {
+                "trace_id": "trace-7302-00018"
+              }
+            },
+            "protocol": "a2a",
+            "result": {
+              "artifacts": [
+                {
+                  "artifactId": "artifact-000018",
+                  "name": "diagnostic-summary"
+                }
+              ],
+              "contextId": "ctx-0001",
+              "id": "task-0004",
+              "status": {
+                "state": "working"
+              }
+            }
+          },
+          "method": "tasks/get",
+          "phase": "a2a.tasks/get",
+          "protocol": "a2a",
+          "raw_bytes": 412,
+          "raw_sha256": "c75d5a0c8375ae1993e81a7b8f78d6adb78b8908fbf64ae587012f42c3e86fcd",
+          "schema": null,
+          "sequence": 25,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 12,
+          "kind": "message",
+          "message": {
+            "capabilities": {
+              "delta_frames": true,
+              "resume": true,
+              "route_before_decompress": true,
+              "templates": true
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 26,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "peer": {
+              "id": "reviewer",
+              "runtime": "python",
+              "version": "0.1"
+            },
+            "protocol": "local.agent",
+            "schema": "local.agent.session.handshake.v1",
+            "session": {
+              "dictionary_epoch": 3,
+              "id": "session-7302-00002",
+              "template_sha256": "00001c9b"
+            },
+            "trace_id": "trace-7302-00021"
+          },
+          "method": null,
+          "phase": "local.local.agent.session.handshake.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 451,
+          "raw_sha256": "970ca38e8c9d3760c9a036f09187ae5f8da435a62ee0df981e2a4edc2edaab50",
+          "schema": "local.agent.session.handshake.v1",
+          "sequence": 26,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 13,
+          "kind": "message",
+          "message": {
+            "content_index": 4,
+            "delta": "executor sees memory evidence in payments-api; ",
+            "fixture_metadata": {
+              "fixture_sequence": 27,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "item_id": "msg_000001",
+            "output_index": 0,
+            "protocol": "openai.responses",
+            "response_id": "resp_000001",
+            "trace_id": "trace-7302-00004",
+            "type": "response.output_text.delta"
+          },
+          "method": null,
+          "phase": "openai.response.output_text.delta",
+          "protocol": "openai.responses",
+          "raw_bytes": 345,
+          "raw_sha256": "38c280a480a4856fb0e941217ab0813c06dcd67d92a20aa1c5a576cc3466682d",
+          "schema": null,
+          "sequence": 27,
+          "template_epoch": 1,
+          "type": "response.output_text.delta"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 13,
+          "kind": "message",
+          "message": {
+            "body": "coder observed matching latency spike and retry count increase in San Jose.",
+            "confidence": 0.78,
+            "evidence": {
+              "contradicts": [],
+              "source_refs": [
+                "logs://aura-bridge/San Jose/02",
+                "repo://aura-bridge/deploy/0"
+              ],
+              "supports": []
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 28,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "kind": "observation",
+            "protocol": "memory.write",
+            "title": "aura-bridge retry fanout suspected",
+            "trace_id": "trace-7302-00026"
+          },
+          "method": null,
+          "phase": "memory.write",
+          "protocol": "memory.write",
+          "raw_bytes": 453,
+          "raw_sha256": "14e67cac51e932429c199b113fc55b2f217c045278e32849a16eeb3542b7eab9",
+          "schema": null,
+          "sequence": 28,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 14,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 29,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 7,
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00000"
+              },
+              "cursor": "page-1"
+            },
+            "protocol": "mcp",
+            "result": {
+              "cacheScope": "public",
+              "resultType": "complete",
+              "tools": [
+                {
+                  "description": "Operate on synthetic policy-gateway retrieval data.",
+                  "inputSchema": {
+                    "properties": {
+                      "limit": {
+                        "type": "integer",
+                        "x-mcp-header": "limit"
+                      },
+                      "query": {
+                        "type": "string"
+                      },
+                      "repository": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "repository",
+                      "query"
+                    ],
+                    "type": "object"
+                  },
+                  "name": "read_file",
+                  "title": "Read File Tool"
+                }
+              ],
+              "ttlMs": 300000
+            }
+          },
+          "method": "tools/list",
+          "phase": "mcp.tools/list",
+          "protocol": "mcp",
+          "raw_bytes": 861,
+          "raw_sha256": "20a61dd405a2f738cf4cec5604fc4522453b4c757242afb3be674a8d6f0d1ab0",
+          "schema": null,
+          "sequence": 29,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 14,
+          "kind": "message",
+          "message": {
+            "body": {
+              "arguments": {
+                "city": "San Jose",
+                "repository": "payments-api",
+                "topic": "rollout"
+              },
+              "name": "continue_task",
+              "type": "command"
+            },
+            "fixture_metadata": {
+              "fixture_sequence": 30,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "headers": {
+              "codec": "aura.aiwire",
+              "route": "coder.rollout",
+              "task_id": "task-0005",
+              "trace_id": "trace-7302-00020"
+            },
+            "offset": 20,
+            "partition": 0,
+            "protocol": "local.agent",
+            "schema": "local.agent.broker.envelope.v1",
+            "topic": "agents.coder.inbox"
+          },
+          "method": null,
+          "phase": "local.local.agent.broker.envelope.v1",
+          "protocol": "local.agent",
+          "raw_bytes": 464,
+          "raw_sha256": "b004d192aabb4b882fe9ec7334d11f83e0f73fb041cc708c2f34fcf59e407bf9",
+          "schema": "local.agent.broker.envelope.v1",
+          "sequence": 30,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 15,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 31,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "id": 9,
+            "jsonrpc": "2.0",
+            "protocol": "mcp",
+            "result": {
+              "content": [
+                {
+                  "text": "reviewer found repeated retry budget exhaustion in retrieval-worker; next action is patch validation.",
+                  "type": "text"
+                }
+              ],
+              "isError": false,
+              "resultType": "complete",
+              "structuredContent": {
+                "matches": [
+                  {
+                    "file": "retrieval-worker/handler.py",
+                    "line": 42,
+                    "score": 0.91
+                  },
+                  {
+                    "file": "retrieval-worker/handler.py",
+                    "line": 43,
+                    "score": 0.84
+                  },
+                  {
+                    "file": "retrieval-worker/handler.py",
+                    "line": 44,
+                    "score": 0.77
+                  }
+                ],
+                "trace_id": "trace-7302-00009"
+              }
+            }
+          },
+          "method": null,
+          "phase": "mcp.response",
+          "protocol": "mcp",
+          "raw_bytes": 585,
+          "raw_sha256": "28dbf8c70c8a16f56451d73c185c72571a09922d0e4186f9d0f14c45e95b1800",
+          "schema": null,
+          "sequence": 31,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 15,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 32,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "jsonrpc": "2.0",
+            "method": "notifications/tools/list_changed",
+            "params": {
+              "_meta": {
+                "io.modelcontextprotocol/clientCapabilities": {
+                  "elicitation": {},
+                  "roots": {
+                    "listChanged": true
+                  },
+                  "sampling": {}
+                },
+                "io.modelcontextprotocol/clientInfo": {
+                  "name": "aura-corpus",
+                  "version": "0.1"
+                },
+                "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+                "progressToken": "progress-00001"
+              },
+              "reason": "deployment",
+              "repository": "payments-api"
+            },
+            "protocol": "mcp"
+          },
+          "method": "notifications/tools/list_changed",
+          "phase": "mcp.notifications/tools/list_changed",
+          "protocol": "mcp",
+          "raw_bytes": 524,
+          "raw_sha256": "a45045c14b7c3bd6ef36f6468dc40fbd561d59b379f903a2e4cce735cd10aca8",
+          "schema": null,
+          "sequence": 32,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 16,
+          "kind": "message",
+          "message": {
+            "call_id": "call_000032",
+            "fixture_metadata": {
+              "fixture_sequence": 33,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "output": "{\"elapsed_ms\":50,\"ok\":true,\"rows\":5,\"summary\":\"payments-api has retry fanout warnings in San Jose\"}",
+            "protocol": "openai.responses",
+            "trace_id": "trace-7302-00032",
+            "type": "function_call_output"
+          },
+          "method": null,
+          "phase": "openai.function_call_output",
+          "protocol": "openai.responses",
+          "raw_bytes": 340,
+          "raw_sha256": "ec98717a1b4684e6a9baacf819a47e80d98feb9edf34615e3b7204ee1bb928e2",
+          "schema": null,
+          "sequence": 33,
+          "template_epoch": 1,
+          "type": "function_call_output"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 16,
+          "kind": "message",
+          "message": {
+            "agent": "planner",
+            "event": "plan.created",
+            "fixture_metadata": {
+              "fixture_sequence": 34,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "protocol": "agent.trace",
+            "task": {
+              "constraints": [
+                "no schema migration",
+                "rollback must be single commit",
+                "verify with replay"
+              ],
+              "id": "task-0006",
+              "objective": "Reduce payments-api tail latency without increasing error budget burn.",
+              "subgoals": [
+                "read deployment diff",
+                "inspect retry policy",
+                "run focused load probe",
+                "draft patch"
+              ]
+            },
+            "trace_id": "trace-7302-00024"
+          },
+          "method": null,
+          "phase": "agent.trace.plan.created",
+          "protocol": "agent.trace",
+          "raw_bytes": 502,
+          "raw_sha256": "6c7d4eb7d09e051cc4542d7d5f86f029344569f31584bbcb1badee45c2018c79",
+          "schema": null,
+          "sequence": 34,
+          "template_epoch": 1,
+          "type": null
+        },
+        {
+          "direction": "client_to_server",
+          "exchange_index": 17,
+          "kind": "message",
+          "message": {
+            "annotations": [
+              {
+                "title": "Internal synthetic incident note",
+                "type": "url_citation",
+                "url": "https://example.invalid/policy-gateway/tooling/35"
+              }
+            ],
+            "fixture_metadata": {
+              "fixture_sequence": 35,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "item": {
+              "id": "ws_000035",
+              "queries": [
+                "policy-gateway tooling canary rollback"
+              ],
+              "status": "completed",
+              "type": "web_search_call"
+            },
+            "protocol": "openai.responses",
+            "trace_id": "trace-7302-00035",
+            "type": "response.web_search_call.completed"
+          },
+          "method": null,
+          "phase": "openai.response.web_search_call.completed",
+          "protocol": "openai.responses",
+          "raw_bytes": 475,
+          "raw_sha256": "8a0d00ed85cce40a3bd0178c7eac8f2188c62a93961529e235256c8263793f77",
+          "schema": null,
+          "sequence": 35,
+          "template_epoch": 1,
+          "type": "response.web_search_call.completed"
+        },
+        {
+          "direction": "server_to_client",
+          "exchange_index": 17,
+          "kind": "message",
+          "message": {
+            "fixture_metadata": {
+              "fixture_sequence": 36,
+              "fixture_session_id": "fixture-session-0002",
+              "synthetic": true
+            },
+            "protocol": "openai.responses",
+            "response": {
+              "id": "resp_000003",
+              "output": [
+                {
+                  "content": [
+                    {
+                      "json": {
+                        "confidence": 0.81,
+                        "evidence": [
+                          "logs://policy-gateway/Chicago/03",
+                          "trace://trace-7302-00003"
+                        ],
+                        "finding": "policy regression isolated in policy-gateway",
+                        "next_action": "run canary replay"
+                      },
+                      "type": "output_json"
+                    }
+                  ],
+                  "role": "assistant",
+                  "type": "message"
+                }
+              ],
+              "status": "completed"
+            },
+            "trace_id": "trace-7302-00003",
+            "type": "response.completed"
+          },
+          "method": null,
+          "phase": "openai.response.completed",
+          "protocol": "openai.responses",
+          "raw_bytes": 523,
+          "raw_sha256": "05d16bd0f00d691696469cf476735ee3110908bbce95bdfa78cf61a1b936e592",
+          "schema": null,
+          "sequence": 36,
+          "template_epoch": 1,
+          "type": "response.completed"
+        }
+      ],
+      "exchange_count": 18,
+      "initial_session_templates": [
+        {
+          "pattern": "{\"protocol\":\"mcp\",\"jsonrpc\":\"2.0\",\"id\":",
+          "pattern_sha256": "f3dbc38b8a14c6e5318132c854bfafef6f00b79d4381a81f8e62de6b3ff40851",
+          "template_id": 128
+        },
+        {
+          "pattern": "{\"protocol\":\"a2a\",\"jsonrpc\":\"2.0\",\"id\":",
+          "pattern_sha256": "2ee7a7a26eb75ba668a79b4c759056501c5a51f8e6091de57f05f58c76ee603a",
+          "template_id": 129
+        },
+        {
+          "pattern": "{\"protocol\":\"openai.responses\",\"trace_id\":\"",
+          "pattern_sha256": "62b11c0f4fddc5e439542023a4f2aba3d117f66b0655d931a469ddcdd1ff38c6",
+          "template_id": 130
+        },
+        {
+          "pattern": "{\"protocol\":\"local.agent\",\"schema\":\"local.agent.",
+          "pattern_sha256": "6bb947c7af65eebef9f519c05b58e932347b0e314aafb26c9dbc0006db757bcf",
+          "template_id": 131
+        }
+      ],
+      "message_count": 36,
+      "protocol": "aura.aiwire",
+      "resume_hello": {
+        "app_namespace": "aura.aiwire.fixture",
+        "auth_tag": "66a2f57bd4de95d01431936abbb71c387f9c3573a6cc0a2f7f8016d7e0a335e8",
+        "cached_state_hashes": [
+          "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf"
+        ],
+        "nonce": "18cae9f1dd681fb0eaa198bb6d115693",
+        "peer_id": "fixture-agent-7302",
+        "protocol": "aura.aiwire",
+        "schema": "aura.aiwire.session_resume.hello.v1",
+        "static_dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+        "supported_delta_versions": [
+          1
+        ]
+      },
+      "resume_response": {
+        "accepted": true,
+        "auth_tag": "1b3a9657d3ab6f1fec951dba1c86cab9c1664de0c2740f99db5bafc4ad682976",
+        "hello_nonce": "18cae9f1dd681fb0eaa198bb6d115693",
+        "nonce": "30736f6d0460bfc9c7f5d368fb079877",
+        "protocol": "aura.aiwire",
+        "reason": null,
+        "resume_state_hash": "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf",
+        "schema": "aura.aiwire.session_resume.response.v1",
+        "selected_delta_version": 1,
+        "static_dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117"
+      },
+      "schema": "aura.aiwire.session_fixture.v1",
+      "seed": 7302,
+      "server_negotiation": {
+        "accepted": true,
+        "codec": "aiwire",
+        "reason": null,
+        "schema": "aura.aiwire.negotiation.v1",
+        "server": {
+          "backend": "python",
+          "dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+          "dictionary_size": 32768,
+          "fallback_codecs": [
+            "zlib",
+            "raw"
+          ],
+          "flush_mode": "z_sync_flush",
+          "level": 3,
+          "mem_level": 8,
+          "native_version": null,
+          "preferred_version": 1,
+          "protocol": "aura.aiwire",
+          "require_session_templates": true,
+          "schema": "aura.aiwire.handshake.v1",
+          "session_template_count": 4,
+          "session_template_epoch": 0,
+          "session_template_sha256": "675095b6ba1c198cbbb0e8e06f64cb92894eaa57b298ba15fddc729f9fc517f6",
+          "session_templates": [
+            {
+              "pattern": "{\"protocol\":\"mcp\",\"jsonrpc\":\"2.0\",\"id\":",
+              "template_id": 128
+            },
+            {
+              "pattern": "{\"protocol\":\"a2a\",\"jsonrpc\":\"2.0\",\"id\":",
+              "template_id": 129
+            },
+            {
+              "pattern": "{\"protocol\":\"openai.responses\",\"trace_id\":\"",
+              "template_id": 130
+            },
+            {
+              "pattern": "{\"protocol\":\"local.agent\",\"schema\":\"local.agent.",
+              "template_id": 131
+            }
+          ],
+          "use_static_dictionary": true,
+          "versions": [
+            1
+          ],
+          "wbits": -15
+        },
+        "version": 1
+      },
+      "session_dictionary_state_hashes": {
+        "epoch_0": "d2e52c9f46882fd537b921fc7f52fdf6efee38e3645fd1b923f0f174faa2c7d2",
+        "epoch_1": "b19fcdc64c00a05b84ad04762c098a80b92c9823b0b2e3fd79b9ce8bb8a474cf"
+      },
+      "session_id": "fixture-session-0002",
+      "static_dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+      "summary": {
+        "fixture_sha256": "8d5dc7235762d24ac5be05476122fadc5cef5af382d02570636c2fbfb72fa836",
+        "protocol_mix": {
+          "a2a": 6,
+          "agent.final": 1,
+          "agent.handoff": 1,
+          "agent.review": 1,
+          "agent.trace": 1,
+          "local.agent": 5,
+          "mcp": 8,
+          "memory.write": 1,
+          "openai.responses": 12
+        },
+        "raw_bytes": 19752
+      },
+      "synthetic_public_data": true,
+      "template_discovery_preview": {
+        "message_window": {
+          "count": 36,
+          "start": 0
+        },
+        "source": "discover_ai_wire_session_templates",
+        "starting_template_id": 192,
+        "templates": [
+          {
+            "pattern": "{{\"fixture_metadata\":{{\"fixture_sequence\":{0}0\"}}",
+            "pattern_sha256": "2ea9206e76e8c25bd3793478e12170da553c945548a2ae842b180cb948b7e1d3",
+            "template_id": 192
+          },
+          {
+            "pattern": "{{\"fixture_metadata\":{{\"fixture_sequence\":{0}3\",\"type\":\"response.completed\"}}",
+            "pattern_sha256": "6e7cfbb35ca2044e61e384c06e4e3e172ea47b8158e490454d5ca12cb98ee08e",
+            "template_id": 193
+          },
+          {
+            "pattern": "{{\"fixture_metadata\":{{\"fixture_sequence\":{0}1\",\"type\":\"response.output_item.done\"}}",
+            "pattern_sha256": "6987ffea219b410d1e6ca65e9b39da50eb0f7f3df6e59d863f9191835ebf0331",
+            "template_id": 194
+          },
+          {
+            "pattern": "{{\"annotations\":[{{\"title\":\"Internal synthetic incident note\",\"type\":\"url_citation\",\"url\":\"https://example.invalid/{0}5\",\"type\":\"response.web_search_call.completed\"}}",
+            "pattern_sha256": "db685911309206280d9c8fea67a073f40030746344f4b5c255ff0ed1fec500e6",
+            "template_id": 195
+          }
+        ],
+        "used_for_handshake": false
+      },
+      "template_hashes": {
+        "initial": "675095b6ba1c198cbbb0e8e06f64cb92894eaa57b298ba15fddc729f9fc517f6",
+        "updated": "1797e19dc003b6c9b7b5d7549a99b45a7ccb5911927387a4215d24a0aea020d6"
+      },
+      "template_update": {
+        "add_or_update": [
+          {
+            "pattern": "\"schema\":\"local.agent.delta.status.v1\",\"task_id\":\"",
+            "template_id": 132
+          },
+          {
+            "pattern": "\"event\":\"TaskArtifactUpdateEvent\",\"taskId\":\"",
+            "template_id": 133
+          },
+          {
+            "pattern": "\"type\":\"response.output_text.delta\",\"trace_id\":\"",
+            "template_id": 134
+          },
+          {
+            "pattern": "\"protocol\":\"agent.handoff\",\"from\":\"planner\",\"to\":\"",
+            "template_id": 135
+          }
+        ],
+        "epoch": 1,
+        "next_count": 8,
+        "next_sha256": "1797e19dc003b6c9b7b5d7549a99b45a7ccb5911927387a4215d24a0aea020d6",
+        "previous_count": 4,
+        "previous_sha256": "675095b6ba1c198cbbb0e8e06f64cb92894eaa57b298ba15fddc729f9fc517f6",
+        "protocol": "aura.aiwire",
+        "remove": [],
+        "requires_session_reset": true,
+        "schema": "aura.aiwire.session_templates.update.v1"
+      },
+      "template_update_after_exchange": 9,
+      "updated_session_templates": [
+        {
+          "pattern": "{\"protocol\":\"mcp\",\"jsonrpc\":\"2.0\",\"id\":",
+          "pattern_sha256": "f3dbc38b8a14c6e5318132c854bfafef6f00b79d4381a81f8e62de6b3ff40851",
+          "template_id": 128
+        },
+        {
+          "pattern": "{\"protocol\":\"a2a\",\"jsonrpc\":\"2.0\",\"id\":",
+          "pattern_sha256": "2ee7a7a26eb75ba668a79b4c759056501c5a51f8e6091de57f05f58c76ee603a",
+          "template_id": 129
+        },
+        {
+          "pattern": "{\"protocol\":\"openai.responses\",\"trace_id\":\"",
+          "pattern_sha256": "62b11c0f4fddc5e439542023a4f2aba3d117f66b0655d931a469ddcdd1ff38c6",
+          "template_id": 130
+        },
+        {
+          "pattern": "{\"protocol\":\"local.agent\",\"schema\":\"local.agent.",
+          "pattern_sha256": "6bb947c7af65eebef9f519c05b58e932347b0e314aafb26c9dbc0006db757bcf",
+          "template_id": 131
+        },
+        {
+          "pattern": "\"schema\":\"local.agent.delta.status.v1\",\"task_id\":\"",
+          "pattern_sha256": "6cf8821a6353abb74ff5e8daf794e654c831c1a98c28ff58052204dfb64c4315",
+          "template_id": 132
+        },
+        {
+          "pattern": "\"event\":\"TaskArtifactUpdateEvent\",\"taskId\":\"",
+          "pattern_sha256": "de74c4316f554ab52bc64f0a11a283c3fee1aea635c9774e22ee077b5b54b9d0",
+          "template_id": 133
+        },
+        {
+          "pattern": "\"type\":\"response.output_text.delta\",\"trace_id\":\"",
+          "pattern_sha256": "35da203c9273bb280223757b506ac1817efe1807da5952263114bc3a3cf195a7",
+          "template_id": 134
+        },
+        {
+          "pattern": "\"protocol\":\"agent.handoff\",\"from\":\"planner\",\"to\":\"",
+          "pattern_sha256": "83df69612a93c994df7777196ae8bc2eecf9f109762d77ce668a29b8b385c463",
+          "template_id": 135
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "static_dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
+  "summary": {
+    "protocol_mix": {
+      "a2a": 12,
+      "agent.final": 2,
+      "agent.handoff": 2,
+      "agent.review": 2,
+      "agent.trace": 2,
+      "local.agent": 10,
+      "mcp": 16,
+      "memory.write": 2,
+      "openai.responses": 24
+    },
+    "raw_bytes": 39504
+  },
+  "synthetic_public_data": true
+}

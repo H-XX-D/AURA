@@ -65,8 +65,12 @@ Primary files:
 
 - [`src/aura_compression/ai_wire.py`](../src/aura_compression/ai_wire.py)
 - [`src/aura_compression/ai_wire_messages.py`](../src/aura_compression/ai_wire_messages.py)
+- [`src/aura_compression/ai_wire_fixtures.py`](../src/aura_compression/ai_wire_fixtures.py)
 - [`docs/aiwire_v1_spec.md`](aiwire_v1_spec.md)
+- [`docs/aiwire_session_fixtures.md`](aiwire_session_fixtures.md)
+- [`fixtures/aiwire_sessions/public_session_corpus_v1.json`](../fixtures/aiwire_sessions/public_session_corpus_v1.json)
 - [`tests/test_ai_wire.py`](../tests/test_ai_wire.py)
+- [`tests/test_aiwire_session_fixtures.py`](../tests/test_aiwire_session_fixtures.py)
 - [`tools/stress_ai_wire_roundtrip_z6.py`](../tools/stress_ai_wire_roundtrip_z6.py)
 
 AIWire provides:
@@ -75,6 +79,8 @@ AIWire provides:
 - A versioned handshake shape
 - A static dictionary tuned for AI protocol fields
 - Session-template negotiation and update signals
+- Authenticated append-only session dictionary diffs and ACKs
+- Deterministic public session fixtures for replay and interop checks
 - Compact delta movement against the handshaked structure
 - Stateful session compression across frames
 - Canonical JSON helpers for structured Python mappings
@@ -119,6 +125,14 @@ Important functions:
 
 The generated corpus currently includes OpenAI-style responses, MCP tool calls,
 A2A messages, traces, handoffs, reviews, and memory writes.
+
+`ai_wire_fixtures.py` builds saved session corpora that wrap those message
+shapes in the AIWire side-channel lifecycle: forced handshake, initial session
+templates, template update, authenticated append-only dictionary diff, ACK, and
+resume negotiation. The public fixture lives at
+[`fixtures/aiwire_sessions/public_session_corpus_v1.json`](../fixtures/aiwire_sessions/public_session_corpus_v1.json)
+and is documented in
+[`docs/aiwire_session_fixtures.md`](aiwire_session_fixtures.md).
 
 ## Handshake Model
 

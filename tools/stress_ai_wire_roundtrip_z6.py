@@ -28,16 +28,28 @@ if str(SRC) not in sys.path:
 
 from aura_compression.ai_wire import (
     AI_WIRE_DEFAULT_LEVEL,
+    AIWireHandshake,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    AIWireSessionTemplates,
+    aiwire_session_templates_sha256,
     build_ai_wire_messages,
     build_aiwire_handshake,
+    discover_ai_wire_session_templates,
     encode_ai_wire_message,
     negotiate_aiwire_handshake,
+    normalize_aiwire_session_templates,
+)
+from aura_compression.ai_wire_token import (
+    AIWireTokenAIWireSessionDecoder,
+    AIWireTokenAIWireSessionEncoder,
+    AIWireTokenSessionDecoder,
+    AIWireTokenSessionEncoder,
 )
 from aura_compression.compressor_refactored import ProductionHybridCompressor
 
 U32 = struct.Struct("!I")
+AIWIRE_NEGOTIATED_CODECS = {"aiwire", "aitoken_aiwire"}
 
 
 class BandwidthLimiter:
@@ -68,12 +80,16 @@ class AsyncFrameWriter:
         mbps: float,
         one_way_delay_ms: float = 0.0,
         jitter_ms: float = 0.0,
+        tail_pause_probability: float = 0.0,
+        tail_pause_ms: float = 0.0,
         seed: int = 1729,
     ) -> None:
         self.sock = sock
         self.bandwidth = BandwidthLimiter(mbps)
         self.one_way_delay_ms = max(0.0, one_way_delay_ms)
         self.jitter_ms = max(0.0, jitter_ms)
+        self.tail_pause_probability = min(1.0, max(0.0, tail_pause_probability))
+        self.tail_pause_ms = max(0.0, tail_pause_ms)
         self.rng = random.Random(seed)
         self.frames: "queue.Queue[bytes | None]" = queue.Queue()
         self.ready_frames: "queue.Queue[tuple[int, bytes] | None]" = queue.Queue()
@@ -126,6 +142,8 @@ class AsyncFrameWriter:
         delay_ms = self.one_way_delay_ms
         if self.jitter_ms > 0:
             delay_ms += self.rng.uniform(-self.jitter_ms, self.jitter_ms)
+        if self.tail_pause_probability and self.rng.random() < self.tail_pause_probability:
+            delay_ms += self.rng.uniform(0.0, self.tail_pause_ms)
         return time.perf_counter_ns() + int(max(0.0, delay_ms) * 1_000_000)
 
     def _send_ready(self) -> None:
@@ -198,6 +216,38 @@ def _update_digest(digest: "hashlib._Hash", payload: bytes) -> None:
     digest.update(payload)
 
 
+def _load_session_templates(path: str) -> tuple[tuple[int, str], ...]:
+    data = json.loads(Path(path).read_text())
+    return normalize_aiwire_session_templates(data)
+
+
+def _client_session_templates(
+    args: argparse.Namespace,
+    frames: list[bytes],
+) -> tuple[tuple[int, str], ...]:
+    templates: dict[int, str] = {}
+    if args.session_template_file:
+        templates.update(dict(_load_session_templates(args.session_template_file)))
+
+    if args.discover_session_templates:
+        sample_size = min(len(frames), max(1, args.session_template_sample_size))
+        templates.update(
+            discover_ai_wire_session_templates(
+                frames[:sample_size],
+                max_templates=args.session_template_limit,
+                min_frequency=args.session_template_min_frequency,
+                compression_threshold=args.session_template_threshold,
+            )
+        )
+
+    normalized = normalize_aiwire_session_templates(templates)
+    if args.force_session_templates and not normalized:
+        raise RuntimeError(
+            "AIWire session templates were forced but no templates were loaded or discovered"
+        )
+    return normalized
+
+
 def _percentile(values: list[float], pct: float) -> float:
     if not values:
         return 0.0
@@ -265,16 +315,37 @@ class CodecSession:
     codec: str
     level: int = AI_WIRE_DEFAULT_LEVEL
     cache_dir: str = "/tmp/aura-aiwire-stress-cache"
+    session_templates: AIWireSessionTemplates | None = None
 
     def __post_init__(self) -> None:
         self.encoder: AIWireSessionEncoder | None = None
         self.decoder: AIWireSessionDecoder | None = None
+        self.token_encoder: AIWireTokenSessionEncoder | None = None
+        self.token_decoder: AIWireTokenSessionDecoder | None = None
+        self.token_aiwire_encoder: AIWireTokenAIWireSessionEncoder | None = None
+        self.token_aiwire_decoder: AIWireTokenAIWireSessionDecoder | None = None
         self.aura: ProductionHybridCompressor | None = None
         self.backend = self.codec
         if self.codec == "aiwire":
-            self.encoder = AIWireSessionEncoder(level=self.level)
-            self.decoder = AIWireSessionDecoder()
+            self.encoder = AIWireSessionEncoder(
+                level=self.level,
+                session_templates=self.session_templates,
+            )
+            self.decoder = AIWireSessionDecoder(session_templates=self.session_templates)
             self.backend = self.encoder.backend
+        elif self.codec == "aitoken":
+            self.token_encoder = AIWireTokenSessionEncoder()
+            self.token_decoder = AIWireTokenSessionDecoder()
+            self.backend = f"aitoken+{self.token_encoder.backend}"
+        elif self.codec == "aitoken_aiwire":
+            self.token_aiwire_encoder = AIWireTokenAIWireSessionEncoder(
+                level=self.level,
+                session_templates=self.session_templates,
+            )
+            self.token_aiwire_decoder = AIWireTokenAIWireSessionDecoder(
+                session_templates=self.session_templates
+            )
+            self.backend = self.token_aiwire_encoder.backend
         elif self.codec == "aura":
             self.aura = _make_aura(self.cache_dir)
             self.backend = "aura"
@@ -284,6 +355,12 @@ class CodecSession:
             return payload
         if self.codec == "zlib":
             return zlib.compress(payload, 3)
+        if self.codec == "aitoken":
+            assert self.token_encoder is not None
+            return self.token_encoder.encode_frame(payload)
+        if self.codec == "aitoken_aiwire":
+            assert self.token_aiwire_encoder is not None
+            return self.token_aiwire_encoder.encode_frame(payload)
         if self.codec == "aura":
             assert self.aura is not None
             compressed, _method, _meta = self.aura.compress(payload.decode("utf-8"))
@@ -298,6 +375,12 @@ class CodecSession:
             return payload
         if self.codec == "zlib":
             return zlib.decompress(payload)
+        if self.codec == "aitoken":
+            assert self.token_decoder is not None
+            return self.token_decoder.decode_frame(payload)
+        if self.codec == "aitoken_aiwire":
+            assert self.token_aiwire_decoder is not None
+            return self.token_aiwire_decoder.decode_frame(payload)
         if self.codec == "aura":
             assert self.aura is not None
             restored = self.aura.decompress(payload)
@@ -315,21 +398,33 @@ class InFlightRequest:
     start_ns: int
 
 
-def _server_negotiate(hello: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
+def _server_negotiate(
+    hello: dict[str, Any],
+) -> tuple[str, dict[str, Any] | None, tuple[tuple[int, str], ...]]:
     requested_codec = hello["codec"]
-    if requested_codec != "aiwire":
-        return requested_codec, None
+    if requested_codec not in AIWIRE_NEGOTIATED_CODECS:
+        return requested_codec, None, ()
+
+    peer_handshake = AIWireHandshake.from_dict(hello["aiwire_handshake"])
+    session_templates = peer_handshake.session_templates
 
     negotiation = negotiate_aiwire_handshake(
-        hello["aiwire_handshake"],
+        peer_handshake,
         level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)),
         fallback_codecs=("zlib", "raw"),
         allow_fallback=bool(hello.get("allow_aiwire_fallback", False)),
+        session_templates=session_templates,
+        require_session_templates=peer_handshake.require_session_templates,
     )
     payload = negotiation.to_dict()
     if not negotiation.accepted:
-        return "", payload
-    return negotiation.codec, payload
+        return "", payload, ()
+    negotiated_codec = requested_codec if negotiation.codec == "aiwire" else negotiation.codec
+    return (
+        negotiated_codec,
+        payload,
+        session_templates if negotiated_codec in AIWIRE_NEGOTIATED_CODECS else (),
+    )
 
 
 def server_once(
@@ -338,13 +433,15 @@ def server_once(
     link_mbps: float = 0.0,
     one_way_delay_ms: float = 0.0,
     jitter_ms: float = 0.0,
+    tail_pause_probability: float = 0.0,
+    tail_pause_ms: float = 0.0,
     impairment_seed: int = 1729,
 ) -> None:
     hello = json.loads(_read_frame(conn))
     requested_codec = hello["codec"]
     exchanges = int(hello["exchanges"])
     duration_mode = bool(hello.get("duration_mode", False))
-    codec, negotiation = _server_negotiate(hello)
+    codec, negotiation, session_templates = _server_negotiate(hello)
     if not codec:
         _write_frame(
             conn,
@@ -356,6 +453,8 @@ def server_once(
                     "server_link_mbps": link_mbps,
                     "server_one_way_delay_ms": one_way_delay_ms,
                     "server_jitter_ms": jitter_ms,
+                    "server_tail_pause_probability": tail_pause_probability,
+                    "server_tail_pause_ms": tail_pause_ms,
                     "aiwire_negotiation": negotiation,
                 }
             ),
@@ -366,6 +465,7 @@ def server_once(
         codec=codec,
         level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)),
         cache_dir=cache_dir,
+        session_templates=session_templates,
     )
     _write_frame(
         conn,
@@ -378,11 +478,23 @@ def server_once(
                 "server_link_mbps": link_mbps,
                 "server_one_way_delay_ms": one_way_delay_ms,
                 "server_jitter_ms": jitter_ms,
+                "server_tail_pause_probability": tail_pause_probability,
+                "server_tail_pause_ms": tail_pause_ms,
+                "session_template_count": len(session_templates),
+                "session_template_sha256": aiwire_session_templates_sha256(session_templates),
                 "aiwire_negotiation": negotiation,
             }
         ),
     )
-    out_writer = AsyncFrameWriter(conn, link_mbps, one_way_delay_ms, jitter_ms, impairment_seed)
+    out_writer = AsyncFrameWriter(
+        conn,
+        link_mbps,
+        one_way_delay_ms,
+        jitter_ms,
+        tail_pause_probability,
+        tail_pause_ms,
+        impairment_seed,
+    )
 
     request_digest = hashlib.sha256()
     response_digest = hashlib.sha256()
@@ -438,6 +550,8 @@ def server_once(
                 "link_mbps": link_mbps,
                 "one_way_delay_ms": one_way_delay_ms,
                 "jitter_ms": jitter_ms,
+                "tail_pause_probability": tail_pause_probability,
+                "tail_pause_ms": tail_pause_ms,
                 "server_decompress_ms": server_decompress_ns / 1_000_000,
                 "server_compress_ms": server_compress_ns / 1_000_000,
                 "request_sha256": request_digest.hexdigest(),
@@ -462,6 +576,8 @@ def run_server(args: argparse.Namespace) -> None:
                     link_mbps=args.link_mbps,
                     one_way_delay_ms=args.one_way_delay_ms,
                     jitter_ms=args.jitter_ms,
+                    tail_pause_probability=args.tail_pause_probability,
+                    tail_pause_ms=args.tail_pause_ms,
                     impairment_seed=args.impairment_seed,
                 )
 
@@ -472,6 +588,12 @@ def _client_stress_codec(
     args: argparse.Namespace,
 ) -> dict[str, Any]:
     duration_mode = args.seconds > 0
+    agent_count = max(1, args.agent_count)
+    per_agent_pipeline_window = max(1, args.pipeline_window)
+    aggregate_pipeline_window = agent_count * per_agent_pipeline_window
+    session_templates: tuple[tuple[int, str], ...] = ()
+    if codec in AIWIRE_NEGOTIATED_CODECS:
+        session_templates = _client_session_templates(args, frames)
     hello: dict[str, Any] = {
         "codec": codec,
         "exchanges": 0 if duration_mode else args.exchanges,
@@ -480,8 +602,13 @@ def _client_stress_codec(
         "client_link_mbps": args.link_mbps,
         "client_one_way_delay_ms": args.one_way_delay_ms,
         "client_jitter_ms": args.jitter_ms,
+        "client_tail_pause_probability": args.tail_pause_probability,
+        "client_tail_pause_ms": args.tail_pause_ms,
+        "agent_count": agent_count,
+        "per_agent_pipeline_window": per_agent_pipeline_window,
+        "aggregate_pipeline_window": aggregate_pipeline_window,
     }
-    if codec == "aiwire":
+    if codec in AIWIRE_NEGOTIATED_CODECS:
         hello.update(
             {
                 "aiwire_level": args.aiwire_level,
@@ -489,6 +616,8 @@ def _client_stress_codec(
                 "aiwire_handshake": build_aiwire_handshake(
                     level=args.aiwire_level,
                     fallback_codecs=("zlib", "raw") if args.allow_aiwire_fallback else (),
+                    session_templates=session_templates,
+                    require_session_templates=args.force_session_templates,
                 ).to_dict(),
             }
         )
@@ -517,19 +646,27 @@ def _client_stress_codec(
             codec=negotiated_codec,
             level=args.aiwire_level,
             cache_dir=args.cache_dir,
+            session_templates=(
+                session_templates if negotiated_codec in AIWIRE_NEGOTIATED_CODECS else None
+            ),
         )
         out_writer = AsyncFrameWriter(
-            sock, args.link_mbps, args.one_way_delay_ms, args.jitter_ms, args.impairment_seed
+            sock,
+            args.link_mbps,
+            args.one_way_delay_ms,
+            args.jitter_ms,
+            args.tail_pause_probability,
+            args.tail_pause_ms,
+            args.impairment_seed,
         )
         stress_start = time.perf_counter_ns()
         deadline_ns = stress_start + int(args.seconds * 1_000_000_000) if duration_mode else None
         deadline_completed_exchanges = 0
         sent_exchanges = 0
         outstanding: deque[InFlightRequest] = deque()
-        pipeline_window = max(1, args.pipeline_window)
 
         def can_send_more() -> bool:
-            if len(outstanding) >= pipeline_window:
+            if len(outstanding) >= aggregate_pipeline_window:
                 return False
             if duration_mode:
                 assert deadline_ns is not None
@@ -602,6 +739,35 @@ def _client_stress_codec(
     framed_request_wire = request_wire_bytes + len(exchange_ms) * U32.size
     framed_response_wire = response_wire_bytes + len(exchange_ms) * U32.size
     framed_wire = framed_request_wire + framed_response_wire
+    completed_exchanges = max(1, len(exchange_ms))
+    request_framed_bytes_per_exchange = framed_request_wire / completed_exchanges
+    response_framed_bytes_per_exchange = framed_response_wire / completed_exchanges
+    client_link_bytes_per_second = args.link_mbps * 1_000_000 / 8 if args.link_mbps else 0.0
+    server_link_mbps = float(ack.get("server_link_mbps") or 0.0)
+    server_link_bytes_per_second = server_link_mbps * 1_000_000 / 8 if server_link_mbps else 0.0
+    request_capacity_exchanges_per_second = (
+        client_link_bytes_per_second / request_framed_bytes_per_exchange
+        if client_link_bytes_per_second and request_framed_bytes_per_exchange
+        else 0.0
+    )
+    response_capacity_exchanges_per_second = (
+        server_link_bytes_per_second / response_framed_bytes_per_exchange
+        if server_link_bytes_per_second and response_framed_bytes_per_exchange
+        else 0.0
+    )
+    if request_capacity_exchanges_per_second and response_capacity_exchanges_per_second:
+        bandwidth_capacity_exchanges_per_second = min(
+            request_capacity_exchanges_per_second,
+            response_capacity_exchanges_per_second,
+        )
+        bandwidth_bottleneck_direction = (
+            "request"
+            if request_capacity_exchanges_per_second <= response_capacity_exchanges_per_second
+            else "response"
+        )
+    else:
+        bandwidth_capacity_exchanges_per_second = 0.0
+        bandwidth_bottleneck_direction = ""
     return {
         "codec": codec,
         "negotiated_codec": negotiated_codec,
@@ -614,7 +780,22 @@ def _client_stress_codec(
         "server_one_way_delay_ms": ack.get("server_one_way_delay_ms"),
         "client_jitter_ms": args.jitter_ms,
         "server_jitter_ms": ack.get("server_jitter_ms"),
-        "pipeline_window": pipeline_window,
+        "client_tail_pause_probability": args.tail_pause_probability,
+        "server_tail_pause_probability": ack.get("server_tail_pause_probability"),
+        "client_tail_pause_ms": args.tail_pause_ms,
+        "server_tail_pause_ms": ack.get("server_tail_pause_ms"),
+        "session_template_count": (
+            len(session_templates) if codec in AIWIRE_NEGOTIATED_CODECS else 0
+        ),
+        "session_template_sha256": (
+            aiwire_session_templates_sha256(session_templates)
+            if codec in AIWIRE_NEGOTIATED_CODECS
+            else ""
+        ),
+        "agent_count": agent_count,
+        "per_agent_pipeline_window": per_agent_pipeline_window,
+        "aggregate_pipeline_window": aggregate_pipeline_window,
+        "pipeline_window": aggregate_pipeline_window,
         "sent_exchanges": sent_exchanges,
         "deadline_completed_exchanges": deadline_completed_exchanges,
         "deadline_exchanges_per_second": (
@@ -631,6 +812,24 @@ def _client_stress_codec(
         "raw_bytes": total_raw,
         "wire_bytes": total_wire,
         "framed_wire_bytes": framed_wire,
+        "framed_bytes_per_exchange": framed_wire / completed_exchanges,
+        "request_framed_bytes_per_exchange": request_framed_bytes_per_exchange,
+        "response_framed_bytes_per_exchange": response_framed_bytes_per_exchange,
+        "bandwidth_capacity_exchanges_per_second": bandwidth_capacity_exchanges_per_second,
+        "bandwidth_capacity_completed": (
+            bandwidth_capacity_exchanges_per_second * args.seconds if duration_mode else 0.0
+        ),
+        "bandwidth_utilization_percent": (
+            deadline_completed_exchanges
+            / args.seconds
+            / bandwidth_capacity_exchanges_per_second
+            * 100
+            if duration_mode and args.seconds and bandwidth_capacity_exchanges_per_second
+            else 0.0
+        ),
+        "request_capacity_exchanges_per_second": request_capacity_exchanges_per_second,
+        "response_capacity_exchanges_per_second": response_capacity_exchanges_per_second,
+        "bandwidth_bottleneck_direction": bandwidth_bottleneck_direction,
         "ratio": total_raw / total_wire if total_wire else 0,
         "framed_ratio": total_raw / framed_wire if framed_wire else 0,
         "wire_saved_percent": (1 - total_wire / total_raw) * 100 if total_raw else 0,
@@ -681,6 +880,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     server.add_argument(
         "--jitter-ms", type=float, default=0.0, help="uniform +/- egress jitter per frame"
     )
+    server.add_argument(
+        "--tail-pause-probability",
+        type=float,
+        default=0.0,
+        help="probability that an egress frame receives an extra queue/retransmit-style delay",
+    )
+    server.add_argument(
+        "--tail-pause-ms",
+        type=float,
+        default=0.0,
+        help="maximum extra delay for tail-pause events",
+    )
     server.add_argument("--impairment-seed", type=int, default=1729)
     server.set_defaults(func=run_server)
 
@@ -693,6 +904,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     client.add_argument("--codecs", default="raw,zlib,aura,aiwire")
     client.add_argument("--aiwire-level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     client.add_argument("--allow-aiwire-fallback", action="store_true")
+    client.add_argument(
+        "--session-template-file",
+        help="JSON mapping/list of AIWire session templates to require in the handshake",
+    )
+    client.add_argument(
+        "--discover-session-templates",
+        action="store_true",
+        help="discover bounded AIWire session templates from the benchmark corpus",
+    )
+    client.add_argument(
+        "--force-session-templates",
+        action="store_true",
+        help="fail AIWire negotiation unless the session template set is non-empty and matched",
+    )
+    client.add_argument("--session-template-limit", type=int, default=16)
+    client.add_argument("--session-template-sample-size", type=int, default=256)
+    client.add_argument("--session-template-min-frequency", type=int, default=2)
+    client.add_argument("--session-template-threshold", type=float, default=1.01)
     client.add_argument("--cache-dir", default="/tmp/aura-aiwire-stress-client-cache")
     client.add_argument("--timeout", type=float, default=120.0)
     client.add_argument(
@@ -704,9 +933,30 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     client.add_argument(
         "--jitter-ms", type=float, default=0.0, help="uniform +/- egress jitter per frame"
     )
+    client.add_argument(
+        "--tail-pause-probability",
+        type=float,
+        default=0.0,
+        help="probability that an egress frame receives an extra queue/retransmit-style delay",
+    )
+    client.add_argument(
+        "--tail-pause-ms",
+        type=float,
+        default=0.0,
+        help="maximum extra delay for tail-pause events",
+    )
     client.add_argument("--impairment-seed", type=int, default=1729)
     client.add_argument(
-        "--pipeline-window", type=int, default=1, help="maximum in-flight request frames"
+        "--pipeline-window",
+        type=int,
+        default=1,
+        help="maximum in-flight request frames per logical agent",
+    )
+    client.add_argument(
+        "--agent-count",
+        type=int,
+        default=1,
+        help="logical agents sharing the session; aggregate window is agent-count * pipeline-window",
     )
     client.add_argument("--output")
     client.set_defaults(func=run_client)

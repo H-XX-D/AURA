@@ -1,8 +1,15 @@
 # AURA
 
 AURA is an experimental compression toolkit for structured AI-to-AI traffic.
-Its strongest current path is **AIWire**: a session codec for high-volume JSON
-agent messages moving over ordinary TCP, HTTP, WebSocket, or LAN links.
+Its strongest current path is **AIWire**: a negotiated structure side channel
+for high-volume agent messages moving over ordinary TCP, HTTP, WebSocket, or LAN
+links.
+
+AIWire is not just "compress each JSON frame." Peers handshake the structure
+first: protocol identity, static dictionary, session templates, and optional
+session-local structure updates. After that, agents should send compact changes
+against the handshaked structure instead of repeatedly moving whole JSON-shaped
+frames.
 
 The project also includes broader template, semantic, metadata, and large-file
 compression experiments. Treat those as research components. If you are trying
@@ -11,8 +18,8 @@ edge devices, and local machines, start with AIWire.
 
 ## What This Is Good For
 
-AURA is useful when both sides of a link are under your control and the traffic
-has repeated structure:
+AURA is useful when both sides of a link are under your control, the traffic has
+repeated structure, and most messages are changes to already-known shapes:
 
 - Agent-to-agent request/response loops
 - Tool-call and tool-result streams
@@ -24,7 +31,8 @@ has repeated structure:
 - Structured logs, traces, and operational events with repeated fields
 
 AURA is not a drop-in replacement for gzip, zstd, brotli, TLS, or a message
-broker. It is a protocol-aware compression layer for controlled environments.
+broker. It is a protocol-aware structural side channel for controlled
+environments.
 
 ## Why AI-to-AI Traffic Fits
 
@@ -33,8 +41,10 @@ Modern agent protocols repeatedly send the same control fields: `jsonrpc`, `id`,
 `trace_id`, `task_id`, `status`, `metadata`, and schema fragments.
 
 Stateless compression handles each frame independently and throws away useful
-history. AIWire keeps a protocol dictionary and live compression history across
-the session, which is a better match for many small structured messages.
+history. AIWire separates the stable structure from the changing values: the
+side channel negotiates shared structure, then the data stream moves deltas,
+tokens, and session-history-backed bytes. Whole frames remain useful at protocol
+boundaries and as fallback, but they are not the target steady state.
 
 Relevant public protocol context:
 
@@ -49,7 +59,7 @@ Relevant public protocol context:
 
 | Area | Status |
 |---|---|
-| AIWire session codec | Working Python path, optional native backend loader |
+| AIWire structural side channel | Working Python path, optional native backend loader |
 | Structured message helpers | Working canonical JSON encode/decode helpers |
 | AI-to-AI benchmark harness | Working LAN roundtrip benchmark tooling |
 | General AURA compressor | Alpha research path |
@@ -113,8 +123,8 @@ message = {
 }
 
 with AIWireSessionEncoder(level=3) as encoder, AIWireSessionDecoder() as decoder:
-    compressed_frame = encoder.compress_message(message)
-    restored = decoder.decompress_message(compressed_frame)
+    session_delta = encoder.compress_message(message)
+    restored = decoder.decompress_message(session_delta)
 
 assert restored == message
 print(encoder.stats.ratio)
@@ -151,7 +161,8 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
   --host <target-host> \
   --port 8765 \
   --seconds 5 \
-  --pipeline-window 128 \
+  --agent-count 16 \
+  --pipeline-window 1 \
   --link-mbps 10 \
   --codecs raw,zlib,aura,aiwire
 ```
@@ -161,7 +172,31 @@ Codec meanings:
 - `raw`: canonical structured JSON frames
 - `zlib`: stateless zlib per frame
 - `aura`: generic `ProductionHybridCompressor` per frame
-- `aiwire`: stateful AURA AIWire session codec
+- `aiwire`: stateful AURA AIWire structure side channel and delta stream
+
+Run a realistic multi-profile suite and extrapolate bandwidth-proportional
+capacity:
+
+```bash
+PYTHONPATH=src python tools/run_aiwire_network_suite.py \
+  --profiles lan_10m,wifi_busy,lte_good,edge_mesh \
+  --seconds 5 \
+  --agent-count 8 \
+  --codecs raw,zlib,aiwire,aitoken_aiwire \
+  --output /tmp/aura_aiwire_network_suite.json
+
+python tools/extrapolate_aiwire_bandwidth.py \
+  /tmp/aura_aiwire_network_suite.json \
+  --bandwidth-mbps 1,5,10,50,100,1000 \
+  --agent-counts 1,2,4,8,16,32 \
+  --per-agent-window 1 \
+  --output /tmp/aura_aiwire_bandwidth_extrapolation.md
+```
+
+The extrapolator reports both bandwidth capacity and latency-capped effective
+capacity. It also projects how many concurrent logical agents are needed to
+fill the link from the measured p95 latency and per-agent in-flight window.
+High-RTT profiles need enough aggregate in-flight exchanges to fill the link.
 
 ## General Compression API
 
@@ -185,13 +220,16 @@ assert restored == "Order 42: status=ready"
 print(method.name, metadata["ratio"])
 ```
 
-Use this path for experiments. Use AIWire for AI-to-AI message streams.
+Use this path for experiments. Use AIWire for AI-to-AI structure handshakes and
+delta streams.
 
 ## Docs
 
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Current project context](docs/AURA_SYSTEM_CONTEXT.md)
+- [AIWire session dictionary safety](docs/aiwire_session_dictionary.md)
+- [Realistic network benchmarks](docs/perf/realistic_network_benchmarks.md)
 - [AI-to-AI LAN benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
 - [Large-file and API notes](docs/api/compressor.md)
 
@@ -214,6 +252,7 @@ uvx isort --check-only src/aura_compression tests tools/stress_ai_wire_roundtrip
 The near-term roadmap is to harden AIWire first:
 
 - Stabilize the AIWire v1 frame and handshake contract
+- Define the session-template update signal and delta/resync behavior
 - Keep benchmark reports reproducible and public-safe
 - Add more realistic MCP, A2A, OpenAI, and local agent message corpora
 - Improve ARM64/native backend performance for edge targets

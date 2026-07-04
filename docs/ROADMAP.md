@@ -1,12 +1,15 @@
 # AURA Roadmap
 
 This roadmap prioritizes the path that currently has the clearest evidence:
-AIWire for high-volume structured AI-to-AI messages.
+AIWire for handshaked structure and delta movement in high-volume AI-to-AI
+messages.
 
 ## North Star
 
 AURA should make structured agent traffic cheaper to move across normal
-networks without requiring a special transport.
+networks without requiring a special transport. Peers handshake the stable
+structure first, then move changes against that shared session state instead of
+whole frames whenever possible.
 
 The practical target is:
 
@@ -16,6 +19,7 @@ less bandwidth per conversation
 lower tail latency under bandwidth pressure
 reproducible round trips
 clear fallback when peers cannot negotiate AIWire
+clean resync when peers lose structural state
 ```
 
 ## Phase 1: Public Baseline
@@ -39,11 +43,13 @@ Definition of done:
 
 Goal: freeze the minimum protocol contract.
 
-- Define the AIWire v1 frame format in a dedicated spec doc.
-- Define handshake fields, accepted fallback behavior, and failure modes.
+- Define the AIWire v1 handshake, side-channel, and delta-frame format in a
+  dedicated spec doc.
+- Define handshake fields, template update signals, accepted fallback behavior,
+  resync behavior, and failure modes.
 - Add cross-version dictionary compatibility tests.
 - Add corrupted-frame and truncated-frame tests.
-- Add streaming tests with partial reads/writes.
+- Add streaming tests with partial reads/writes and interrupted delta state.
 - Add negotiated fallback tests for `raw` and `zlib`.
 - Make stats stable enough for benchmark comparison over time.
 
@@ -58,6 +64,8 @@ Goal: benchmark against realistic protocol-shaped data.
 
 - Expand the generated corpus for MCP requests, MCP responses, A2A tasks,
   OpenAI tool calls, structured outputs, traces, reviews, and memory writes.
+- Add delta-shaped corpora where the task/session/template is stable and only
+  status, token, argument, artifact, or trace values change.
 - Add saved fixture corpora that contain no secrets or private data.
 - Track corpus size, average frame size, key distribution, and protocol mix.
 - Benchmark with small, medium, and bursty message sizes.
@@ -99,17 +107,17 @@ Goal: show how AIWire fits into normal network stacks.
 
 Definition of done:
 
-- Users can place AIWire below their message protocol without changing their
-  protocol semantics.
+- Users can place AIWire as an explicit structural side channel beside or below
+  their message protocol without changing their protocol semantics.
 
 ## Phase 6: Dictionary Evolution
 
 Goal: improve compression without breaking deployed peers.
 
-- Version static dictionaries explicitly.
+- Version static dictionaries and session-template catalogs explicitly.
 - Add corpus-driven dictionary generation tooling.
 - Keep a compatibility matrix for dictionary hash, protocol version, and
-  fallback codec.
+  template hash, delta version, and fallback codec.
 - Measure whether protocol-specific dictionaries outperform one combined
   dictionary.
 - Add application-provided dictionary extensions for private deployments without
@@ -141,7 +149,8 @@ Definition of done:
 - When should batching beat streaming for latency-sensitive agent traffic?
 - Can AURA metadata sidechannels route messages before decompression without
   creating security or privacy hazards?
-- What is the best dictionary split between MCP, A2A, OpenAI, local traces, and
+- What is the best split between static dictionaries, session templates, and
+  per-session learned structure for MCP, A2A, OpenAI, local traces, and
   application-specific terms?
 - Does QUIC add value for this workload, or is TCP/WebSocket enough for normal
   LAN and service deployments?

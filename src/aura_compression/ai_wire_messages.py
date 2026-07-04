@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import random
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 AIWireFrame = bytes | bytearray | memoryview | str | Mapping[str, Any]
@@ -48,6 +48,53 @@ def build_ai_wire_messages(count: int, seed: int = 1729) -> list[bytes]:
         encode_ai_wire_message(message)
         for message in build_structured_ai_messages(count=count, seed=seed)
     ]
+
+
+def discover_ai_wire_session_templates(
+    messages: Iterable[AIWireFrame],
+    *,
+    max_templates: int = 16,
+    min_frequency: int = 2,
+    compression_threshold: float = 1.01,
+    similarity_threshold: float = 0.6,
+    starting_template_id: int = 128,
+) -> dict[int, str]:
+    """Discover a bounded session template map from AIWire-shaped messages.
+
+    The returned templates are intended for AIWire dictionary negotiation, not
+    binary-semantic frame encoding.  They are conservative: deterministic IDs,
+    no persistence, and a caller-specified cap so session handshakes stay small.
+    """
+
+    if max_templates <= 0:
+        return {}
+
+    from .discovery import TemplateDiscoveryEngine
+
+    texts = [
+        encode_ai_wire_message(message).decode("utf-8", errors="replace") for message in messages
+    ]
+    if not texts:
+        return {}
+
+    engine = TemplateDiscoveryEngine(
+        min_frequency=min_frequency,
+        compression_threshold=compression_threshold,
+        similarity_threshold=similarity_threshold,
+        starting_template_id=starting_template_id,
+        max_template_id=starting_template_id + max_templates - 1,
+    )
+    candidates = engine.discover_templates(texts)
+    candidates.sort(
+        key=lambda candidate: (candidate.compression_ratio, candidate.frequency),
+        reverse=True,
+    )
+
+    templates: dict[int, str] = {}
+    for candidate in candidates[:max_templates]:
+        template_id = engine.promote_template(candidate)
+        templates[template_id] = candidate.pattern
+    return templates
 
 
 def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str, Any]]:

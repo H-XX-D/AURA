@@ -22,6 +22,11 @@ def _benchmark() -> dict[str, object]:
                 "framed_response_wire_bytes": 60000,
                 "framed_bytes_per_exchange": 1000.0,
                 "raw_bytes": 100000,
+                "roundtrip_ms_p95": 30.0,
+                "client_link_mbps": 1.0,
+                "server_link_mbps": 1.0,
+                "profile_rtt_ms": 10.0,
+                "profile_pipeline_window": 4,
             },
             {
                 "network_profile": "lab",
@@ -32,6 +37,11 @@ def _benchmark() -> dict[str, object]:
                 "framed_response_wire_bytes": 15000,
                 "framed_bytes_per_exchange": 250.0,
                 "raw_bytes": 100000,
+                "roundtrip_ms_p95": 20.0,
+                "client_link_mbps": 1.0,
+                "server_link_mbps": 1.0,
+                "profile_rtt_ms": 10.0,
+                "profile_pipeline_window": 4,
             },
         ]
     }
@@ -47,6 +57,16 @@ def test_extrapolate_rows_scales_capacity_with_bandwidth() -> None:
     assert aiwire_1["capacity_gain_vs_raw"] == 4.0
     assert aiwire_1["semantic_mib_per_second"] > raw_1["semantic_mib_per_second"]
     assert aiwire_1["raw_required_total_mbps"] > raw_1["raw_required_total_mbps"]
+
+
+def test_extrapolate_rows_projects_latency_and_effective_capacity() -> None:
+    rows = extrapolate_rows(_benchmark(), bandwidth_mbps=(1.0, 10.0))
+    raw_1 = next(row for row in rows if row["codec"] == "raw" and row["uplink_mbps"] == 1.0)
+    raw_10 = next(row for row in rows if row["codec"] == "raw" and row["uplink_mbps"] == 10.0)
+
+    assert raw_10["projected_p95_ms"] < raw_1["projected_p95_ms"]
+    assert raw_1["effective_capacity_exchanges_per_second"] < raw_1["capacity_exchanges_per_second"]
+    assert raw_1["effective_semantic_mib_per_second"] < raw_1["semantic_mib_per_second"]
 
 
 def test_extrapolate_rows_uses_asymmetric_downlink_multiplier() -> None:

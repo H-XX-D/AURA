@@ -63,6 +63,18 @@ python tools/extrapolate_aiwire_bandwidth.py \
   --output /tmp/aura_aiwire_bandwidth_extrapolation.md
 ```
 
+The extrapolation includes latency limits. It reports pure bandwidth capacity
+and effective capacity, where effective capacity is capped by:
+
+```text
+pipeline_window / projected_p95_roundtrip_seconds
+```
+
+Projected p95 keeps the measured non-serialization tail from the benchmark and
+recomputes request/response serialization delay at the requested Mbps. This
+keeps high-RTT profiles honest: saving bytes creates capacity, but the stream
+needs enough in-flight exchanges to fill that capacity.
+
 ## Run One Manual Profile Across Machines
 
 Start the server using the server-side profile values:
@@ -107,6 +119,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
 - Codec CPU per exchange.
 - Request/response bottleneck direction for asymmetric links.
 - Extrapolated semantic MiB/s and GiB/hour at chosen bandwidths.
+- Projected p95 latency and latency-window exchange capacity.
 
 Compression ratio is useful, but it is not the headline. The headline is how
 many verified semantic exchanges fit through the constrained link without

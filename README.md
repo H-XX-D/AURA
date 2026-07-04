@@ -189,6 +189,9 @@ python tools/extrapolate_aiwire_bandwidth.py \
   --output /tmp/aura_aiwire_bandwidth_extrapolation.md
 ```
 
+The extrapolator reports both bandwidth capacity and latency-capped effective
+capacity. High-RTT profiles need enough in-flight exchanges to fill the link.
+
 ## General Compression API
 
 The older hybrid compressor remains useful for research into templates,

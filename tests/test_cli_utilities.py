@@ -16,6 +16,10 @@ from tools.compress_large_file import (
     compress_path,
     inspect_container,
 )
+from aura_compression.cli.benchmark import main as benchmark_main
+from aura_compression.cli.compress import main as cli_compress_main
+from aura_compression.cli.decompress import main as cli_decompress_main
+from aura_compression.cli.server import main as server_main
 
 
 @pytest.mark.parametrize(
@@ -79,3 +83,28 @@ def test_inspect_container_reports_metadata(tmp_path: Path):
     assert info["method_counts"]
     assert isinstance(info["sample_chunks"], list)
     assert info["sample_chunks"][0]["index"] == 0
+
+
+def test_package_cli_round_trip(tmp_path: Path):
+    source = tmp_path / "message.json"
+    frame = tmp_path / "message.aiwire"
+    restored = tmp_path / "restored.json"
+    payload = b'{"jsonrpc":"2.0","method":"tools/call","protocol":"mcp"}'
+    source.write_bytes(payload)
+
+    assert cli_compress_main([str(source), "--output", str(frame)]) == 0
+    assert frame.stat().st_size > 0
+    assert cli_decompress_main([str(frame), "--output", str(restored)]) == 0
+    assert restored.read_bytes() == payload
+
+
+def test_package_cli_benchmark_smoke(capsys):
+    assert benchmark_main(["--messages", "8"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["messages"] == 8
+    assert output["ratio"] > 0
+
+
+def test_package_cli_server_guidance(capsys):
+    assert server_main([]) == 0
+    assert "transport examples" in capsys.readouterr().out

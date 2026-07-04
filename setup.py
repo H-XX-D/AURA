@@ -7,6 +7,7 @@ with AI-driven optimization for real-time communication and data storage.
 """
 
 import os
+import re
 import subprocess
 import sys
 
@@ -16,17 +17,23 @@ from setuptools.command.build_ext import build_ext
 
 # Read version from version file
 def read_version():
-    version_file = os.path.join(os.path.dirname(__file__), "aura_compression", "__version__.py")
+    version_file = os.path.join(
+        os.path.dirname(__file__),
+        "src",
+        "aura_compression",
+        "__init__.py",
+    )
     if os.path.exists(version_file):
-        with open(version_file, "r") as f:
-            exec(f.read())
-            return locals()["__version__"]
-    return "2.0.0"
+        with open(version_file, "r", encoding="utf-8") as f:
+            match = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', f.read(), re.M)
+            if match:
+                return match.group(1)
+    return "2.0.3"
 
 
 # Read README
 def read_readme():
-    readme_file = os.path.join(os.path.dirname(__file__), "readme.md")
+    readme_file = os.path.join(os.path.dirname(__file__), "README.md")
     if os.path.exists(readme_file):
         with open(readme_file, "r", encoding="utf-8") as f:
             return f.read()
@@ -111,17 +118,17 @@ EXTRAS_REQUIRE["all"] = list(set(EXTRAS_REQUIRE["all"]))  # Remove duplicates
 setup(
     name="aura-compression",
     version=VERSION,
-    description="AI-Optimized Hybrid Compression Protocol for Real-Time Communication",
+    description="Protocol-aware AIWire compression and data movement for AI-to-AI messages",
     long_description=LONG_DESCRIPTION,
     long_description_content_type=LONG_DESCRIPTION_CONTENT_TYPE,
     author="Todd Hendricks",
     author_email="todd@auraprotocol.org",
     url="https://github.com/H-XX-D/AURA",
     project_urls={
+        "Homepage": "https://github.com/H-XX-D/AURA",
         "Documentation": "https://github.com/H-XX-D/AURA#readme",
-        "Source": "https://github.com/H-XX-D/AURA",
-        "Tracker": "https://github.com/H-XX-D/AURA/issues",
-        "Funding": "https://opencollective.com/aura-compression",
+        "Repository": "https://github.com/H-XX-D/AURA",
+        "Bug Tracker": "https://github.com/H-XX-D/AURA/issues",
     },
     license="Apache-2.0",
     classifiers=[
@@ -129,7 +136,6 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
@@ -182,6 +188,4 @@ setup(
         "build_ext": BuildExt,
     },
     zip_safe=False,
-    test_suite="tests",
-    tests_require=EXTRAS_REQUIRE["dev"],
 )

@@ -5,7 +5,7 @@ Copyright (c) 2025 Todd Hendricks
 Licensed under Apache License 2.0
 """
 
-__version__ = "2.0.1"
+__version__ = "2.0.3"
 __author__ = "Todd Hendricks"
 __license__ = "Apache 2.0"
 

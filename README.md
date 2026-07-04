@@ -165,7 +165,13 @@ Details:
 
 ## Install
 
-Python:
+Python / PyPI:
+
+```bash
+pip install aura-compression
+```
+
+Python / local development:
 
 ```bash
 git clone https://github.com/H-XX-D/AURA.git
@@ -185,6 +191,15 @@ The npm package exposes dependency-free Node helpers for canonical AIWire
 messages, the three-lane constants, blob descriptors, and a small zlib-backed
 frame wrapper. The benchmarked AIWire engine remains the Python/native C++ path
 in this repo.
+
+Registry roles:
+
+- **PyPI `aura-compression`** is the primary Python package for AIWire,
+  AIToken, session-template negotiation, benchmark tooling, and the optional
+  native backend.
+- **npm `aura-compression`** is a lightweight JavaScript helper package for
+  canonical AIWire messages, lane constants, blob descriptors, and small local
+  frame round trips.
 
 ## Quick Start: AIWire
 

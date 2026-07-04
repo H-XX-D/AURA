@@ -4,27 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aura-compression"
-version = "2.0.2"
-description = "AI-Optimized Hybrid Compression Protocol for Real-Time Communication"
+version = "2.0.3"
+description = "Protocol-aware AIWire compression and data movement for AI-to-AI messages"
 readme = "README.md"
 authors = [{name = "Todd Hendricks", email = "todd@auraprotocol.org"}]
-license = {text = "Apache License 2.0"}
+license = "Apache-2.0"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Archiving :: Compression",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-keywords = ["compression", "ai", "chat", "websocket", "auralite", "compliance"]
-dependencies = [
-    "pytest>=7.0.0",
-]
+keywords = ["compression", "ai", "agents", "aiwire", "mcp", "a2a", "json-rpc", "edge"]
+dependencies = []
 requires-python = ">=3.10"
 
 [tool.setuptools]

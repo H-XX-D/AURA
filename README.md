@@ -91,6 +91,22 @@ AIWire/AIToken run:
 Read the metrics report:
 [AI-to-AI Messaging Metrics](docs/perf/ai_to_ai_messaging_metrics_2026-07-04.md)
 
+Live public-fixture TCP replay was also measured on 2026-07-04 with the
+committed corpus, modeled 10 Mbps links in both directions, 64 concurrent
+logical agents, one in-flight request per agent, updated session templates, and
+fixture response SHA verification:
+
+| Codec | Backend | Completed 2s | Ex/s | Framed B/ex | BW cap ex/s | BW gain | Saved | p95 ms |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| raw | raw | 4,509 | 2,254.5 | 1,105.3 | 2,254.5 | 1.00x | -0.7% | 28.89 |
+| zlib | zlib | 7,731 | 3,865.5 | 643.2 | 3,864.9 | 1.71x | 41.4% | 16.77 |
+| aiwire | native | 27,092 | 13,546.0 | 45.6 | 54,205.8 | 24.04x | 95.8% | 5.55 |
+| aitoken_aiwire | aitoken+native | 23,696 | 11,848.0 | 32.3 | 77,285.6 | 34.28x | 97.1% | 6.34 |
+
+In that run, raw and zlib filled the modeled 10 Mbps link. AIWire created much
+more bandwidth headroom than 64 single-window agents could fully occupy, so the
+next limiter was runtime/concurrency rather than bytes on the wire.
+
 A separate Mac-to-Z6-and-Jetson-Nano LAN run showed the same direction of travel:
 Python AIWire moved 55,337 verified exchanges in 5 seconds on the Z6 target
 (`6.30x` raw) and averaged 20,887 verified exchanges in 5 seconds across four
@@ -261,6 +277,38 @@ This uses the committed public session fixture and reports bytes per exchange,
 bandwidth capacity, p95 latency-window capacity, required concurrent agents,
 message throughput, and raw-bandwidth equivalent.
 
+To replay the same public corpus over the live TCP harness:
+
+```bash
+# Target machine
+PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py server \
+  --host 0.0.0.0 \
+  --port 8765 \
+  --runs 4 \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --link-mbps 10
+
+# Client machine
+PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
+  --host <target-host> \
+  --port 8765 \
+  --seconds 2 \
+  --exchanges 36 \
+  --agent-count 64 \
+  --pipeline-window 1 \
+  --link-mbps 10 \
+  --codecs raw,zlib,aiwire,aitoken_aiwire \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --force-session-templates \
+  --output /tmp/aura_live_fixture_replay.json
+```
+
+In fixture mode, the client and server compare request/response corpus digests
+during the handshake and the client verifies each replayed fixture response by
+SHA-256.
+
 ## Transport Examples
 
 AIWire frames are ordinary bytes after the session handshake. The repo includes
@@ -319,7 +367,8 @@ delta streams.
 ```bash
 PYTHONPATH=src pytest tests/test_ai_wire.py tests/test_ai_wire_token.py \
   tests/test_aiwire_session_fixtures.py tests/test_aiwire_bandwidth_extrapolation.py \
-  tests/test_aiwire_fixture_saturation.py tests/test_aiwire_network_profiles.py -q
+  tests/test_aiwire_fixture_saturation.py tests/test_aiwire_stress_fixture_replay.py \
+  tests/test_aiwire_network_profiles.py -q
 pytest -q
 ```
 

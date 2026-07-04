@@ -87,6 +87,15 @@ def _run_profile(profile, args: argparse.Namespace, port: int) -> list[dict[str,
         client_cmd.append("--force-session-templates")
     if args.allow_aiwire_fallback:
         client_cmd.append("--allow-aiwire-fallback")
+    if args.fixture_corpus:
+        fixture_args = [
+            "--fixture-corpus",
+            str(args.fixture_corpus),
+            "--fixture-session-templates",
+            args.fixture_session_templates,
+        ]
+        server_cmd.extend(fixture_args)
+        client_cmd.extend(fixture_args)
 
     server = subprocess.Popen(
         server_cmd,
@@ -155,6 +164,10 @@ def run_suite(args: argparse.Namespace) -> dict[str, Any]:
         "exchanges": args.exchanges,
         "agent_count": args.agent_count,
         "codecs": [codec.strip() for codec in args.codecs.split(",") if codec.strip()],
+        "fixture_corpus": str(args.fixture_corpus) if args.fixture_corpus else "",
+        "fixture_session_templates": (
+            args.fixture_session_templates if args.fixture_corpus else ""
+        ),
         "profiles": profiles_as_dicts(profiles),
         "results": all_results,
     }
@@ -184,6 +197,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--discover-session-templates", action="store_true")
     parser.add_argument("--force-session-templates", action="store_true")
     parser.add_argument("--allow-aiwire-fallback", action="store_true")
+    parser.add_argument(
+        "--fixture-corpus",
+        type=Path,
+        help="public AIWire fixture corpus to replay through every live TCP profile",
+    )
+    parser.add_argument(
+        "--fixture-session-templates",
+        choices=("none", "initial", "updated"),
+        default="updated",
+        help="fixture session-template set to advertise during AIWire handshakes",
+    )
     parser.add_argument("--output", type=Path)
     return parser.parse_args(argv)
 

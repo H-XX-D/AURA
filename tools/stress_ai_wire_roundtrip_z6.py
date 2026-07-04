@@ -17,7 +17,7 @@ import zlib
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
@@ -40,6 +40,7 @@ from aura_compression.ai_wire import (
     negotiate_aiwire_handshake,
     normalize_aiwire_session_templates,
 )
+from aura_compression.ai_wire_fixtures import load_aiwire_session_fixture_corpus
 from aura_compression.ai_wire_token import (
     AIWireTokenAIWireSessionDecoder,
     AIWireTokenAIWireSessionEncoder,
@@ -50,6 +51,7 @@ from aura_compression.compressor_refactored import ProductionHybridCompressor
 
 U32 = struct.Struct("!I")
 AIWIRE_NEGOTIATED_CODECS = {"aiwire", "aitoken_aiwire"}
+DEFAULT_FIXTURE_CORPUS = ROOT / "fixtures" / "aiwire_sessions" / "public_session_corpus_v1.json"
 
 
 class BandwidthLimiter:
@@ -221,11 +223,108 @@ def _load_session_templates(path: str) -> tuple[tuple[int, str], ...]:
     return normalize_aiwire_session_templates(data)
 
 
+@dataclass(frozen=True)
+class FixtureReplayCorpus:
+    path: str
+    schema: str
+    session_count: int
+    exchange_count: int
+    request_frames: tuple[bytes, ...]
+    response_frames: tuple[bytes, ...]
+    session_templates: tuple[tuple[int, str], ...]
+    session_template_mode: str
+    request_sha256: str
+    response_sha256: str
+
+
+def _digest_frames(frames: Iterable[bytes]) -> str:
+    digest = hashlib.sha256()
+    for frame in frames:
+        _update_digest(digest, frame)
+    return digest.hexdigest()
+
+
+def _merge_fixture_templates(
+    sessions: Iterable[dict[str, Any]],
+    *,
+    mode: str,
+) -> tuple[tuple[int, str], ...]:
+    if mode == "none":
+        return ()
+    if mode not in {"initial", "updated"}:
+        raise ValueError("fixture session template mode must be one of: none, initial, updated")
+
+    field = "initial_session_templates" if mode == "initial" else "updated_session_templates"
+    merged: dict[int, str] = {}
+    for session in sessions:
+        for entry in session[field]:
+            template_id = int(entry["template_id"])
+            pattern = str(entry["pattern"])
+            existing = merged.get(template_id)
+            if existing is not None and existing != pattern:
+                raise ValueError(
+                    f"fixture template {template_id} has conflicting patterns across sessions"
+                )
+            merged[template_id] = pattern
+    return normalize_aiwire_session_templates(merged)
+
+
+def _load_fixture_replay_corpus(
+    path: str | Path,
+    *,
+    session_template_mode: str = "updated",
+) -> FixtureReplayCorpus:
+    fixture_path = Path(path).expanduser()
+    corpus = load_aiwire_session_fixture_corpus(fixture_path)
+    request_frames: list[bytes] = []
+    response_frames: list[bytes] = []
+    sessions = list(corpus["sessions"])
+    for session in sessions:
+        events = sorted(session["events"], key=lambda event: int(event["sequence"]))
+        for event in events:
+            frame = encode_ai_wire_message(event["message"])
+            if event["direction"] == "client_to_server":
+                request_frames.append(frame)
+            elif event["direction"] == "server_to_client":
+                response_frames.append(frame)
+
+    if not request_frames or not response_frames:
+        raise ValueError(f"{fixture_path} did not contain replayable fixture frames")
+    if len(request_frames) != len(response_frames):
+        raise ValueError(
+            f"{fixture_path} request/response fixture frame counts differ: "
+            f"{len(request_frames)} != {len(response_frames)}"
+        )
+
+    templates = _merge_fixture_templates(sessions, mode=session_template_mode)
+    return FixtureReplayCorpus(
+        path=str(fixture_path),
+        schema=str(corpus.get("schema", "")),
+        session_count=int(corpus.get("session_count", len(sessions))),
+        exchange_count=len(request_frames),
+        request_frames=tuple(request_frames),
+        response_frames=tuple(response_frames),
+        session_templates=templates,
+        session_template_mode=session_template_mode,
+        request_sha256=_digest_frames(request_frames),
+        response_sha256=_digest_frames(response_frames),
+    )
+
+
+def _repeat_frames(frames: tuple[bytes, ...], count: int) -> list[bytes]:
+    if count <= 0:
+        return []
+    return [frames[index % len(frames)] for index in range(count)]
+
+
 def _client_session_templates(
     args: argparse.Namespace,
     frames: list[bytes],
+    fixture_replay: FixtureReplayCorpus | None = None,
 ) -> tuple[tuple[int, str], ...]:
     templates: dict[int, str] = {}
+    if fixture_replay is not None:
+        templates.update(dict(fixture_replay.session_templates))
     if args.session_template_file:
         templates.update(dict(_load_session_templates(args.session_template_file)))
 
@@ -395,6 +494,7 @@ class CodecSession:
 class InFlightRequest:
     index: int
     sha256: str
+    expected_response_sha256: str | None
     start_ns: int
 
 
@@ -436,11 +536,56 @@ def server_once(
     tail_pause_probability: float = 0.0,
     tail_pause_ms: float = 0.0,
     impairment_seed: int = 1729,
+    fixture_replay: FixtureReplayCorpus | None = None,
 ) -> None:
     hello = json.loads(_read_frame(conn))
     requested_codec = hello["codec"]
     exchanges = int(hello["exchanges"])
     duration_mode = bool(hello.get("duration_mode", False))
+    fixture_requested = bool(hello.get("fixture_replay", False))
+    if fixture_requested:
+        if fixture_replay is None:
+            _write_frame(
+                conn,
+                _json_bytes(
+                    {
+                        "accepted": False,
+                        "codec": requested_codec,
+                        "negotiated_codec": "",
+                        "reason": "fixture_replay_not_configured_on_server",
+                    }
+                ),
+            )
+            return
+        if hello.get("fixture_request_sha256") != fixture_replay.request_sha256:
+            _write_frame(
+                conn,
+                _json_bytes(
+                    {
+                        "accepted": False,
+                        "codec": requested_codec,
+                        "negotiated_codec": "",
+                        "reason": "fixture_request_sha256_mismatch",
+                        "server_fixture_request_sha256": fixture_replay.request_sha256,
+                    }
+                ),
+            )
+            return
+        if hello.get("fixture_response_sha256") != fixture_replay.response_sha256:
+            _write_frame(
+                conn,
+                _json_bytes(
+                    {
+                        "accepted": False,
+                        "codec": requested_codec,
+                        "negotiated_codec": "",
+                        "reason": "fixture_response_sha256_mismatch",
+                        "server_fixture_response_sha256": fixture_replay.response_sha256,
+                    }
+                ),
+            )
+            return
+
     codec, negotiation, session_templates = _server_negotiate(hello)
     if not codec:
         _write_frame(
@@ -482,6 +627,15 @@ def server_once(
                 "server_tail_pause_ms": tail_pause_ms,
                 "session_template_count": len(session_templates),
                 "session_template_sha256": aiwire_session_templates_sha256(session_templates),
+                "fixture_replay": fixture_requested,
+                "fixture_corpus": fixture_replay.path if fixture_replay else "",
+                "fixture_schema": fixture_replay.schema if fixture_replay else "",
+                "fixture_exchange_count": fixture_replay.exchange_count if fixture_replay else 0,
+                "fixture_session_template_mode": (
+                    fixture_replay.session_template_mode if fixture_replay else ""
+                ),
+                "fixture_request_sha256": fixture_replay.request_sha256 if fixture_replay else "",
+                "fixture_response_sha256": fixture_replay.response_sha256 if fixture_replay else "",
                 "aiwire_negotiation": negotiation,
             }
         ),
@@ -521,7 +675,15 @@ def server_once(
         raw_request_bytes += len(request)
         _update_digest(request_digest, request)
 
-        response = _response_for(index, request)
+        if fixture_requested:
+            assert fixture_replay is not None
+            fixture_index = index % fixture_replay.exchange_count
+            expected_request = fixture_replay.request_frames[fixture_index]
+            if hashlib.sha256(request).hexdigest() != hashlib.sha256(expected_request).hexdigest():
+                raise RuntimeError(f"fixture request verification failed at exchange {index}")
+            response = fixture_replay.response_frames[fixture_index]
+        else:
+            response = _response_for(index, request)
         raw_response_bytes += len(response)
         _update_digest(response_digest, response)
 
@@ -552,6 +714,9 @@ def server_once(
                 "jitter_ms": jitter_ms,
                 "tail_pause_probability": tail_pause_probability,
                 "tail_pause_ms": tail_pause_ms,
+                "fixture_replay": fixture_requested,
+                "fixture_corpus": fixture_replay.path if fixture_replay else "",
+                "fixture_exchange_count": fixture_replay.exchange_count if fixture_replay else 0,
                 "server_decompress_ms": server_decompress_ns / 1_000_000,
                 "server_compress_ms": server_compress_ns / 1_000_000,
                 "request_sha256": request_digest.hexdigest(),
@@ -562,6 +727,14 @@ def server_once(
 
 
 def run_server(args: argparse.Namespace) -> None:
+    fixture_replay = (
+        _load_fixture_replay_corpus(
+            args.fixture_corpus,
+            session_template_mode=args.fixture_session_templates,
+        )
+        if args.fixture_corpus
+        else None
+    )
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((args.host, args.port))
@@ -579,6 +752,7 @@ def run_server(args: argparse.Namespace) -> None:
                     tail_pause_probability=args.tail_pause_probability,
                     tail_pause_ms=args.tail_pause_ms,
                     impairment_seed=args.impairment_seed,
+                    fixture_replay=fixture_replay,
                 )
 
 
@@ -586,6 +760,7 @@ def _client_stress_codec(
     codec: str,
     frames: list[bytes],
     args: argparse.Namespace,
+    fixture_replay: FixtureReplayCorpus | None = None,
 ) -> dict[str, Any]:
     duration_mode = args.seconds > 0
     agent_count = max(1, args.agent_count)
@@ -593,7 +768,11 @@ def _client_stress_codec(
     aggregate_pipeline_window = agent_count * per_agent_pipeline_window
     session_templates: tuple[tuple[int, str], ...] = ()
     if codec in AIWIRE_NEGOTIATED_CODECS:
-        session_templates = _client_session_templates(args, frames)
+        session_templates = _client_session_templates(
+            args,
+            frames,
+            fixture_replay=fixture_replay,
+        )
     hello: dict[str, Any] = {
         "codec": codec,
         "exchanges": 0 if duration_mode else args.exchanges,
@@ -607,7 +786,19 @@ def _client_stress_codec(
         "agent_count": agent_count,
         "per_agent_pipeline_window": per_agent_pipeline_window,
         "aggregate_pipeline_window": aggregate_pipeline_window,
+        "fixture_replay": fixture_replay is not None,
     }
+    if fixture_replay is not None:
+        hello.update(
+            {
+                "fixture_corpus": fixture_replay.path,
+                "fixture_schema": fixture_replay.schema,
+                "fixture_exchange_count": fixture_replay.exchange_count,
+                "fixture_session_template_mode": fixture_replay.session_template_mode,
+                "fixture_request_sha256": fixture_replay.request_sha256,
+                "fixture_response_sha256": fixture_replay.response_sha256,
+            }
+        )
     if codec in AIWIRE_NEGOTIATED_CODECS:
         hello.update(
             {
@@ -640,6 +831,8 @@ def _client_stress_codec(
         handshake_ms = (time.perf_counter_ns() - connect_start) / 1_000_000
         if not ack.get("accepted"):
             raise RuntimeError(f"{codec} stress negotiation failed: {ack}")
+        if fixture_replay is not None and not ack.get("fixture_replay"):
+            raise RuntimeError(f"{codec} fixture replay was not accepted by server: {ack}")
 
         negotiated_codec = ack["negotiated_codec"]
         session = CodecSession(
@@ -679,6 +872,12 @@ def _client_stress_codec(
                 frames[sent_exchanges % len(frames)] if duration_mode else frames[sent_exchanges]
             )
             request_sha = hashlib.sha256(request).hexdigest()
+            expected_response_sha256 = None
+            if fixture_replay is not None:
+                fixture_index = sent_exchanges % fixture_replay.exchange_count
+                expected_response_sha256 = hashlib.sha256(
+                    fixture_replay.response_frames[fixture_index]
+                ).hexdigest()
             exchange_start = time.perf_counter_ns()
 
             raw_request_bytes += len(request)
@@ -689,7 +888,14 @@ def _client_stress_codec(
             client_compress_ns += time.perf_counter_ns() - start
             request_wire_bytes += len(wire_request)
             out_writer.write(wire_request)
-            outstanding.append(InFlightRequest(sent_exchanges, request_sha, exchange_start))
+            outstanding.append(
+                InFlightRequest(
+                    sent_exchanges,
+                    request_sha,
+                    expected_response_sha256,
+                    exchange_start,
+                )
+            )
             sent_exchanges += 1
 
         def receive_next() -> None:
@@ -702,11 +908,18 @@ def _client_stress_codec(
             completed_ns = time.perf_counter_ns()
 
             expected = outstanding.popleft()
-            response_json = json.loads(response)
-            if response_json["request"]["sha256"] != expected.sha256:
-                raise RuntimeError(
-                    f"{codec} response verification failed at exchange {expected.index}"
-                )
+            if expected.expected_response_sha256 is not None:
+                if hashlib.sha256(response).hexdigest() != expected.expected_response_sha256:
+                    raise RuntimeError(
+                        f"{codec} fixture response verification failed "
+                        f"at exchange {expected.index}"
+                    )
+            else:
+                response_json = json.loads(response)
+                if response_json["request"]["sha256"] != expected.sha256:
+                    raise RuntimeError(
+                        f"{codec} response verification failed at exchange {expected.index}"
+                    )
 
             raw_response_bytes += len(response)
             _update_digest(response_digest, response)
@@ -792,6 +1005,16 @@ def _client_stress_codec(
             if codec in AIWIRE_NEGOTIATED_CODECS
             else ""
         ),
+        "fixture_replay": fixture_replay is not None,
+        "fixture_corpus": ack.get("fixture_corpus", ""),
+        "fixture_schema": ack.get("fixture_schema", ""),
+        "fixture_exchange_count": ack.get("fixture_exchange_count", 0),
+        "fixture_session_template_mode": ack.get("fixture_session_template_mode", ""),
+        "fixture_request_sha256": ack.get("fixture_request_sha256", ""),
+        "fixture_response_sha256": ack.get("fixture_response_sha256", ""),
+        "response_verification": (
+            "fixture_sha256" if fixture_replay is not None else "request_sha256"
+        ),
         "agent_count": agent_count,
         "per_agent_pipeline_window": per_agent_pipeline_window,
         "aggregate_pipeline_window": aggregate_pipeline_window,
@@ -850,13 +1073,39 @@ def _client_stress_codec(
 
 
 def run_client(args: argparse.Namespace) -> None:
-    frames = build_ai_wire_messages(args.exchanges, args.seed)
+    fixture_replay = (
+        _load_fixture_replay_corpus(
+            args.fixture_corpus,
+            session_template_mode=args.fixture_session_templates,
+        )
+        if args.fixture_corpus
+        else None
+    )
+    if fixture_replay is not None:
+        frames = (
+            list(fixture_replay.request_frames)
+            if args.seconds > 0
+            else _repeat_frames(fixture_replay.request_frames, args.exchanges)
+        )
+    else:
+        frames = build_ai_wire_messages(args.exchanges, args.seed)
     results = []
     for codec in args.codecs.split(","):
         codec = codec.strip()
-        results.append(_client_stress_codec(codec, frames, args))
+        results.append(_client_stress_codec(codec, frames, args, fixture_replay))
 
-    output = {"results": results}
+    output: dict[str, Any] = {"results": results}
+    if fixture_replay is not None:
+        output["fixture_replay"] = {
+            "fixture_corpus": fixture_replay.path,
+            "fixture_schema": fixture_replay.schema,
+            "fixture_session_count": fixture_replay.session_count,
+            "fixture_exchange_count": fixture_replay.exchange_count,
+            "fixture_session_template_mode": fixture_replay.session_template_mode,
+            "fixture_session_template_count": len(fixture_replay.session_templates),
+            "fixture_request_sha256": fixture_replay.request_sha256,
+            "fixture_response_sha256": fixture_replay.response_sha256,
+        }
     print(json.dumps(output, indent=2, sort_keys=True))
     if args.output:
         Path(args.output).write_text(json.dumps(output, indent=2, sort_keys=True) + "\n")
@@ -893,6 +1142,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="maximum extra delay for tail-pause events",
     )
     server.add_argument("--impairment-seed", type=int, default=1729)
+    server.add_argument(
+        "--fixture-corpus",
+        type=Path,
+        help=(
+            "replay and verify requests/responses from a public AIWire fixture corpus; "
+            f"for example {DEFAULT_FIXTURE_CORPUS}"
+        ),
+    )
+    server.add_argument(
+        "--fixture-session-templates",
+        choices=("none", "initial", "updated"),
+        default="updated",
+        help="fixture session-template set to advertise during AIWire handshakes",
+    )
     server.set_defaults(func=run_server)
 
     client = sub.add_parser("client")
@@ -957,6 +1220,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=1,
         help="logical agents sharing the session; aggregate window is agent-count * pipeline-window",
+    )
+    client.add_argument(
+        "--fixture-corpus",
+        type=Path,
+        help=(
+            "replay and verify requests/responses from a public AIWire fixture corpus; "
+            f"for example {DEFAULT_FIXTURE_CORPUS}"
+        ),
+    )
+    client.add_argument(
+        "--fixture-session-templates",
+        choices=("none", "initial", "updated"),
+        default="updated",
+        help="fixture session-template set to advertise during AIWire handshakes",
     )
     client.add_argument("--output")
     client.set_defaults(func=run_client)

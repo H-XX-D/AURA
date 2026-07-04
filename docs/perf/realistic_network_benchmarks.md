@@ -111,6 +111,29 @@ round-trip tests across machines.
 Current snapshot:
 [AIWire Fixture Bandwidth Saturation](aiwire_fixture_saturation_2026-07-04.md)
 
+## Replay The Public Fixture Over Live TCP
+
+The stress harness can replay the committed public fixture corpus over a real
+length-prefixed TCP connection. In this mode, the client declares fixture
+request/response digests during the handshake, the server rejects mismatched
+corpora, and the client verifies replayed responses by SHA-256.
+
+```bash
+PYTHONPATH=src python tools/run_aiwire_network_suite.py \
+  --profiles lan_10m,wifi_busy,lte_good,edge_mesh \
+  --seconds 5 \
+  --exchanges 36 \
+  --agent-count 64 \
+  --codecs raw,zlib,aiwire,aitoken_aiwire \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --force-session-templates \
+  --output /tmp/aura_aiwire_fixture_tcp_suite.json
+```
+
+For a single manual profile, add the same fixture flags to both the server and
+client commands.
+
 ## Run One Manual Profile Across Machines
 
 Start the server using the server-side profile values:

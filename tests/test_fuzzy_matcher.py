@@ -533,10 +533,10 @@ def test_real_world_log_messages():
 
     matcher = FuzzyMatcher(min_similarity=0.85, max_distance=30)
 
-    text = "2023-10-29 14:30:25 [INFO] User john.doe logged in from 192.168.1.100"
+    text = "2023-10-29 14:30:25 [INFO] User john.doe logged in from 192.0.2.100"
     patterns = [
-        "2023-10-29 14:30:26 [INFO] User john.doe logged in from 192.168.1.100",  # Timestamp diff
-        "2023-10-29 14:30:25 [INFO] User jane.smith logged in from 192.168.1.101",  # User diff
+        "2023-10-29 14:30:26 [INFO] User john.doe logged in from 192.0.2.100",  # Timestamp diff
+        "2023-10-29 14:30:25 [INFO] User jane.smith logged in from 192.0.2.101",  # User diff
         "2023-10-29 14:30:25 [ERROR] System error occurred",  # Completely different
     ]
 
@@ -558,8 +558,8 @@ def test_compression_ratio_estimate():
 
     matcher = FuzzyMatcher(min_similarity=0.85)
 
-    text = "User logged in at 2023-10-29 14:30:25 from IP 192.168.1.100"
-    templates = ["User logged in at 2023-10-29 14:30:26 from IP 192.168.1.101"]
+    text = "User logged in at 2023-10-29 14:30:25 from IP 192.0.2.100"
+    templates = ["User logged in at 2023-10-29 14:30:26 from IP 192.0.2.101"]
 
     result = matcher.compress_similar_message(text, templates)
 

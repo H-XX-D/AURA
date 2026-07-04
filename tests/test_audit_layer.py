@@ -48,7 +48,7 @@ def test_audit_entry_creation():
         event_type="compress_success",
         user_id="user123",
         session_id="sess_abc",
-        source_ip="192.168.1.100",
+        source_ip="192.0.2.100",
         method="BRIO",
         original_size=1000,
         compressed_size=400,
@@ -67,7 +67,7 @@ def test_audit_entry_creation():
     assert entry.event_type == "compress_success"
     assert entry.user_id == "user123"
     assert entry.session_id == "sess_abc"
-    assert entry.source_ip == "192.168.1.100"
+    assert entry.source_ip == "192.0.2.100"
     assert entry.method == "BRIO"
     assert entry.original_size == 1000
     assert entry.compressed_size == 400
@@ -207,7 +207,7 @@ def test_insert_and_query_operations():
                 event_type="compress_success" if i % 2 == 0 else "decompress_success",
                 user_id=f"user{i % 2}",
                 session_id=f"sess_{i // 2}",
-                source_ip="192.168.1.100",
+                source_ip="192.0.2.100",
                 method="BRIO" if i % 2 == 0 else "BRIO_FULL",
                 original_size=1000 * (i + 1),
                 compressed_size=400 * (i + 1),
@@ -287,7 +287,7 @@ def test_security_event_logging():
                 "event_type": "unauthorized_access",
                 "severity": "ERROR",
                 "user_id": "attacker123",
-                "source_ip": "10.0.0.50",
+                "source_ip": "198.51.100.50",
                 "description": "Failed authentication attempt",
                 "metadata": {"attempts": 3},
             },
@@ -296,7 +296,7 @@ def test_security_event_logging():
                 "event_type": "rate_limit_exceeded",
                 "severity": "WARNING",
                 "user_id": "user456",
-                "source_ip": "192.168.1.200",
+                "source_ip": "192.0.2.200",
                 "description": "User exceeded API rate limit",
                 "metadata": {"limit": 100, "requests": 150},
             },
@@ -319,7 +319,7 @@ def test_security_event_logging():
         assert results[0][2] == "unauthorized_access"  # event_type
         assert results[0][3] == "ERROR"  # severity
         assert results[0][4] == "attacker123"  # user_id
-        assert results[0][5] == "10.0.0.50"  # source_ip
+        assert results[0][5] == "198.51.100.50"  # source_ip
         print(f"✅ Security event verified: {results[0][2]} from {results[0][5]}")
 
         db.close()
@@ -344,7 +344,7 @@ def test_aggregate_metrics():
                 event_type="compress_success",
                 user_id=f"user{i}",
                 session_id=f"sess_{i}",
-                source_ip="192.168.1.100",
+                source_ip="192.0.2.100",
                 method="BRIO" if i < 5 else "BRIO_FULL",
                 original_size=1000 * (i + 1),
                 compressed_size=400 * (i + 1),
@@ -415,7 +415,7 @@ def test_compression_auditor_facade():
             result=compressed_data,
             user_id="user123",
             session_id="sess_abc",
-            source_ip="192.168.1.100",
+            source_ip="192.0.2.100",
             metadata={"file": "test.txt"},
         )
 
@@ -469,7 +469,7 @@ def test_compression_auditor_facade():
             severity=AuditLevel.WARNING,
             description="Unusual compression pattern detected",
             user_id="user123",
-            source_ip="192.168.1.100",
+            source_ip="192.0.2.100",
             metadata={"pattern": "repetitive"},
         )
 

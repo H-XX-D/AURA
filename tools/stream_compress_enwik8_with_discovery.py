@@ -7,6 +7,7 @@ Stream compress enwik8 with BINARY_SEMANTIC compression and pattern discovery
 """
 
 import json
+import os
 import sys
 import time
 from datetime import datetime
@@ -294,14 +295,20 @@ def stream_compress_with_discovery(input_path: str, chunk_size: int = 100) -> Di
 
 
 def main():
-    input_file = "/Users/hendrixx./Downloads/enwik8"
+    input_file = os.getenv("AURA_ENWIK8_PATH", "enwik8")
     chunk_size = 100  # 100-byte chunks for optimal template discovery
 
     if len(sys.argv) > 1:
-        try:
+        if sys.argv[1].isdigit():
             chunk_size = int(sys.argv[1])
+        else:
+            input_file = sys.argv[1]
+
+    if len(sys.argv) > 2:
+        try:
+            chunk_size = int(sys.argv[2])
         except ValueError:
-            print(f"Invalid chunk size: {sys.argv[1]}, using default {chunk_size}")
+            print(f"Invalid chunk size: {sys.argv[2]}, using default {chunk_size}")
 
     stats = stream_compress_with_discovery(input_file, chunk_size=chunk_size)
 

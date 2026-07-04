@@ -402,7 +402,7 @@ audit = AuditService(
 # OAuth2 authentication
 audit.configure_oauth2(
     client_id="aura-client",
-    client_secret="secret",
+    client_secret=os.getenv("AURA_OAUTH_CLIENT_SECRET"),
     token_url="https://auth.aura.com/oauth2/token"
 )
 

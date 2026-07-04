@@ -154,7 +154,7 @@ def test_mixed_network_payloads_preserve_content(compression_env: Dict[str, obje
             "JSON API request",
         ),
         (
-            "[2025-03-22T02:15:01Z] WARN: Rate limit exceeded for IP 192.168.1.8, user 2048",
+            "[2025-03-22T02:15:01Z] WARN: Rate limit exceeded for IP 192.0.2.8, user 2048",
             "Structured log line",
         ),
         (

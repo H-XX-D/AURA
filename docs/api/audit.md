@@ -395,7 +395,7 @@ soc2_audit = {
   "data_size": 1024,
   "compression_ratio": 2.5,
   "method": "hybrid_brc",
-  "ip_address": "192.168.1.100",
+  "ip_address": "192.0.2.100",
   "user_agent": "AURA-Client/2.0",
   "metadata": {
     "template_used": true,

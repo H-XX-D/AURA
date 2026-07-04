@@ -165,7 +165,7 @@ def test_realistic_data():
     encoder = BrioEncoder()
     decoder = BrioDecoder()
 
-    test_text = "API REQUEST user=1001 action=login timestamp=2025-11-02T10:30:00Z status=success latency=45ms region=us-east device=mobile ip=192.168.1.100"
+    test_text = "API REQUEST user=1001 action=login timestamp=2025-11-02T10:30:00Z status=success latency=45ms region=us-east device=mobile ip=192.0.2.100"
     print(f"Text: {test_text}")
     print(f"Original size: {len(test_text)} bytes")
 

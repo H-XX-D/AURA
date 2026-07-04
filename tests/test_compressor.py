@@ -135,9 +135,9 @@ def test_template_compression():
         compressor.template_library.add(template_id, "User {0} logged in from {1}")
 
         # Compress with template
-        text = "User alice logged in from 192.168.1.1"
+        text = "User alice logged in from 192.0.2.1"
         compressed, method, metadata = compressor.compress(
-            text, template_id=template_id, slots=["alice", "192.168.1.1"]
+            text, template_id=template_id, slots=["alice", "192.0.2.1"]
         )
 
         assert method == CompressionMethod.BINARY_SEMANTIC

@@ -337,7 +337,7 @@ from aura_compression import ProductionHybridCompressor
 
 compressor = ProductionHybridCompressor()
 compressed, method, metadata = compressor.compress_with_template(
-    1000, ["john_doe", "192.168.1.100"]
+    1000, ["john_doe", "192.0.2.100"]
 )
 ```
 

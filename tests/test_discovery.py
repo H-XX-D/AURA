@@ -125,11 +125,11 @@ def test_ngram_miner_extraction():
     miner = NGramMiner(min_ngram_length=10, max_ngram_length=50)
 
     messages = [
-        "User alice logged in from 192.168.1.1",
-        "User bob logged in from 192.168.1.2",
-        "User charlie logged in from 192.168.1.3",
-        "User dave logged in from 10.0.0.1",
-        "User eve logged in from 10.0.0.2",
+        "User alice logged in from 192.0.2.1",
+        "User bob logged in from 192.0.2.2",
+        "User charlie logged in from 192.0.2.3",
+        "User dave logged in from 198.51.100.1",
+        "User eve logged in from 198.51.100.2",
     ]
 
     ngrams = miner.extract_ngrams(messages, min_frequency=3)

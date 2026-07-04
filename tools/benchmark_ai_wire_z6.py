@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import random
 import socket
 import struct
 import time
@@ -31,7 +30,9 @@ from aura_compression.ai_wire import (
     AI_WIRE_VERSION,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    build_ai_wire_messages,
     build_aiwire_handshake,
+    encode_ai_wire_message,
     negotiate_aiwire_handshake,
 )
 from aura_compression.brio_full import BrioDecoder, BrioEncoder
@@ -41,7 +42,7 @@ U32 = struct.Struct("!I")
 
 
 def _json_bytes(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return encode_ai_wire_message(value)
 
 
 def _write_frame(sock: socket.socket, payload: bytes) -> None:
@@ -86,308 +87,13 @@ def _make_aura(cache_dir: str) -> ProductionHybridCompressor:
 
 
 def build_ai_messages(count: int, seed: int = 1729) -> list[bytes]:
-    """Build realistic protocol-shaped AI/agent messages.
+    """Build encoded protocol-shaped AI/agent messages.
 
-    Shapes are based on common agent traffic: model requests, tool calls,
-    JSON-RPC tool invocations, agent task messages, tool results, and handoffs.
+    Compatibility wrapper for older benchmark callers; the shared corpus
+    generator lives in aura_compression.ai_wire_messages.
     """
 
-    rng = random.Random(seed)
-    tools = ["web_search", "read_file", "write_patch", "run_shell", "vector_lookup"]
-    agents = ["planner", "researcher", "coder", "reviewer", "executor", "summarizer"]
-    repos = ["payments-api", "retrieval-worker", "aura-bridge", "policy-gateway"]
-    cities = ["Austin", "Seattle", "San Jose", "Chicago", "Boston", "Denver"]
-    messages: list[bytes] = []
-
-    for i in range(count):
-        tool = tools[i % len(tools)]
-        agent = agents[i % len(agents)]
-        repo = repos[i % len(repos)]
-        city = cities[i % len(cities)]
-        trace_id = f"trace-{seed}-{i:05d}"
-        task_id = f"task-{(i // 4):04d}"
-        call_id = f"call_{i:06d}"
-        variant = i % 12
-
-        if variant == 0:
-            payload = {
-                "protocol": "openai.responses",
-                "operation": "responses.create",
-                "trace_id": trace_id,
-                "model": "gpt-4.1-mini",
-                "input": [
-                    {
-                        "role": "system",
-                        "content": "You are the planner agent. Produce executable subgoals and request tools only when needed.",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Investigate latency regression in {repo} for the {city} deployment.",
-                    },
-                ],
-                "tools": [
-                    {
-                        "type": "function",
-                        "name": "search_logs",
-                        "description": "Search structured service logs by query and time range.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "service": {"type": "string"},
-                                "query": {"type": "string"},
-                                "since_minutes": {"type": "integer"},
-                            },
-                            "required": ["service", "query"],
-                        },
-                    }
-                ],
-                "metadata": {"tenant": "bench", "task_id": task_id, "priority": i % 5},
-            }
-        elif variant == 1:
-            payload = {
-                "protocol": "openai.responses",
-                "type": "response.output_item.done",
-                "trace_id": trace_id,
-                "item": {
-                    "type": "function_call",
-                    "call_id": call_id,
-                    "name": tool,
-                    "arguments": {
-                        "repository": repo,
-                        "path": f"services/{repo}/src/handler_{i % 9}.py",
-                        "query": f"timeout OR retry OR p95 city:{city}",
-                        "limit": 20 + (i % 7),
-                    },
-                },
-            }
-        elif variant == 2:
-            payload = {
-                "protocol": "mcp",
-                "jsonrpc": "2.0",
-                "id": i,
-                "method": "tools/call",
-                "params": {
-                    "name": tool,
-                    "arguments": {
-                        "session_id": task_id,
-                        "uri": f"repo://{repo}/services/{agent}/config.yaml",
-                        "line_start": 10 + i % 40,
-                        "line_end": 35 + i % 80,
-                    },
-                },
-            }
-        elif variant == 3:
-            payload = {
-                "protocol": "mcp",
-                "jsonrpc": "2.0",
-                "id": i,
-                "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"{agent} found repeated retry budget exhaustion in {repo}; next action is patch validation.",
-                        }
-                    ],
-                    "isError": False,
-                    "structuredContent": {
-                        "matches": [
-                            {
-                                "file": f"{repo}/handler.py",
-                                "line": 42 + j,
-                                "score": round(0.91 - j * 0.07, 3),
-                            }
-                            for j in range(3)
-                        ],
-                        "trace_id": trace_id,
-                    },
-                },
-            }
-        elif variant == 4:
-            payload = {
-                "protocol": "a2a",
-                "jsonrpc": "2.0",
-                "id": i,
-                "method": "message/send",
-                "params": {
-                    "message": {
-                        "messageId": f"msg-{i:06d}",
-                        "role": "user",
-                        "parts": [
-                            {
-                                "kind": "text",
-                                "text": f"Agent {agent}, produce a remediation plan for {repo} using only verified evidence.",
-                            }
-                        ],
-                        "metadata": {"trace_id": trace_id, "task_id": task_id},
-                    }
-                },
-            }
-        elif variant == 5:
-            payload = {
-                "protocol": "a2a",
-                "jsonrpc": "2.0",
-                "id": i,
-                "result": {
-                    "id": task_id,
-                    "contextId": f"ctx-{i // 12:04d}",
-                    "status": {
-                        "state": "working" if i % 3 else "completed",
-                        "message": {
-                            "role": "agent",
-                            "parts": [
-                                {
-                                    "kind": "text",
-                                    "text": f"{agent} completed evidence pass {i % 5}; confidence={0.72 + (i % 9) / 100:.2f}",
-                                }
-                            ],
-                        },
-                    },
-                    "artifacts": [
-                        {
-                            "artifactId": f"artifact-{i:06d}",
-                            "name": "diagnostic-summary",
-                            "parts": [
-                                {
-                                    "kind": "text",
-                                    "text": "p95 latency increased after retry fanout change",
-                                }
-                            ],
-                        }
-                    ],
-                },
-            }
-        elif variant == 6:
-            payload = {
-                "protocol": "agent.trace",
-                "event": "plan.created",
-                "trace_id": trace_id,
-                "agent": agent,
-                "task": {
-                    "id": task_id,
-                    "objective": f"Reduce {repo} tail latency without increasing error budget burn.",
-                    "constraints": [
-                        "no schema migration",
-                        "rollback must be single commit",
-                        "verify with replay",
-                    ],
-                    "subgoals": [
-                        "read deployment diff",
-                        "inspect retry policy",
-                        "run focused load probe",
-                        "draft patch",
-                    ],
-                },
-            }
-        elif variant == 7:
-            payload = {
-                "protocol": "agent.handoff",
-                "from": "planner",
-                "to": agent,
-                "trace_id": trace_id,
-                "handoff": {
-                    "task_id": task_id,
-                    "working_memory": {
-                        "facts": [
-                            f"{repo} p95 increased in {city}",
-                            "no database saturation observed",
-                            "retry fanout changed in latest deploy",
-                        ],
-                        "open_questions": [
-                            "does circuit breaker trip before retry budget?",
-                            "are cache misses correlated with provider region?",
-                        ],
-                    },
-                    "requested_output_schema": {
-                        "type": "object",
-                        "required": ["finding", "evidence", "next_action", "confidence"],
-                    },
-                },
-            }
-        elif variant == 8:
-            payload = {
-                "protocol": "tool.result",
-                "trace_id": trace_id,
-                "tool_call_id": call_id,
-                "name": tool,
-                "ok": True,
-                "elapsed_ms": 18 + (i % 37),
-                "output": {
-                    "rows": [
-                        {
-                            "timestamp": f"2026-06-29T18:{(i + j) % 60:02d}:{(11 + j) % 60:02d}Z",
-                            "service": repo,
-                            "level": "WARN" if j % 2 else "INFO",
-                            "message": f"retry budget consumed for shard={j} city={city} attempt={1 + j}",
-                        }
-                        for j in range(5)
-                    ]
-                },
-            }
-        elif variant == 9:
-            payload = {
-                "protocol": "memory.write",
-                "trace_id": trace_id,
-                "kind": "observation",
-                "title": f"{repo} retry fanout suspected",
-                "body": f"{agent} observed matching latency spike and retry count increase in {city}.",
-                "confidence": round(0.74 + (i % 11) / 100, 3),
-                "evidence": {
-                    "source_refs": [
-                        f"logs://{repo}/{city}/{i % 24:02d}",
-                        f"repo://{repo}/deploy/{i % 13}",
-                    ],
-                    "supports": [],
-                    "contradicts": [],
-                },
-            }
-        elif variant == 10:
-            payload = {
-                "protocol": "agent.review",
-                "trace_id": trace_id,
-                "reviewer": "reviewer",
-                "patch": {
-                    "repo": repo,
-                    "files_changed": [
-                        f"services/{repo}/retry.py",
-                        f"services/{repo}/tests/test_retry_policy.py",
-                    ],
-                    "diff_summary": [
-                        "cap retry fanout per upstream request",
-                        "add histogram bucket for retry exhaustion",
-                        "preserve existing timeout envelope",
-                    ],
-                },
-                "verdict": "request_changes" if i % 4 == 0 else "approve",
-                "comments": [
-                    {
-                        "line": 58,
-                        "severity": "medium",
-                        "text": "Add replay test for retry budget boundary.",
-                    },
-                    {"line": 91, "severity": "low", "text": "Name the metric with service prefix."},
-                ],
-            }
-        else:
-            payload = {
-                "protocol": "agent.final",
-                "trace_id": trace_id,
-                "task_id": task_id,
-                "agent": "summarizer",
-                "status": "completed",
-                "answer": {
-                    "summary": f"Root cause likely retry fanout in {repo}; mitigation is bounded retries plus replay verification.",
-                    "actions": [
-                        {"owner": "coder", "action": "apply retry cap", "state": "ready"},
-                        {"owner": "executor", "action": "run canary replay", "state": "queued"},
-                    ],
-                    "confidence": round(0.81 + (i % 13) / 100, 3),
-                },
-            }
-
-        messages.append(_json_bytes(payload))
-
-    rng.shuffle(messages)
-    return messages
+    return build_ai_wire_messages(count=count, seed=seed)
 
 
 def batch_messages(messages: list[bytes], batch_size: int) -> list[bytes]:

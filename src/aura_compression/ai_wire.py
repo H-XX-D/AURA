@@ -17,7 +17,16 @@ import sys
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from types import TracebackType
+from typing import Any, Iterable
+
+from .ai_wire_messages import (
+    AIWireFrame,
+    build_ai_wire_messages,
+    build_structured_ai_messages,
+    decode_ai_wire_message,
+    encode_ai_wire_message,
+)
 
 AI_WIRE_VERSION = 1
 AI_WIRE_SUPPORTED_VERSIONS = (AI_WIRE_VERSION,)
@@ -671,6 +680,14 @@ class AIWireStats:
     def ratio(self) -> float:
         return self.bytes_in / self.bytes_out if self.bytes_out else 0.0
 
+    @property
+    def average_bytes_in(self) -> float:
+        return self.bytes_in / self.frames if self.frames else 0.0
+
+    @property
+    def average_bytes_out(self) -> float:
+        return self.bytes_out / self.frames if self.frames else 0.0
+
 
 class AIWireSessionEncoder:
     """Stateful encoder for ordered AI-to-AI message frames."""
@@ -725,8 +742,19 @@ class AIWireSessionEncoder:
             bytes_out=self._bytes_out,
         )
 
-    def compress_frame(self, payload: bytes | str) -> bytes:
-        raw = payload.encode("utf-8") if isinstance(payload, str) else bytes(payload)
+    def __enter__(self) -> "AIWireSessionEncoder":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
+
+    def compress_frame(self, payload: AIWireFrame) -> bytes:
+        raw = encode_ai_wire_message(payload)
         if self._native is not None:
             compressed = self._native.compress_frame(raw)
         else:
@@ -737,8 +765,14 @@ class AIWireSessionEncoder:
         self._bytes_out += len(compressed)
         return compressed
 
-    def compress_frames(self, frames: Iterable[bytes | str]) -> list[bytes]:
+    def compress_frames(self, frames: Iterable[AIWireFrame]) -> list[bytes]:
         return [self.compress_frame(frame) for frame in frames]
+
+    def compress_message(self, message: AIWireFrame) -> bytes:
+        return self.compress_frame(message)
+
+    def compress_messages(self, messages: Iterable[AIWireFrame]) -> list[bytes]:
+        return self.compress_frames(messages)
 
     def close(self) -> None:
         if self._native is not None:
@@ -787,6 +821,17 @@ class AIWireSessionDecoder:
             bytes_out=self._bytes_out,
         )
 
+    def __enter__(self) -> "AIWireSessionDecoder":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
+
     def decompress_frame(self, payload: bytes) -> bytes:
         if self._native is not None:
             restored = self._native.decompress_frame(payload)
@@ -803,6 +848,12 @@ class AIWireSessionDecoder:
     def decompress_frames(self, frames: Iterable[bytes]) -> list[bytes]:
         return [self.decompress_frame(frame) for frame in frames]
 
+    def decompress_message(self, payload: bytes) -> Any:
+        return decode_ai_wire_message(self.decompress_frame(payload))
+
+    def decompress_messages(self, frames: Iterable[bytes]) -> list[Any]:
+        return [self.decompress_message(frame) for frame in frames]
+
     def close(self) -> None:
         if self._native is not None:
             self._native.close()
@@ -810,7 +861,7 @@ class AIWireSessionDecoder:
 
 
 def compress_ai_wire_frames(
-    frames: Iterable[bytes | str],
+    frames: Iterable[AIWireFrame],
     *,
     level: int = AI_WIRE_DEFAULT_LEVEL,
     use_static_dictionary: bool = True,
@@ -821,8 +872,11 @@ def compress_ai_wire_frames(
         use_static_dictionary=use_static_dictionary,
         use_native=use_native,
     )
-    compressed = encoder.compress_frames(frames)
-    return compressed, encoder.stats
+    try:
+        compressed = encoder.compress_frames(frames)
+        return compressed, encoder.stats
+    finally:
+        encoder.close()
 
 
 def decompress_ai_wire_frames(
@@ -835,5 +889,8 @@ def decompress_ai_wire_frames(
         use_static_dictionary=use_static_dictionary,
         use_native=use_native,
     )
-    restored = decoder.decompress_frames(frames)
-    return restored, decoder.stats
+    try:
+        restored = decoder.decompress_frames(frames)
+        return restored, decoder.stats
+    finally:
+        decoder.close()

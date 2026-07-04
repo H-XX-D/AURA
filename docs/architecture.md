@@ -1,599 +1,223 @@
-# AURA Compression System Architecture
+# AURA Architecture
 
-## Overview
+AURA is a Python-first compression research codebase with one clear current
+product direction: **AIWire for high-volume structured AI-to-AI messages**.
 
-AURA is a modular hybrid compression framework designed for AI-to-AI communication and structured data. The system uses a layered architecture with pluggable compression methods, template discovery, and intelligent routing.
+The repo still contains broader hybrid compression components. Those are useful
+for experiments and large-message research, but the most validated path today is
+the AIWire session codec.
 
-**Current Status**: Alpha (v2.0.1)
-**Python Version**: 3.8+
-**External Dependencies**: None (runtime)
+## Design Goal
 
----
+AI-to-AI systems move many small structured messages:
 
-## System Architecture
+- JSON-RPC requests and responses
+- Tool calls and tool results
+- Task state updates
+- Agent handoffs
+- Trace, review, and memory messages
+- Schema-shaped model inputs and outputs
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     User Application Layer                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              ProductionHybridCompressor (Main API)               │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  • compress(data) → (compressed, method, metadata)        │  │
-│  │  • decompress(compressed) → original                      │  │
-│  │  • discover_templates(data) → templates                   │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-            ┌─────────────────┼─────────────────┐
-            ▼                 ▼                 ▼
-    ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-    │   Template    │ │  Compression  │ │   Metadata    │
-    │   Service     │ │   Strategy    │ │  Sidechannel  │
-    │               │ │   Manager     │ │               │
-    └───────────────┘ └───────────────┘ └───────────────┘
-            │                 │                 │
-            ▼                 ▼                 ▼
-    ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-    │   Template    │ │  Compression  │ │    Router     │
-    │   Discovery   │ │    Engine     │ │               │
-    └───────────────┘ └───────────────┘ └───────────────┘
-            │                 │                 │
-            ▼                 ▼                 ▼
-    ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-    │  Persistent   │ │  ML Algorithm │ │  Background   │
-    │    Cache      │ │   Selector    │ │   Workers     │
-    │   (SQLite)    │ │   (Future)    │ │               │
-    └───────────────┘ └───────────────┘ └───────────────┘
-                              │
-            ┌─────────────────┼─────────────────────────┐
-            ▼                 ▼                         ▼
-    ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐
-    │Binary        │  │  AuraLite    │  │  Pattern Semantic    │
-    │Semantic      │  │  (LZ77+Huff) │  │  (Large Files)       │
-    └──────────────┘  └──────────────┘  └──────────────────────┘
-            ▼                 ▼                         ▼
-    ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐
-    │  BRIO        │  │ AURA_HEAVY   │  │   Uncompressed       │
-    │(Dict+LZ+rANS)│  │ (Hybrid)     │  │                      │
-    └──────────────┘  └──────────────┘  └──────────────────────┘
+These messages are verbose, repetitive, and usually exchanged by systems that
+control both ends of the link. AURA uses that structure instead of treating each
+frame as unrelated text.
+
+## High-Level Shape
+
+```text
+Application / agent runtime
+        |
+        v
+Structured messages
+MCP, A2A, OpenAI tool calls, local agent traces
+        |
+        v
+AIWire session codec
+canonical JSON -> static AI dictionary -> live deflate history
+        |
+        v
+Normal network transport
+TCP, HTTP, WebSocket, local LAN, broker frame, file stream
 ```
 
----
+The rest of the repository supports adjacent research:
 
-## Core Components
-
-### 1. ProductionHybridCompressor
-**File**: [`src/aura_compression/compressor_refactored.py`](../src/aura_compression/compressor_refactored.py)
-
-The main entry point and orchestrator for all compression operations.
-
-**Responsibilities**:
-- API facade for compression/decompression
-- Component initialization and lifecycle management
-- Method selection coordination
-- Fast-path optimization for hot paths
-
-**Key Methods**:
-```python
-compress(data: bytes | str) → (bytes, CompressionMethod, dict)
-decompress(data: bytes) → bytes
-discover_templates(data: str) → List[Template]
+```text
+General payloads
+        |
+        v
+ProductionHybridCompressor
+strategy selection, templates, metadata, BRIO, AURA-Lite, large-file paths
+        |
+        v
+Experimental containers and analysis tools
 ```
 
-**Configuration Options**:
-- `binary_advantage_threshold`: Minimum compression ratio to use binary semantic (default: 1.01)
-- `enable_aura`: Enable experimental AURA_HEAVY method
-- `enable_ml_selection`: Use ML-based method selection (requires training)
-- `enable_audit_logging`: Enable compliance audit trail
-- `template_cache_size`: LRU cache size for templates (default: 128)
+## AIWire
 
----
+Primary files:
 
-### 2. Compression Strategy Manager
-**File**: [`src/aura_compression/compression_strategy_manager.py`](../src/aura_compression/compression_strategy_manager.py)
-**Size**: 1,032 lines (⚠️ needs refactoring)
+- [`src/aura_compression/ai_wire.py`](../src/aura_compression/ai_wire.py)
+- [`src/aura_compression/ai_wire_messages.py`](../src/aura_compression/ai_wire_messages.py)
+- [`tests/test_ai_wire.py`](../tests/test_ai_wire.py)
+- [`tools/stress_ai_wire_roundtrip_z6.py`](../tools/stress_ai_wire_roundtrip_z6.py)
 
-Intelligent routing system that selects the optimal compression method for each message.
+AIWire provides:
 
-**Responsibilities**:
-- Analyze data characteristics (entropy, patterns, size)
-- Score available compression methods
-- Select optimal method based on heuristics
-- Cache scoring decisions for performance
+- A stable protocol identity: `aura.aiwire`
+- A versioned handshake shape
+- A static dictionary tuned for AI protocol fields
+- Stateful session compression across frames
+- Canonical JSON helpers for structured Python mappings
+- Python encode/decode path using zlib
+- Optional native backend loading through `libaura_aiwire`
+- Stats for bytes in, bytes out, frame count, and ratio
 
-**Selection Heuristics**:
-1. **Size-based routing**:
-   - `< 100 bytes`: Prefer uncompressed or AuraLite
-   - `100-1000 bytes`: Consider Binary Semantic if templates match
-   - `> 1MB`: Route to Pattern Semantic for large files
+### Why It Works
 
-2. **Content analysis**:
-   - High entropy (>7.0): Prefer BRIO or uncompressed
-   - Repetitive patterns: Binary Semantic
-   - Structured data (JSON/XML): Template-based methods
+Generic zlib per frame pays setup cost every message and loses history after
+each frame. AIWire keeps the useful history across a session and starts with a
+dictionary containing common AI protocol terms.
 
-3. **Template availability**:
-   - Template match >80%: Binary Semantic
-   - Partial match 30-80%: Partial compression
-   - No match: Fall back to traditional methods
+This matters for fields such as:
 
-**Performance**:
-- Metric caching with 256-entry LRU
-- Fast path for repeated similar messages
-- Lazy evaluation of expensive metrics
-
----
-
-### 3. Template Service
-**File**: [`src/aura_compression/template_service.py`](../src/aura_compression/template_service.py)
-
-Manages template discovery, storage, and matching.
-
-**Responsibilities**:
-- Template storage and retrieval
-- Full and partial template matching
-- Template synchronization with persistent cache
-- Fuzzy matching for similar templates
-
-**Components**:
-- **TemplateManager**: In-memory template operations
-- **TemplateLibrary**: Core template storage and matching
-- **TemplateDiscovery**: Automatic template extraction from data streams
-- **PersistentCache**: SQLite-backed template persistence
-
-**Template Matching**:
-- Full match: Entire message matches a template
-- Partial match: Substring matches with leftover handling
-- Fuzzy match: Similar templates with edit distance
-
----
-
-### 4. Compression Engine
-**File**: [`src/aura_compression/compression_engine.py`](../src/aura_compression/compression_engine.py)
-
-Low-level compression/decompression implementation for all methods.
-
-**Responsibilities**:
-- Execute compression with selected method
-- Execute decompression with method auto-detection
-- Handle format versioning and compatibility
-- Provide method-specific optimizations
-
-**Supported Methods**:
-1. **BINARY_SEMANTIC (0x00)**: Template-based semantic compression
-2. **AURALITE (0x01)**: LZ77 + Huffman coding
-3. **BRIO (0x02)**: Dictionary + LZ77 + rANS entropy coding
-4. **AURA_HEAVY (0x04)**: Hybrid semantic + traditional (experimental)
-5. **PATTERN_SEMANTIC (0x20)**: Pattern-based compression for large files
-6. **UNCOMPRESSED (0xFF)**: Pass-through for incompressible data
-
-**Format**:
-```
-[1 byte: method] [4 bytes: original_size] [N bytes: compressed_data]
+```text
+jsonrpc, method, params, result, error, message, parts, metadata,
+trace_id, task_id, tool_call_id, arguments, status, artifacts
 ```
 
----
+On the local LAN benchmark, AIWire moved more verified request/response
+exchanges than raw JSON and stateless zlib under the same modeled bandwidth.
+See [AI-to-AI LAN Benchmark](perf/ai_to_ai_lan_benchmark_2026-07-04.md).
 
-### 5. Metadata Sidechannel
-**File**: [`src/aura_compression/metadata_sidechannel.py`](../src/aura_compression/metadata_sidechannel.py)
+## Structured Message Helpers
 
-Enables processing compressed data without full decompression.
+`ai_wire_messages.py` keeps test and benchmark traffic realistic without tying
+the core codec to one vendor.
 
-**Responsibilities**:
-- Extract metadata from compressed messages
-- Classify message urgency (CRITICAL, HIGH, NORMAL, LOW)
-- Security screening (SAFE, REVIEW, BLOCKED)
-- Route messages based on metadata
+Important functions:
 
-**Use Cases**:
-- Message routing without decompression overhead
-- Priority queue management
-- Security filtering at compression boundary
-- Logging and monitoring
+- `encode_ai_wire_message(message)`: converts bytes, strings, or mappings into
+  canonical UTF-8 bytes.
+- `decode_ai_wire_message(payload)`: decodes JSON payload bytes into Python
+  values.
+- `build_structured_ai_messages(count, seed)`: generates protocol-shaped test
+  messages.
+- `build_ai_wire_messages(count, seed)`: generates encoded benchmark frames.
 
-**Metadata Extraction**:
-- Message category and priority
-- Template ID (if template-based)
-- Compression method and ratio
-- Security classification
-- Timestamp and sequence info
+The generated corpus currently includes OpenAI-style responses, MCP tool calls,
+A2A messages, traces, handoffs, reviews, and memory writes.
 
----
+## Handshake Model
 
-### 6. Pattern Semantic Compressor
-**File**: [`src/aura_compression/pattern_semantic_large_file.py`](../src/aura_compression/pattern_semantic_large_file.py)
+AIWire peers should agree on:
 
-Specialized compressor for large files (>1MB) with repeating patterns.
+- Protocol name
+- Supported versions
+- Static dictionary hash
+- Compression level
+- Flush mode
+- Fallback codecs, when fallback is allowed
 
-**Responsibilities**:
-- Semantic chunking of large files
-- Regex-based pattern recognition
-- Dictionary-based compression
-- Context-aware encoding
+The dictionary hash matters because the encoder and decoder must use the same
+static dictionary. A mismatch should fail closed unless the caller explicitly
+allows fallback to another codec.
 
-**Approach**:
-1. Split file into semantic chunks (functions, JSON objects, etc.)
-2. Extract common patterns using regex
-3. Build frequency-based dictionary
-4. Encode with pattern references + zlib
+## General Hybrid Compressor
 
-**Best For**:
-- Source code files
-- Log files with repeating patterns
-- Large JSON/XML documents
-- Configuration files
+Primary files:
 
-**Performance**:
-- Typical ratio: 5:1 to 50:1+ (highly data-dependent)
-- Memory usage: ~2-3x file size during compression
-- Not suitable for streaming (loads entire file)
+- [`src/aura_compression/compressor.py`](../src/aura_compression/compressor.py)
+- [`src/aura_compression/compressor_refactored.py`](../src/aura_compression/compressor_refactored.py)
+- [`src/aura_compression/compression_engine.py`](../src/aura_compression/compression_engine.py)
+- [`src/aura_compression/compression_strategy_manager.py`](../src/aura_compression/compression_strategy_manager.py)
 
----
+This path coordinates broader compression strategies:
 
-### 7. ML Algorithm Selector
-**File**: [`src/aura_compression/ml_algorithm_selector.py`](../src/aura_compression/ml_algorithm_selector.py)
-**Size**: 1,023 lines (⚠️ needs refactoring)
-**Status**: ⚠️ Future feature - requires training data
+- Binary semantic templates
+- AURA-Lite
+- BRIO / BRIO Full
+- Pattern semantic large-file compression
+- Metadata sidechannel classification
+- Persistent template cache
+- Optional CUDA/native helpers
 
-Machine learning system for compression method selection.
+Use this path for experiments with structured text, logs, and larger payloads.
+Do not assume it is faster or smaller for small AI messages. The 2026-07-04
+benchmark showed the generic path is currently CPU-bound and near-neutral on
+small per-frame AI JSON.
 
-**Responsibilities**:
-- Feature extraction from messages
-- ML-based method prediction
-- Performance tracking and retraining
-- A/B testing of selection strategies
+## Metadata Sidechannel
 
-**Current Status**:
-- Framework implemented but not trained
-- Feature extraction works
-- Prediction defaults to heuristic fallback
-- Requires real-world training data to be effective
+Primary files:
 
-**Features Extracted**:
-- Message size distribution
-- Entropy and compression characteristics
-- Structural patterns (JSON, XML, etc.)
-- Historical compression performance
-- Template match likelihood
+- [`src/aura_compression/metadata_sidechannel.py`](../src/aura_compression/metadata_sidechannel.py)
+- [`docs/perf/metadata_sidechannel.md`](perf/metadata_sidechannel.md)
 
----
+The metadata sidechannel is a research feature for routing and inspecting
+compressed traffic without full decompression. It is useful for:
 
-### 8. Router
-**File**: [`src/aura_compression/router.py`](../src/aura_compression/router.py)
+- Priority routing
+- Security screening
+- Message category classification
+- Operational monitoring
 
-Network-aware compression routing based on transport characteristics.
+This is adjacent to AIWire but not required for the basic AIWire session codec.
 
-**Responsibilities**:
-- Select compression based on network conditions
-- Optimize for latency vs throughput tradeoffs
-- TCP vs UDP-aware routing
-- Adaptive compression for varying bandwidth
+## Large-File Path
 
-**Routing Rules**:
-- **Low latency networks**: Prefer faster methods (AuraLite)
-- **High bandwidth**: Use maximum compression (BRIO, AURA_HEAVY)
-- **Lossy networks**: Include redundancy/checksums
-- **TCP**: More aggressive compression (BRIO threshold: 1000 bytes)
-- **UDP**: Smaller chunks, faster methods
+Primary files:
 
----
+- [`tools/compress_large_file.py`](../tools/compress_large_file.py)
+- [`src/aura_compression/pattern_semantic_large_file.py`](../src/aura_compression/pattern_semantic_large_file.py)
 
-### 9. Background Workers
-**File**: [`src/aura_compression/background_workers.py`](../src/aura_compression/background_workers.py)
+The large-file tooling is for local experiments with chunking, templates, and
+container metadata. It is not the main AI-to-AI message path.
 
-Asynchronous task processing for non-blocking operations.
+## Transport Boundary
 
-**Responsibilities**:
-- Template discovery in background
-- Persistent cache synchronization
-- Performance metric collection
-- Audit log writing
+AURA does not require a special network. It produces compressed frames that can
+be carried by normal transports:
 
-**Workers**:
-1. **TemplateDiscoveryWorker**: Continuous template mining
-2. **CacheSyncWorker**: Periodic SQLite synchronization
-3. **AuditLogWorker**: Async audit trail writing
-4. **MetricCollectionWorker**: Performance telemetry
+- Raw TCP frame streams
+- WebSocket messages
+- HTTP request/response bodies
+- Server-Sent Events payloads
+- Local broker messages
+- Files or replay logs
 
-**Status**: ⚠️ Framework exists but workers not actively used in current implementation
+Security belongs at the transport/application boundary. For LAN services, bind
+only to intended interfaces, authenticate peers, and avoid exposing local debug
+ports unintentionally.
 
----
+## Verification
 
-### 10. Persistent Cache
-**File**: [`src/aura_compression/persistent_cache.py`](../src/aura_compression/persistent_cache.py)
+Focused AIWire checks:
 
-SQLite-backed storage for templates and compression state.
-
-**Responsibilities**:
-- Template persistence across restarts
-- Template metadata storage
-- Usage statistics tracking
-- Legacy JSON cache migration
-
-**Schema**:
-```sql
-CREATE TABLE templates (
-    template_id INTEGER PRIMARY KEY,
-    pattern TEXT NOT NULL,
-    usage_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP,
-    last_used TIMESTAMP
-)
+```bash
+PYTHONPATH=src pytest tests/test_ai_wire.py -q
 ```
 
-**Features**:
-- WAL mode for concurrent access
-- Automatic schema migration
-- Corruption recovery
-- Export/import for sharing
+Full test suite:
 
----
-
-## Compression Methods
-
-### Binary Semantic (0x00)
-Template-based compression using learned patterns.
-
-**Algorithm**:
-1. Match message against template library
-2. Extract variable slots
-3. Encode: `[template_id][slot_count][slot1_len][slot1_data]...`
-4. Add metadata header
-
-**Best For**: Structured messages with high repetition
-**Typical Ratio**: 10:1 to 100:1 for templated data
-**Speed**: Very fast (template lookup + slot encoding)
-
-### AuraLite (0x01)
-LZ77 sliding window + Huffman coding.
-
-**Algorithm**:
-1. LZ77 for back-references (32KB window)
-2. Huffman coding for literals and lengths
-3. Compact encoding of distances
-
-**Best For**: Small to medium messages with local repetition
-**Typical Ratio**: 2:1 to 5:1
-**Speed**: Fast (optimized for <10KB messages)
-
-### BRIO (0x02)
-Dictionary + LZ77 + rANS entropy coding.
-
-**Algorithm**:
-1. Dictionary encoding for common words/tokens
-2. LZ77 for sequence repetition
-3. rANS for final entropy coding
-4. Multi-pass optimization
-
-**Best For**: Medium to large messages with mixed patterns
-**Typical Ratio**: 3:1 to 15:1
-**Speed**: Moderate (more thorough than AuraLite)
-
-### AURA_HEAVY (0x04)
-Experimental hybrid semantic + traditional compression.
-
-**Algorithm**:
-1. Semantic analysis and chunking
-2. Template extraction per chunk
-3. Dictionary building across chunks
-4. Multi-method compression per chunk
-5. Optimal method selection
-
-**Best For**: Maximum compression regardless of speed
-**Typical Ratio**: 5:1 to 20:1
-**Speed**: Slow (experimental, heavy analysis)
-**Status**: ⚠️ Experimental - disabled by default
-
-### Pattern Semantic (0x20)
-Pattern-based compression for large files.
-
-**Algorithm**:
-1. Semantic chunking (preserve structure)
-2. Regex pattern extraction
-3. Frequency-based dictionary
-4. Pattern reference encoding
-5. zlib compression of residuals
-
-**Best For**: Large files (>1MB) with patterns
-**Typical Ratio**: 5:1 to 50:1+ (highly variable)
-**Speed**: Slow (full file processing)
-
----
-
-## Data Flow
-
-### Compression Path
-
-```
-1. Input Data (bytes/str)
-        ↓
-2. Metadata Extraction (optional)
-   - Extract priority, category, security
-        ↓
-3. Fast Path Check
-   - Check cache for known patterns
-   - Return cached result if hit
-        ↓
-4. Strategy Selection
-   - Analyze data characteristics
-   - Score available methods
-   - Select optimal method
-        ↓
-5. Template Matching (if applicable)
-   - Check template library
-   - Full match → Binary Semantic
-   - Partial match → Partial compression
-   - No match → Traditional methods
-        ↓
-6. Compression Engine
-   - Execute selected method
-   - Add format header
-   - Validate output
-        ↓
-7. Metadata Enrichment
-   - Add compression ratio
-   - Add method info
-   - Add template ID (if used)
-        ↓
-8. Output (compressed_bytes, method, metadata)
+```bash
+pytest -q
 ```
 
-### Decompression Path
+Formatting:
 
-```
-1. Input (compressed_bytes)
-        ↓
-2. Header Parsing
-   - Extract method byte
-   - Extract original size
-   - Validate format
-        ↓
-3. Method Routing
-   - Route to appropriate decoder
-        ↓
-4. Decompression Engine
-   - Execute method-specific decompression
-   - Template substitution (if Binary Semantic)
-   - LZ77 expansion (if AuraLite/BRIO)
-   - Pattern expansion (if Pattern Semantic)
-        ↓
-5. Validation
-   - Check size matches header
-   - Verify data integrity
-        ↓
-6. Output (original_bytes)
+```bash
+uvx black --check src/aura_compression tests tools/stress_ai_wire_roundtrip_z6.py
+uvx isort --check-only src/aura_compression tests tools/stress_ai_wire_roundtrip_z6.py
 ```
 
----
+## Current Risk Areas
 
-## Performance Characteristics
-
-### Compression Speed
-- **Binary Semantic**: ~50-100 MB/s (template lookup)
-- **AuraLite**: ~20-40 MB/s (LZ77 + Huffman)
-- **BRIO**: ~10-20 MB/s (dictionary + LZ77 + rANS)
-- **AURA_HEAVY**: ~1-5 MB/s (heavy analysis)
-- **Pattern Semantic**: ~5-15 MB/s (large files)
-
-### Decompression Speed
-- **All methods**: 2-5x faster than compression
-- **Binary Semantic**: ~100-200 MB/s (template expansion)
-- **No method overhead** > 1ms for messages < 10KB
-
-### Memory Usage
-- **Base**: ~5-10 MB (template cache + buffers)
-- **Per message**: ~2-4x message size during compression
-- **Template cache**: Configurable (default: 128 templates)
-- **Pattern Semantic**: ~2-3x file size for large files
-
-### Latency Targets
-- **Fast path**: < 0.1 ms (cached patterns)
-- **Binary Semantic**: < 0.5 ms (small messages)
-- **AuraLite/BRIO**: < 2 ms (< 10KB messages)
-- **Pattern Semantic**: No real-time guarantee (large files)
-
----
-
-## Extension Points
-
-### Adding a New Compression Method
-
-1. **Define enum** in [`enums.py`](../src/aura_compression/enums.py):
-```python
-class CompressionMethod(Enum):
-    MY_METHOD = 0x30
-```
-
-2. **Implement in CompressionEngine** ([`compression_engine.py`](../src/aura_compression/compression_engine.py)):
-```python
-def _compress_my_method(self, data: bytes) -> bytes:
-    # Your compression logic
-    return compressed_data
-
-def _decompress_my_method(self, data: bytes) -> bytes:
-    # Your decompression logic
-    return original_data
-```
-
-3. **Add to strategy manager** ([`compression_strategy_manager.py`](../src/aura_compression/compression_strategy_manager.py)):
-```python
-def _score_my_method(self, data: bytes, metrics: dict) -> float:
-    # Return score 0.0-1.0
-    return score
-```
-
-4. **Add tests** in `tests/test_my_method.py`
-
-### Adding a New Template Matcher
-
-Extend [`templates.py`](../src/aura_compression/templates.py):
-```python
-class MyTemplateMatcher:
-    def match(self, data: str) -> Optional[TemplateMatch]:
-        # Your matching logic
-        return match
-```
-
----
-
-## Configuration
-
-### Environment Variables
-- `AURA_ENABLE_EXPERIMENTAL`: Enable AURA_HEAVY (default: false)
-- `AURA_TEMPLATE_CACHE_DIR`: Template cache location (default: .aura_cache)
-- `AURA_LOG_LEVEL`: Logging level (default: INFO)
-
-### Runtime Configuration
-Pass to `ProductionHybridCompressor.__init__()`:
-- `binary_advantage_threshold`: Compression ratio threshold
-- `enable_ml_selection`: Use ML selector (requires training)
-- `enable_audit_logging`: Enable audit trail
-- `template_cache_size`: LRU cache size
-
----
-
-## Known Limitations
-
-1. **Large file memory usage**: Pattern Semantic loads entire file (not streaming)
-2. **ML selector needs training**: Framework exists but requires real-world data
-3. **God classes**: 2 files >1000 lines need refactoring
-4. **No formal benchmarks**: Performance claims based on internal testing
-5. **No multi-language support**: Python only (C/Rust extensions planned)
-6. **Small message overhead**: Messages <100 bytes may expand
-
----
-
-## Future Roadmap
-
-### Short-term (v2.1)
-- [ ] Refactor god classes (compression_strategy_manager, ml_algorithm_selector)
-- [ ] Add test coverage metrics
-- [ ] Streaming API for large files
-- [ ] Formal benchmark suite
-
-### Medium-term (v2.5)
-- [ ] Train ML algorithm selector
-- [ ] Add Rust extensions for hot paths
-- [ ] Multi-language bindings (C API)
-- [ ] Production deployment guide
-
-### Long-term (v3.0)
-- [ ] Distributed template synchronization
-- [ ] Hardware acceleration (SIMD, GPU)
-- [ ] Pre-trained models for common data types
-- [ ] Real-time adaptive compression
-
----
-
-## References
-
-- **Repository**: https://github.com/H-XX-D/AURA
-- **License**: Apache 2.0 (see [LICENSE](../LICENSE))
-- **Python Version**: 3.8+
-- **Status**: Alpha (not production-ready)
-
-**Last Updated**: 2025-10-31
-**Version**: 2.0.1
+- AIWire v1 needs a frozen frame/handshake spec before other projects depend on
+  it.
+- Native backend support needs reproducible builds and ARM64 performance checks.
+- The general hybrid compressor has more experimental surface than production
+  hardening.
+- Public docs and benchmark reports should avoid host-specific private details.
+- Cross-version dictionary compatibility needs explicit tests before long-lived
+  deployments.

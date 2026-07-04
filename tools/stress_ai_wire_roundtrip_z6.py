@@ -30,10 +30,12 @@ from aura_compression.ai_wire import (
     AI_WIRE_DEFAULT_LEVEL,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    build_ai_wire_messages,
     build_aiwire_handshake,
+    encode_ai_wire_message,
     negotiate_aiwire_handshake,
 )
-from tools.benchmark_ai_wire_z6 import build_ai_messages
+from aura_compression.compressor_refactored import ProductionHybridCompressor
 
 U32 = struct.Struct("!I")
 
@@ -150,7 +152,7 @@ class AsyncFrameWriter:
 
 
 def _json_bytes(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return encode_ai_wire_message(value)
 
 
 def _write_frame(sock: socket.socket, payload: bytes) -> None:
@@ -176,6 +178,19 @@ def _read_frame(sock: socket.socket) -> bytes:
 
 def _configure_low_latency(sock: socket.socket) -> None:
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+
+def _make_aura(cache_dir: str) -> ProductionHybridCompressor:
+    return ProductionHybridCompressor(
+        enable_aura=True,
+        enable_audit_logging=False,
+        enable_fast_path=True,
+        enable_sidechain=False,
+        enable_scorer=False,
+        enable_ml_selection=False,
+        template_sync_interval_seconds=None,
+        template_cache_dir=cache_dir,
+    )
 
 
 def _update_digest(digest: "hashlib._Hash", payload: bytes) -> None:
@@ -249,21 +264,30 @@ def _response_for(index: int, request: bytes) -> bytes:
 class CodecSession:
     codec: str
     level: int = AI_WIRE_DEFAULT_LEVEL
+    cache_dir: str = "/tmp/aura-aiwire-stress-cache"
 
     def __post_init__(self) -> None:
         self.encoder: AIWireSessionEncoder | None = None
         self.decoder: AIWireSessionDecoder | None = None
+        self.aura: ProductionHybridCompressor | None = None
         self.backend = self.codec
         if self.codec == "aiwire":
             self.encoder = AIWireSessionEncoder(level=self.level)
             self.decoder = AIWireSessionDecoder()
             self.backend = self.encoder.backend
+        elif self.codec == "aura":
+            self.aura = _make_aura(self.cache_dir)
+            self.backend = "aura"
 
     def encode(self, payload: bytes) -> bytes:
         if self.codec == "raw":
             return payload
         if self.codec == "zlib":
             return zlib.compress(payload, 3)
+        if self.codec == "aura":
+            assert self.aura is not None
+            compressed, _method, _meta = self.aura.compress(payload.decode("utf-8"))
+            return compressed
         if self.codec == "aiwire":
             assert self.encoder is not None
             return self.encoder.compress_frame(payload)
@@ -274,6 +298,10 @@ class CodecSession:
             return payload
         if self.codec == "zlib":
             return zlib.decompress(payload)
+        if self.codec == "aura":
+            assert self.aura is not None
+            restored = self.aura.decompress(payload)
+            return restored.encode("utf-8") if isinstance(restored, str) else bytes(restored)
         if self.codec == "aiwire":
             assert self.decoder is not None
             return self.decoder.decompress_frame(payload)
@@ -306,6 +334,7 @@ def _server_negotiate(hello: dict[str, Any]) -> tuple[str, dict[str, Any] | None
 
 def server_once(
     conn: socket.socket,
+    cache_dir: str = "/tmp/aura-aiwire-stress-server-cache",
     link_mbps: float = 0.0,
     one_way_delay_ms: float = 0.0,
     jitter_ms: float = 0.0,
@@ -333,7 +362,11 @@ def server_once(
         )
         return
 
-    session = CodecSession(codec=codec, level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)))
+    session = CodecSession(
+        codec=codec,
+        level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)),
+        cache_dir=cache_dir,
+    )
     _write_frame(
         conn,
         _json_bytes(
@@ -425,6 +458,7 @@ def run_server(args: argparse.Namespace) -> None:
                 _configure_low_latency(conn)
                 server_once(
                     conn,
+                    cache_dir=args.cache_dir,
                     link_mbps=args.link_mbps,
                     one_way_delay_ms=args.one_way_delay_ms,
                     jitter_ms=args.jitter_ms,
@@ -479,7 +513,11 @@ def _client_stress_codec(
             raise RuntimeError(f"{codec} stress negotiation failed: {ack}")
 
         negotiated_codec = ack["negotiated_codec"]
-        session = CodecSession(codec=negotiated_codec, level=args.aiwire_level)
+        session = CodecSession(
+            codec=negotiated_codec,
+            level=args.aiwire_level,
+            cache_dir=args.cache_dir,
+        )
         out_writer = AsyncFrameWriter(
             sock, args.link_mbps, args.one_way_delay_ms, args.jitter_ms, args.impairment_seed
         )
@@ -613,7 +651,7 @@ def _client_stress_codec(
 
 
 def run_client(args: argparse.Namespace) -> None:
-    frames = build_ai_messages(args.exchanges, args.seed)
+    frames = build_ai_wire_messages(args.exchanges, args.seed)
     results = []
     for codec in args.codecs.split(","):
         codec = codec.strip()
@@ -633,6 +671,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     server.add_argument("--host", default="0.0.0.0")
     server.add_argument("--port", type=int, default=8910)
     server.add_argument("--runs", type=int, default=1)
+    server.add_argument("--cache-dir", default="/tmp/aura-aiwire-stress-server-cache")
     server.add_argument(
         "--link-mbps", type=float, default=0.0, help="per-direction egress rate; 0 is unlimited"
     )
@@ -651,9 +690,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     client.add_argument("--exchanges", type=int, default=5000)
     client.add_argument("--seconds", type=float, default=0.0)
     client.add_argument("--seed", type=int, default=1729)
-    client.add_argument("--codecs", default="raw,aiwire,zlib")
+    client.add_argument("--codecs", default="raw,zlib,aura,aiwire")
     client.add_argument("--aiwire-level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     client.add_argument("--allow-aiwire-fallback", action="store_true")
+    client.add_argument("--cache-dir", default="/tmp/aura-aiwire-stress-client-cache")
     client.add_argument("--timeout", type=float, default=120.0)
     client.add_argument(
         "--link-mbps", type=float, default=0.0, help="per-direction egress rate; 0 is unlimited"

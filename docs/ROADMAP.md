@@ -1,0 +1,147 @@
+# AURA Roadmap
+
+This roadmap prioritizes the path that currently has the clearest evidence:
+AIWire for high-volume structured AI-to-AI messages.
+
+## North Star
+
+AURA should make structured agent traffic cheaper to move across normal
+networks without requiring a special transport.
+
+The practical target is:
+
+```text
+more AI messages per second
+less bandwidth per conversation
+lower tail latency under bandwidth pressure
+reproducible round trips
+clear fallback when peers cannot negotiate AIWire
+```
+
+## Phase 1: Public Baseline
+
+Goal: make the repo understandable and reproducible from a fresh clone.
+
+- Keep `README.md`, `docs/architecture.md`, and this roadmap aligned around
+  the AI-to-AI use case.
+- Keep benchmark reports public-safe and free of host-specific private details.
+- Document the exact benchmark commands for local LAN reproduction.
+- Keep `tests/test_ai_wire.py` as the fast correctness gate.
+- Add small examples for raw TCP and WebSocket frame transport.
+- Publish a clear "what this is good for / not good for" section.
+
+Definition of done:
+
+- A new developer can install the repo, run the AIWire tests, and run a local
+  client/server benchmark without reading private notes.
+
+## Phase 2: AIWire v1 Hardening
+
+Goal: freeze the minimum protocol contract.
+
+- Define the AIWire v1 frame format in a dedicated spec doc.
+- Define handshake fields, accepted fallback behavior, and failure modes.
+- Add cross-version dictionary compatibility tests.
+- Add corrupted-frame and truncated-frame tests.
+- Add streaming tests with partial reads/writes.
+- Add negotiated fallback tests for `raw` and `zlib`.
+- Make stats stable enough for benchmark comparison over time.
+
+Definition of done:
+
+- AIWire v1 can be implemented by another language/runtime from the spec and
+  interoperate with the Python tests.
+
+## Phase 3: Better Message Corpora
+
+Goal: benchmark against realistic protocol-shaped data.
+
+- Expand the generated corpus for MCP requests, MCP responses, A2A tasks,
+  OpenAI tool calls, structured outputs, traces, reviews, and memory writes.
+- Add saved fixture corpora that contain no secrets or private data.
+- Track corpus size, average frame size, key distribution, and protocol mix.
+- Benchmark with small, medium, and bursty message sizes.
+- Add CI-friendly benchmark smoke tests that detect major regressions without
+  requiring a full LAN lab.
+
+Definition of done:
+
+- Benchmark numbers can be compared across commits and across machines with a
+  known corpus.
+
+## Phase 4: Native and Edge Performance
+
+Goal: make AIWire fast on workstation and ARM64 edge targets.
+
+- Make native backend builds reproducible on macOS, Linux x86_64, and Linux
+  ARM64.
+- Verify Python/native interoperability in CI where possible.
+- Profile Jetson Nano-class CPUs and remove avoidable Python overhead.
+- Add a native server mode to the benchmark harness when the backend is
+  available.
+- Compare Python AIWire, native AIWire, stateless zlib, and raw JSON under the
+  same link model.
+
+Definition of done:
+
+- ARM64 edge targets get a measurable AIWire throughput improvement over the
+  Python path while preserving byte-for-byte round trips.
+
+## Phase 5: Transport Examples
+
+Goal: show how AIWire fits into normal network stacks.
+
+- Raw TCP example with length-prefixed frames.
+- WebSocket example for browser/service use.
+- HTTP streaming or SSE example for server-pushed agent updates.
+- Local broker adapter example.
+- Replay log format for offline benchmark capture.
+
+Definition of done:
+
+- Users can place AIWire below their message protocol without changing their
+  protocol semantics.
+
+## Phase 6: Dictionary Evolution
+
+Goal: improve compression without breaking deployed peers.
+
+- Version static dictionaries explicitly.
+- Add corpus-driven dictionary generation tooling.
+- Keep a compatibility matrix for dictionary hash, protocol version, and
+  fallback codec.
+- Measure whether protocol-specific dictionaries outperform one combined
+  dictionary.
+- Add application-provided dictionary extensions for private deployments without
+  putting private terms into the public repo.
+
+Definition of done:
+
+- Dictionary upgrades are benchmarked, reversible, and negotiated safely.
+
+## Phase 7: General AURA Cleanup
+
+Goal: make the broader compression toolkit easier to trust.
+
+- Separate production-facing AIWire modules from research modules in docs.
+- Reduce duplicate compressor entry points where possible.
+- Add focused tests around template discovery and metadata sidechannel behavior.
+- Document which APIs are stable, experimental, or legacy.
+- Remove or archive stale claims that are not supported by current tests.
+
+Definition of done:
+
+- The repo no longer looks like one unfinished universal compressor; it clearly
+  presents a proven AIWire path plus experimental research areas.
+
+## Open Research Questions
+
+- How much does canonical JSON ordering help compared with schema-aware binary
+  encoding?
+- When should batching beat streaming for latency-sensitive agent traffic?
+- Can AURA metadata sidechannels route messages before decompression without
+  creating security or privacy hazards?
+- What is the best dictionary split between MCP, A2A, OpenAI, local traces, and
+  application-specific terms?
+- Does QUIC add value for this workload, or is TCP/WebSocket enough for normal
+  LAN and service deployments?

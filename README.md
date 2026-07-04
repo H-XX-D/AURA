@@ -1,27 +1,85 @@
-# AURA Compression Toolkit
+# AURA
 
-AURA is an experimental, Python-first playground for hybrid compression. It mixes
-template‑aware encoders, semantic heuristics, and audit-friendly metadata so you
-can explore how structured traffic (API chatter, AI↔AI messages, log streams)
-behaves under different strategies. The project is **not production-ready**, but
-it now ships with a lean test suite and CLI tooling that make local experiments
-straightforward.
+AURA is an experimental compression toolkit for structured AI-to-AI traffic.
+Its strongest current path is **AIWire**: a session codec for high-volume JSON
+agent messages moving over ordinary TCP, HTTP, WebSocket, or LAN links.
 
----
+The project also includes broader template, semantic, metadata, and large-file
+compression experiments. Treat those as research components. If you are trying
+to move lots of small MCP/A2A/OpenAI-style messages between agents, services,
+edge devices, and local machines, start with AIWire.
 
-## TL;DR
+## What This Is Good For
 
-|                       | Status                                                                 |
-|-----------------------|------------------------------------------------------------------------|
-| Vision                | Efficient, auditable compression tuned for repetitive, structured text |
-| Current maturity      | Alpha — safe for prototyping only                                      |
-| Runtime support       | CPython ≥ 3.10 (pure Python, no native deps)                           |
-| Test coverage         | ~44 % (core pipelines + CLI smoke tests)                               |
-| License               | Apache 2.0 (see LICENSE for patent notice)                             |
+AURA is useful when both sides of a link are under your control and the traffic
+has repeated structure:
 
----
+- Agent-to-agent request/response loops
+- Tool-call and tool-result streams
+- MCP or JSON-RPC shaped messages
+- A2A task, artifact, status, and handoff messages
+- OpenAI-style function call and Structured Outputs traffic
+- Local AI clusters where a Mac, workstation, and edge devices exchange many
+  small messages
+- Structured logs, traces, and operational events with repeated fields
 
-## Installation
+AURA is not a drop-in replacement for gzip, zstd, brotli, TLS, or a message
+broker. It is a protocol-aware compression layer for controlled environments.
+
+## Why AI-to-AI Traffic Fits
+
+Modern agent protocols repeatedly send the same control fields: `jsonrpc`, `id`,
+`method`, `params`, `result`, `error`, `message`, `parts`, `tool`, `arguments`,
+`trace_id`, `task_id`, `status`, `metadata`, and schema fragments.
+
+Stateless compression handles each frame independently and throws away useful
+history. AIWire keeps a protocol dictionary and live compression history across
+the session, which is a better match for many small structured messages.
+
+Relevant public protocol context:
+
+- [Model Context Protocol](https://modelcontextprotocol.io/specification/2025-03-26/basic)
+- [A2A specification](https://github.com/a2aproject/A2A/blob/main/docs/specification.md)
+- [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
+- [OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling)
+- [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+- [Agent Communication Protocol](https://agentcommunicationprotocol.dev/introduction/welcome)
+
+## Current Status
+
+| Area | Status |
+|---|---|
+| AIWire session codec | Working Python path, optional native backend loader |
+| Structured message helpers | Working canonical JSON encode/decode helpers |
+| AI-to-AI benchmark harness | Working LAN roundtrip benchmark tooling |
+| General AURA compressor | Alpha research path |
+| Large-file CLI | Experimental but usable for local tests |
+| Production readiness | Not production-ready; use for prototyping and measurement |
+
+The package targets CPython 3.10+.
+
+## Benchmark Snapshot
+
+On 2026-07-04, AIWire was benchmarked from a Mac client to a workstation-class
+Z6 target and four Jetson Nano-class edge targets on a local LAN. The benchmark
+modeled a 10 Mbps egress link per direction and used 5 second request/response
+windows.
+
+| Target group | raw | zlib | AIWire |
+|---|---:|---:|---:|
+| Z6 target, completed exchanges in 5s | 8,777 | 14,952 | 55,337 |
+| Z6 target, vs raw | 1.00x | 1.70x | 6.30x |
+| Nano average, completed exchanges in 5s | 8,752 | 14,951 | 20,887 |
+| Nano average, vs raw | 1.00x | 1.71x | 2.39x |
+
+Read the full report:
+[AI-to-AI LAN Benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
+
+The benchmark also showed that the generic `ProductionHybridCompressor` path is
+not the right fit for this small-message workload yet. AIWire is the intended
+AURA path for high-volume structured AI message streams.
+
+## Install
 
 ```bash
 git clone https://github.com/H-XX-D/AURA.git
@@ -31,160 +89,150 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-The `dev` extra installs `pytest`, coverage tooling, and linters.
-
----
-
-## Quick Start (Python API)
+## Quick Start: AIWire
 
 ```python
-from aura_compression.compressor_refactored import ProductionHybridCompressor
+from aura_compression import (
+    AIWireSessionDecoder,
+    AIWireSessionEncoder,
+)
+
+message = {
+    "protocol": "mcp",
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "read_file",
+        "arguments": {
+            "uri": "repo://service/path.py",
+            "line_start": 10,
+            "line_end": 30,
+        },
+    },
+}
+
+with AIWireSessionEncoder(level=3) as encoder, AIWireSessionDecoder() as decoder:
+    compressed_frame = encoder.compress_message(message)
+    restored = decoder.decompress_message(compressed_frame)
+
+assert restored == message
+print(encoder.stats.ratio)
+```
+
+For batch-style tests:
+
+```python
+from aura_compression import (
+    build_structured_ai_messages,
+    compress_ai_wire_frames,
+    decompress_ai_wire_frames,
+)
+
+messages = build_structured_ai_messages(1024)
+compressed, encode_stats = compress_ai_wire_frames(messages)
+restored, decode_stats = decompress_ai_wire_frames(compressed)
+
+assert len(restored) == len(messages)
+print(encode_stats.as_dict())
+```
+
+## Benchmarking AIWire
+
+The LAN benchmark harness can run a server on one machine and a client on
+another:
+
+```bash
+# Target machine
+PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py server --host 0.0.0.0 --port 8765
+
+# Client machine
+PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
+  --host <target-host> \
+  --port 8765 \
+  --seconds 5 \
+  --pipeline-window 128 \
+  --link-mbps 10 \
+  --codecs raw,zlib,aura,aiwire
+```
+
+Codec meanings:
+
+- `raw`: canonical structured JSON frames
+- `zlib`: stateless zlib per frame
+- `aura`: generic `ProductionHybridCompressor` per frame
+- `aiwire`: stateful AURA AIWire session codec
+
+## General Compression API
+
+The older hybrid compressor remains useful for research into templates,
+metadata, large files, and strategy selection:
+
+```python
+from aura_compression import ProductionHybridCompressor
 
 compressor = ProductionHybridCompressor(
-    enable_aura=False,          # disable background discovery worker
+    enable_aura=False,
     enable_fast_path=True,
     enable_audit_logging=False,
     template_sync_interval_seconds=None,
 )
 
-message = "Order 42: status=ready"
-payload, method, metadata = compressor.compress(message)
+payload, method, metadata = compressor.compress("Order 42: status=ready")
 restored = compressor.decompress(payload)
 
-assert restored == message
+assert restored == "Order 42: status=ready"
 print(method.name, metadata["ratio"])
 ```
 
-### When does it shine?
+Use this path for experiments. Use AIWire for AI-to-AI message streams.
 
-- You control both ends of the link (AI ↔ AI, microservices, etc.)
-- Payloads are verbose but structured (logs, JSON, templated replies)
-- You’re comfortable tuning template libraries / cache policy
+## Docs
 
-### When to avoid it
+- [Architecture](docs/architecture.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Current project context](docs/AURA_SYSTEM_CONTEXT.md)
+- [AI-to-AI LAN benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
+- [Large-file and API notes](docs/api/compressor.md)
 
-- Need wire compatibility with gzip/zstd/brotli
-- Response time budgets are tight (large-file compression is slow)
-- You cannot ship persistent template state alongside payloads
-
----
-
-## Large-File CLI
-
-The `tools/compress_large_file.py` script provides a streaming container format.
-It records chunk metadata (including template usage) so decompression works on a
-fresh machine.
+## Tests
 
 ```bash
-# Compress with a progress bar and write stats to JSON
-python tools/compress_large_file.py compress \
-  --input "/path/to/enwik8" \
-  --output "/path/to/enwik8.aura" \
-  --chunk-size 64K \
-  --progress bar \
-  --stats-format json \
-  --stats-file stats/compress.json
-
-# Round-trip integrity check without writing output
-python tools/compress_large_file.py verify \
-  --input "/path/to/enwik8.aura" \
-  --progress percent
-
-# Inspect container metadata (headers, sample chunks, template IDs)
-python tools/compress_large_file.py info \
-  --input "/path/to/enwik8.aura" \
-  --max-chunks 5 \
-  --stats-format table
+PYTHONPATH=src pytest tests/test_ai_wire.py -q
+pytest -q
 ```
 
-Key switches:
-
-| Flag               | Description                                            |
-|--------------------|--------------------------------------------------------|
-| `--chunk-size`     | Bytes or suffixed value (`256K`, `4M`, …)              |
-| `--progress`       | `auto`, `bar`, `percent`, `none`                       |
-| `--stats-format`   | `table` (default) or `json`                            |
-| `--stats-file`     | Path to persist stats output (useful in CI)            |
-
----
-
-## Synthetic Network Smoke Test
-
-To sanity-check the compressor against AI‑style traffic:
+Formatting checks used in this repo:
 
 ```bash
-pytest tests/test_network_simulation_smoke.py -q
+uvx black --check src/aura_compression tests tools/stress_ai_wire_roundtrip_z6.py
+uvx isort --check-only src/aura_compression tests tools/stress_ai_wire_roundtrip_z6.py
 ```
 
-The generator streams ~120 messages (API calls, logs, chat replies, binary blobs)
-and asserts:
+## Roadmap Summary
 
-- Round-trip fidelity for every payload
-- Multiple compression strategies selected
-- Binary semantic templates triggered at least once
-- Average compression ratio stays sensible (>0.5)
+The near-term roadmap is to harden AIWire first:
 
-Use this as a starting point when tailoring the system to your own message mix.
+- Stabilize the AIWire v1 frame and handshake contract
+- Keep benchmark reports reproducible and public-safe
+- Add more realistic MCP, A2A, OpenAI, and local agent message corpora
+- Improve ARM64/native backend performance for edge targets
+- Add transport examples for TCP, WebSocket, HTTP streaming, and local broker use
+- Define dictionary versioning and fallback behavior
 
----
-
-## Testing & Coverage
-
-```bash
-pytest -q                # fast path (~40 s)
-pytest --cov=src --cov=tools --cov-report=term-missing
-```
-
-Current suite highlights:
-
-- `tests/test_cli_utilities.py` — input parsing, progress modes, container inspection
-- `tests/test_core_components.py` — basic round-trip compressor + template matching
-- `tests/test_network_simulation_smoke.py` — synthetic AI/network workload
-
-Large areas of the codebase remain untested (BRIO internals, ML selector, legacy
-tools). Treat reported coverage as a proxy for explored functionality, not as a
-production safety net.
-
----
-
-## Roadmap Snapshot
-
-- ✅ Streamlined large-file CLI with inspect/verify subcommands
-- ✅ Lean regression tests to keep core behavior honest
-- 🔜 Refactor BRIO and ML pipelines into testable, modular units
-- 🔜 Benchmark suite vs. gzip/zstd/brotli on realistic corpora
-- 🔜 Documentation on template discovery + SQLite persistence internals
-
----
+Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Contributing
 
-1. Open an issue describing your proposal.
-2. Fork the repo and create a feature branch.
-3. Keep changes focused; add tests when practical.
-4. Run `pytest -q` before submitting your PR.
+Focused benchmarks, protocol-shaped corpora, transport examples, and tests are
+the most useful contributions right now. Keep changes narrow and include the
+message shape or benchmark output that motivated the change.
 
-Helpful areas:
+## License
 
-- Improving template discovery robustness (error handling, logging)
-- Instrumentation and profiling of large-file compression
-- Type hints / static analysis for critical modules
-- Benchmarks and data-driven comparisons
-
----
-
-## License & Patents
-
-Licensed under Apache 2.0. The project references patent-pending techniques; the
-open-source distribution grants a royalty-free license for evaluation and
-non-commercial use. See `LICENSE` for full text and obligations.
-
----
+Licensed under Apache 2.0. See [LICENSE](LICENSE).
 
 ## Contact
 
-- Author: Todd Hendricks — `todd@auraprotocol.org`
-- Issues & discussions: [GitHub Issues](https://github.com/H-XX-D/AURA/issues)
-
-If you do end up using AURA in research or prototyping, feedback on data sets,
-compression ratios, and pain points is greatly appreciated.
+- Author: Todd Hendricks
+- Issues: https://github.com/H-XX-D/AURA/issues

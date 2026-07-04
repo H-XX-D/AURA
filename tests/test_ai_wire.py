@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Tests for the AURA AI-to-AI wire codec."""
 
-import json
 import zlib
 
 import pytest
@@ -12,39 +11,19 @@ from aura_compression.ai_wire import (
     AIWireSessionDecoder,
     AIWireSessionEncoder,
     aiwire_native_status,
+    build_ai_wire_messages,
     build_aiwire_handshake,
+    build_structured_ai_messages,
     compress_ai_wire_frames,
+    decode_ai_wire_message,
     decompress_ai_wire_frames,
+    encode_ai_wire_message,
     negotiate_aiwire_handshake,
 )
 
 
 def _agent_frames(count: int = 96) -> list[bytes]:
-    frames: list[bytes] = []
-    for i in range(count):
-        payload = {
-            "protocol": "mcp" if i % 2 else "a2a",
-            "jsonrpc": "2.0",
-            "id": i,
-            "method": "tools/call" if i % 2 else "message/send",
-            "params": {
-                "name": "read_file" if i % 3 else "run_shell",
-                "arguments": {
-                    "trace_id": f"trace-{i // 4:04d}",
-                    "task_id": f"task-{i // 8:04d}",
-                    "repository": "aura-bridge",
-                    "path": f"services/agent_{i % 7}/handler.py",
-                    "query": "latency regression retry budget patch validation",
-                    "limit": 20 + i % 5,
-                },
-            },
-            "metadata": {
-                "agent": "coder" if i % 4 else "reviewer",
-                "confidence": round(0.8 + (i % 9) / 100, 3),
-            },
-        }
-        frames.append(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
-    return frames
+    return build_ai_wire_messages(count=count)
 
 
 def test_static_dictionary_is_zlib_sized() -> None:
@@ -77,6 +56,30 @@ def test_ai_wire_helpers_round_trip_string_frames() -> None:
     assert decode_stats.frames == 12
 
 
+def test_ai_wire_round_trips_structured_messages() -> None:
+    messages = build_structured_ai_messages(48, seed=9001)
+
+    compressed, encode_stats = compress_ai_wire_frames(messages)
+    restored, decode_stats = decompress_ai_wire_frames(compressed)
+
+    assert restored == [encode_ai_wire_message(message) for message in messages]
+    assert [decode_ai_wire_message(frame) for frame in restored] == messages
+    assert encode_stats.frames == len(messages)
+    assert decode_stats.frames == len(messages)
+
+
+def test_ai_wire_session_message_api_decodes_json() -> None:
+    message = build_structured_ai_messages(1)[0]
+
+    with AIWireSessionEncoder(level=3) as encoder, AIWireSessionDecoder() as decoder:
+        payload = encoder.compress_message(message)
+        restored = decoder.decompress_message(payload)
+
+    assert restored == message
+    assert encoder.stats.frames == 1
+    assert decoder.stats.frames == 1
+
+
 def test_ai_wire_stream_beats_stateless_zlib_for_agent_json() -> None:
     frames = _agent_frames()
 
@@ -86,6 +89,23 @@ def test_ai_wire_stream_beats_stateless_zlib_for_agent_json() -> None:
 
     assert aiwire_size < stateless_zlib_size
     assert stats.ratio > 4.0
+
+
+def test_ai_wire_high_volume_structured_stream_stays_compact() -> None:
+    messages = build_structured_ai_messages(1024, seed=44)
+    raw_frames = [encode_ai_wire_message(message) for message in messages]
+
+    compressed, encode_stats = compress_ai_wire_frames(messages, level=3)
+    restored, decode_stats = decompress_ai_wire_frames(compressed)
+    aiwire_size = sum(len(frame) for frame in compressed)
+    stateless_zlib_size = sum(len(zlib.compress(frame, 3)) for frame in raw_frames)
+
+    assert restored == raw_frames
+    assert aiwire_size < stateless_zlib_size
+    assert encode_stats.frames == len(messages)
+    assert decode_stats.frames == len(messages)
+    assert encode_stats.average_bytes_in > encode_stats.average_bytes_out
+    assert encode_stats.ratio > 4.0
 
 
 def test_ai_wire_handshake_accepts_matching_peer() -> None:

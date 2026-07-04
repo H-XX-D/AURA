@@ -97,19 +97,50 @@ def discover_ai_wire_session_templates(
     return templates
 
 
+def _mcp_meta(i: int) -> dict[str, Any]:
+    return {
+        "io.modelcontextprotocol/protocolVersion": "2025-11-25",
+        "io.modelcontextprotocol/clientInfo": {"name": "aura-corpus", "version": "0.1"},
+        "io.modelcontextprotocol/clientCapabilities": {
+            "roots": {"listChanged": True},
+            "sampling": {},
+            "elicitation": {},
+        },
+        "progressToken": f"progress-{i // 8:05d}",
+    }
+
+
+def _json_arguments(**values: Any) -> str:
+    return json.dumps(values, sort_keys=True, separators=(",", ":"))
+
+
+def _text_part(text: str) -> dict[str, str]:
+    return {"kind": "text", "text": text}
+
+
 def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str, Any]]:
     """Build realistic structured AI-to-AI protocol messages.
 
-    Shapes cover common agent traffic: model requests, tool calls, JSON-RPC
-    tool invocations, A2A task messages, tool results, memory writes, reviews,
-    traces, and handoffs.
+    The corpus is synthetic and public-safe, but intentionally mirrors the
+    repetitive shapes used by current AI systems: MCP JSON-RPC tool/resource
+    traffic, A2A task/message/artifact updates, OpenAI Responses tool and
+    structured-output items, and local agent runtime envelopes.
     """
 
     rng = random.Random(seed)
-    tools = ["web_search", "read_file", "write_patch", "run_shell", "vector_lookup"]
+    tools = [
+        "web_search",
+        "read_file",
+        "write_patch",
+        "run_shell",
+        "vector_lookup",
+        "search_logs",
+    ]
     agents = ["planner", "researcher", "coder", "reviewer", "executor", "summarizer"]
     repos = ["payments-api", "retrieval-worker", "aura-bridge", "policy-gateway"]
     cities = ["Austin", "Seattle", "San Jose", "Chicago", "Boston", "Denver"]
+    states = ["submitted", "working", "input_required", "completed"]
+    topics = ["latency", "retrieval", "rollout", "policy", "memory", "tooling"]
     messages: list[dict[str, Any]] = []
 
     for i in range(count):
@@ -117,10 +148,14 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
         agent = agents[i % len(agents)]
         repo = repos[i % len(repos)]
         city = cities[i % len(cities)]
+        topic = topics[i % len(topics)]
         trace_id = f"trace-{seed}-{i:05d}"
         task_id = f"task-{(i // 4):04d}"
+        context_id = f"ctx-{i // 12:04d}"
         call_id = f"call_{i:06d}"
-        variant = i % 12
+        message_id = f"msg-{i:06d}"
+        artifact_id = f"artifact-{i:06d}"
+        variant = i % 30
         payload: dict[str, Any]
 
         if variant == 0:
@@ -140,7 +175,7 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                     {
                         "role": "user",
                         "content": (
-                            f"Investigate latency regression in {repo} for the {city} "
+                            f"Investigate {topic} regression in {repo} for the {city} "
                             "deployment."
                         ),
                     },
@@ -158,9 +193,28 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                                 "since_minutes": {"type": "integer"},
                             },
                             "required": ["service", "query"],
+                            "additionalProperties": False,
                         },
                     }
                 ],
+                "text": {
+                    "format": {
+                        "type": "json_schema",
+                        "name": "agent_plan",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "finding": {"type": "string"},
+                                "evidence": {"type": "array", "items": {"type": "string"}},
+                                "next_action": {"type": "string"},
+                                "confidence": {"type": "number"},
+                            },
+                            "required": ["finding", "evidence", "next_action", "confidence"],
+                            "additionalProperties": False,
+                        },
+                    }
+                },
                 "metadata": {"tenant": "bench", "task_id": task_id, "priority": i % 5},
             }
         elif variant == 1:
@@ -169,18 +223,134 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                 "type": "response.output_item.done",
                 "trace_id": trace_id,
                 "item": {
+                    "id": f"fc_{i:06d}",
                     "type": "function_call",
                     "call_id": call_id,
                     "name": tool,
-                    "arguments": {
-                        "repository": repo,
-                        "path": f"services/{repo}/src/handler_{i % 9}.py",
-                        "query": f"timeout OR retry OR p95 city:{city}",
-                        "limit": 20 + (i % 7),
-                    },
+                    "arguments": _json_arguments(
+                        repository=repo,
+                        path=f"services/{repo}/src/handler_{i % 9}.py",
+                        query=f"timeout OR retry OR p95 city:{city}",
+                        limit=20 + (i % 7),
+                    ),
                 },
             }
         elif variant == 2:
+            payload = {
+                "protocol": "openai.responses",
+                "type": "function_call_output",
+                "trace_id": trace_id,
+                "call_id": call_id,
+                "output": _json_arguments(
+                    ok=True,
+                    rows=5,
+                    summary=f"{repo} has retry fanout warnings in {city}",
+                    elapsed_ms=18 + (i % 37),
+                ),
+            }
+        elif variant == 3:
+            payload = {
+                "protocol": "openai.responses",
+                "type": "response.completed",
+                "trace_id": trace_id,
+                "response": {
+                    "id": f"resp_{i:06d}",
+                    "status": "completed",
+                    "output": [
+                        {
+                            "type": "message",
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "type": "output_json",
+                                    "json": {
+                                        "finding": f"{topic} regression isolated in {repo}",
+                                        "evidence": [
+                                            f"logs://{repo}/{city}/{i % 24:02d}",
+                                            f"trace://{trace_id}",
+                                        ],
+                                        "next_action": "run canary replay",
+                                        "confidence": round(0.78 + (i % 10) / 100, 3),
+                                    },
+                                }
+                            ],
+                        }
+                    ],
+                },
+            }
+        elif variant == 4:
+            payload = {
+                "protocol": "openai.responses",
+                "type": "response.output_text.delta",
+                "trace_id": trace_id,
+                "response_id": f"resp_{i // 4:06d}",
+                "item_id": f"msg_{i // 3:06d}",
+                "output_index": 0,
+                "content_index": i % 6,
+                "delta": f"{agent} sees {topic} evidence in {repo}; ",
+            }
+        elif variant == 5:
+            payload = {
+                "protocol": "openai.responses",
+                "type": "response.web_search_call.completed",
+                "trace_id": trace_id,
+                "item": {
+                    "id": f"ws_{i:06d}",
+                    "type": "web_search_call",
+                    "status": "completed",
+                    "queries": [f"{repo} {topic} canary rollback"],
+                },
+                "annotations": [
+                    {
+                        "type": "url_citation",
+                        "title": "Internal synthetic incident note",
+                        "url": f"https://example.invalid/{repo}/{topic}/{i}",
+                    }
+                ],
+            }
+        elif variant == 6:
+            payload = {
+                "protocol": "mcp",
+                "jsonrpc": "2.0",
+                "id": i,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-11-25",
+                    "capabilities": {"roots": {"listChanged": True}, "sampling": {}},
+                    "clientInfo": {"name": "aura-corpus", "version": "0.1"},
+                    "_meta": _mcp_meta(i),
+                },
+            }
+        elif variant == 7:
+            payload = {
+                "protocol": "mcp",
+                "jsonrpc": "2.0",
+                "id": i,
+                "method": "tools/list",
+                "params": {"cursor": f"page-{i % 3}", "_meta": _mcp_meta(i)},
+                "result": {
+                    "resultType": "complete",
+                    "tools": [
+                        {
+                            "name": tool,
+                            "title": f"{tool.replace('_', ' ').title()} Tool",
+                            "description": f"Operate on synthetic {repo} {topic} data.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "repository": {"type": "string"},
+                                    "query": {"type": "string"},
+                                    "limit": {"type": "integer", "x-mcp-header": "limit"},
+                                },
+                                "required": ["repository", "query"],
+                            },
+                        }
+                    ],
+                    "ttlMs": 300000,
+                    "cacheScope": "public",
+                },
+            }
+        elif variant == 8:
             payload = {
                 "protocol": "mcp",
                 "jsonrpc": "2.0",
@@ -194,14 +364,16 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                         "line_start": 10 + i % 40,
                         "line_end": 35 + i % 80,
                     },
+                    "_meta": _mcp_meta(i),
                 },
             }
-        elif variant == 3:
+        elif variant == 9:
             payload = {
                 "protocol": "mcp",
                 "jsonrpc": "2.0",
                 "id": i,
                 "result": {
+                    "resultType": "complete",
                     "content": [
                         {
                             "type": "text",
@@ -225,7 +397,79 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                     },
                 },
             }
-        elif variant == 4:
+        elif variant == 10:
+            payload = {
+                "protocol": "mcp",
+                "jsonrpc": "2.0",
+                "id": i,
+                "method": "resources/read",
+                "params": {
+                    "uri": f"repo://{repo}/services/{agent}/incident.md",
+                    "_meta": _mcp_meta(i),
+                },
+                "result": {
+                    "contents": [
+                        {
+                            "uri": f"repo://{repo}/services/{agent}/incident.md",
+                            "mimeType": "text/markdown",
+                            "text": f"# {repo} {topic}\n\nSynthetic incident context for {city}.",
+                        }
+                    ]
+                },
+            }
+        elif variant == 11:
+            payload = {
+                "protocol": "mcp",
+                "jsonrpc": "2.0",
+                "id": i,
+                "method": "prompts/get",
+                "params": {
+                    "name": "incident_review",
+                    "arguments": {"repository": repo, "city": city, "topic": topic},
+                    "_meta": _mcp_meta(i),
+                },
+                "result": {
+                    "description": "Review an incident using logs, traces, and repository diffs.",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": {
+                                "type": "text",
+                                "text": f"Review {repo} {topic} regression in {city}.",
+                            },
+                        }
+                    ],
+                },
+            }
+        elif variant == 12:
+            payload = {
+                "protocol": "mcp",
+                "jsonrpc": "2.0",
+                "method": "notifications/tools/list_changed",
+                "params": {"reason": "deployment", "repository": repo, "_meta": _mcp_meta(i)},
+            }
+        elif variant == 13:
+            payload = {
+                "protocol": "mcp",
+                "jsonrpc": "2.0",
+                "id": i,
+                "method": "sampling/createMessage",
+                "params": {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": {
+                                "type": "text",
+                                "text": f"Draft a safe mitigation summary for {repo}.",
+                            },
+                        }
+                    ],
+                    "maxTokens": 192,
+                    "includeContext": "thisServer",
+                    "_meta": _mcp_meta(i),
+                },
+            }
+        elif variant == 14:
             payload = {
                 "protocol": "a2a",
                 "jsonrpc": "2.0",
@@ -233,59 +477,197 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                 "method": "message/send",
                 "params": {
                     "message": {
-                        "messageId": f"msg-{i:06d}",
+                        "messageId": message_id,
+                        "contextId": context_id,
+                        "taskId": task_id,
                         "role": "user",
                         "parts": [
+                            _text_part(
+                                f"Agent {agent}, produce a remediation plan for {repo} "
+                                "using only verified evidence."
+                            ),
                             {
-                                "kind": "text",
-                                "text": (
-                                    f"Agent {agent}, produce a remediation plan for {repo} "
-                                    "using only verified evidence."
-                                ),
-                            }
+                                "kind": "data",
+                                "data": {"repository": repo, "city": city, "topic": topic},
+                                "metadata": {"schema": "incident_input.v1"},
+                            },
                         ],
                         "metadata": {"trace_id": trace_id, "task_id": task_id},
-                    }
+                    },
+                    "configuration": {"historyLength": 6, "blocking": False},
                 },
             }
-        elif variant == 5:
+        elif variant == 15:
+            payload = {
+                "protocol": "a2a",
+                "jsonrpc": "2.0",
+                "id": i,
+                "method": "message/stream",
+                "params": {
+                    "message": {
+                        "messageId": message_id,
+                        "contextId": context_id,
+                        "role": "user",
+                        "parts": [_text_part(f"Stream status for {repo} {topic}.")],
+                    },
+                    "configuration": {"historyLength": 4, "acceptedOutputModes": ["text/plain"]},
+                },
+            }
+        elif variant == 16:
             payload = {
                 "protocol": "a2a",
                 "jsonrpc": "2.0",
                 "id": i,
                 "result": {
                     "id": task_id,
-                    "contextId": f"ctx-{i // 12:04d}",
+                    "contextId": context_id,
+                    "kind": "task",
                     "status": {
-                        "state": "working" if i % 3 else "completed",
+                        "state": states[i % len(states)],
                         "message": {
+                            "messageId": message_id,
                             "role": "agent",
                             "parts": [
-                                {
-                                    "kind": "text",
-                                    "text": (
-                                        f"{agent} completed evidence pass {i % 5}; "
-                                        f"confidence={0.72 + (i % 9) / 100:.2f}"
-                                    ),
-                                }
+                                _text_part(
+                                    f"{agent} completed evidence pass {i % 5}; "
+                                    f"confidence={0.72 + (i % 9) / 100:.2f}"
+                                )
                             ],
                         },
+                        "timestamp": f"2026-07-04T18:{i % 60:02d}:00Z",
                     },
-                    "artifacts": [
+                    "history": [],
+                    "metadata": {"trace_id": trace_id, "repository": repo},
+                },
+            }
+        elif variant == 17:
+            payload = {
+                "protocol": "a2a",
+                "event": "TaskArtifactUpdateEvent",
+                "taskId": task_id,
+                "contextId": context_id,
+                "append": True,
+                "lastChunk": i % 5 == 0,
+                "artifact": {
+                    "artifactId": artifact_id,
+                    "name": "diagnostic-summary",
+                    "parts": [
+                        _text_part("p95 latency increased after retry fanout change"),
                         {
-                            "artifactId": f"artifact-{i:06d}",
-                            "name": "diagnostic-summary",
-                            "parts": [
-                                {
-                                    "kind": "text",
-                                    "text": "p95 latency increased after retry fanout change",
-                                }
-                            ],
-                        }
+                            "kind": "data",
+                            "data": {
+                                "repository": repo,
+                                "city": city,
+                                "p95_delta_ms": 32 + (i % 9),
+                            },
+                            "metadata": {"schema": "diagnostic_summary.v1"},
+                        },
                     ],
                 },
             }
-        elif variant == 6:
+        elif variant == 18:
+            payload = {
+                "protocol": "a2a",
+                "jsonrpc": "2.0",
+                "id": i,
+                "method": "tasks/get",
+                "params": {"id": task_id, "historyLength": 10, "metadata": {"trace_id": trace_id}},
+                "result": {
+                    "id": task_id,
+                    "contextId": context_id,
+                    "status": {"state": "working"},
+                    "artifacts": [{"artifactId": artifact_id, "name": "diagnostic-summary"}],
+                },
+            }
+        elif variant == 19:
+            payload = {
+                "protocol": "a2a",
+                "event": "TaskStatusUpdateEvent",
+                "taskId": task_id,
+                "contextId": context_id,
+                "final": False,
+                "status": {
+                    "state": "input_required",
+                    "message": {
+                        "messageId": message_id,
+                        "role": "agent",
+                        "parts": [
+                            _text_part(
+                                f"Need approval before running canary replay for {repo} in {city}."
+                            )
+                        ],
+                    },
+                },
+            }
+        elif variant == 20:
+            payload = {
+                "protocol": "local.agent",
+                "schema": "local.agent.broker.envelope.v1",
+                "topic": f"agents.{agent}.inbox",
+                "partition": i % 4,
+                "offset": i,
+                "headers": {
+                    "trace_id": trace_id,
+                    "task_id": task_id,
+                    "route": f"{agent}.{topic}",
+                    "codec": "aura.aiwire",
+                },
+                "body": {
+                    "type": "command",
+                    "name": "continue_task",
+                    "arguments": {"repository": repo, "city": city, "topic": topic},
+                },
+            }
+        elif variant == 21:
+            payload = {
+                "protocol": "local.agent",
+                "schema": "local.agent.session.handshake.v1",
+                "trace_id": trace_id,
+                "peer": {"id": agent, "runtime": "python", "version": "0.1"},
+                "capabilities": {
+                    "templates": True,
+                    "delta_frames": True,
+                    "resume": True,
+                    "route_before_decompress": True,
+                },
+                "session": {
+                    "id": f"session-{seed}-{i // 8:05d}",
+                    "dictionary_epoch": i % 6,
+                    "template_sha256": f"{(seed + i) % (16 ** 8):08x}",
+                },
+            }
+        elif variant == 22:
+            payload = {
+                "protocol": "local.agent",
+                "schema": "local.agent.delta.status.v1",
+                "trace_id": trace_id,
+                "task_id": task_id,
+                "delta": {
+                    "op": "replace",
+                    "path": "/status/state",
+                    "value": states[i % len(states)],
+                    "previous": states[(i - 1) % len(states)],
+                },
+                "clock": {"lamport": i + 1000, "source": agent},
+            }
+        elif variant == 23:
+            payload = {
+                "protocol": "local.agent",
+                "schema": "local.agent.delta.tool_result.v1",
+                "trace_id": trace_id,
+                "tool_call_id": call_id,
+                "delta": {
+                    "op": "append",
+                    "path": "/tool_results/-",
+                    "value": {
+                        "name": tool,
+                        "ok": True,
+                        "elapsed_ms": 18 + (i % 37),
+                        "summary": f"{tool} found {topic} evidence for {repo}",
+                    },
+                },
+            }
+        elif variant == 24:
             payload = {
                 "protocol": "agent.trace",
                 "event": "plan.created",
@@ -307,7 +689,7 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                     ],
                 },
             }
-        elif variant == 7:
+        elif variant == 25:
             payload = {
                 "protocol": "agent.handoff",
                 "from": "planner",
@@ -332,32 +714,7 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                     },
                 },
             }
-        elif variant == 8:
-            payload = {
-                "protocol": "tool.result",
-                "trace_id": trace_id,
-                "tool_call_id": call_id,
-                "name": tool,
-                "ok": True,
-                "elapsed_ms": 18 + (i % 37),
-                "output": {
-                    "rows": [
-                        {
-                            "timestamp": (
-                                f"2026-06-29T18:{(i + j) % 60:02d}:" f"{(11 + j) % 60:02d}Z"
-                            ),
-                            "service": repo,
-                            "level": "WARN" if j % 2 else "INFO",
-                            "message": (
-                                f"retry budget consumed for shard={j} city={city} "
-                                f"attempt={1 + j}"
-                            ),
-                        }
-                        for j in range(5)
-                    ]
-                },
-            }
-        elif variant == 9:
+        elif variant == 26:
             payload = {
                 "protocol": "memory.write",
                 "trace_id": trace_id,
@@ -377,7 +734,7 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                     "contradicts": [],
                 },
             }
-        elif variant == 10:
+        elif variant == 27:
             payload = {
                 "protocol": "agent.review",
                 "trace_id": trace_id,
@@ -404,7 +761,7 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                     {"line": 91, "severity": "low", "text": "Name the metric with service prefix."},
                 ],
             }
-        else:
+        elif variant == 28:
             payload = {
                 "protocol": "agent.final",
                 "trace_id": trace_id,
@@ -421,6 +778,28 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
                         {"owner": "executor", "action": "run canary replay", "state": "queued"},
                     ],
                     "confidence": round(0.81 + (i % 13) / 100, 3),
+                },
+            }
+        else:
+            payload = {
+                "protocol": "local.agent",
+                "schema": "local.agent.route_hint.v1",
+                "trace_id": trace_id,
+                "route": {
+                    "topic": f"agents.{agent}.events",
+                    "shard": f"{repo}-{i % 4}",
+                    "priority": "high" if i % 7 == 0 else "normal",
+                    "requires_decompression": False,
+                },
+                "hash_modifiers": {
+                    "tenant": "bench",
+                    "repository": repo,
+                    "task_bucket": i // 16,
+                },
+                "control": {
+                    "kind": "session_template_update",
+                    "epoch": i % 11,
+                    "reason": "recurring message shape crossed threshold",
                 },
             }
 

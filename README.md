@@ -227,6 +227,19 @@ High-RTT profiles need enough aggregate in-flight exchanges to fill the link.
 In the stress tool, `--pipeline-window` is per logical agent, so aggregate
 in-flight work is `agent_count * pipeline_window`.
 
+## Transport Examples
+
+AIWire frames are ordinary bytes after the session handshake. The repo includes
+small examples for common transport boundaries:
+
+- [Length-prefixed TCP](examples/aiwire_tcp_transport.py)
+- [WebSocket binary messages](examples/aiwire_websocket_transport.py)
+- [HTTP POST with Server-Sent Events](examples/aiwire_http_streaming_transport.py)
+- [Local broker/topic queue](examples/aiwire_local_broker.py)
+
+Run them from the repo root with `PYTHONPATH=src`. The WebSocket example uses
+the optional `websocket` extra.
+
 ## General Compression API
 
 The older hybrid compressor remains useful for research into templates,
@@ -261,6 +274,7 @@ delta streams.
 - [Realistic network benchmarks](docs/perf/realistic_network_benchmarks.md)
 - [AI-to-AI messaging metrics](docs/perf/ai_to_ai_messaging_metrics_2026-07-04.md)
 - [AI-to-AI LAN benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
+- [Transport examples](examples/README.md)
 - [Large-file and API notes](docs/api/compressor.md)
 
 ## Tests
@@ -286,9 +300,10 @@ The near-term roadmap is to harden AIWire first:
 - Publish the AIWire v1 side-channel and delta-frame spec
 - Define the session-template update signal and delta/resync behavior
 - Keep benchmark reports reproducible and public-safe
-- Add more realistic MCP, A2A, OpenAI, and local agent message corpora
+- Keep improving realistic MCP, A2A, OpenAI, and local agent message corpora
 - Improve ARM64/native backend performance for edge targets
-- Add transport examples for TCP, WebSocket, HTTP streaming, and local broker use
+- Expand transport examples beyond the current TCP, WebSocket, HTTP streaming,
+  and local broker samples
 - Define dictionary versioning and fallback behavior
 
 Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).

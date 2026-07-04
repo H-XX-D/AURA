@@ -66,6 +66,8 @@ Goal: benchmark against realistic protocol-shaped data.
   OpenAI tool calls, structured outputs, traces, reviews, and memory writes.
 - Add delta-shaped corpora where the task/session/template is stable and only
   status, token, argument, artifact, or trace values change.
+- Keep current corpus variants aligned with public protocol shapes and mark
+  synthetic fields clearly.
 - Add saved fixture corpora that contain no secrets or private data.
 - Track corpus size, average frame size, key distribution, and protocol mix.
 - Benchmark with small, medium, and bursty message sizes.

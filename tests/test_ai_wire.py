@@ -79,6 +79,50 @@ def test_ai_wire_round_trips_structured_messages() -> None:
     assert decode_stats.frames == len(messages)
 
 
+def test_structured_ai_message_corpus_covers_protocol_families() -> None:
+    messages = build_structured_ai_messages(180, seed=9002)
+    protocols = {message["protocol"] for message in messages}
+    methods = {message.get("method") for message in messages if message.get("method")}
+    event_types = {message.get("type") for message in messages if message.get("type")}
+    schemas = {message.get("schema") for message in messages if message.get("schema")}
+
+    assert {
+        "openai.responses",
+        "mcp",
+        "a2a",
+        "local.agent",
+        "agent.trace",
+        "agent.handoff",
+        "memory.write",
+        "agent.review",
+        "agent.final",
+    }.issubset(protocols)
+    assert {
+        "initialize",
+        "tools/list",
+        "tools/call",
+        "resources/read",
+        "prompts/get",
+        "sampling/createMessage",
+        "message/send",
+        "message/stream",
+        "tasks/get",
+    }.issubset(methods)
+    assert {
+        "function_call_output",
+        "response.completed",
+        "response.output_item.done",
+        "response.output_text.delta",
+    }.issubset(event_types)
+    assert {
+        "local.agent.broker.envelope.v1",
+        "local.agent.session.handshake.v1",
+        "local.agent.delta.status.v1",
+        "local.agent.delta.tool_result.v1",
+        "local.agent.route_hint.v1",
+    }.issubset(schemas)
+
+
 def test_ai_wire_session_message_api_decodes_json() -> None:
     message = build_structured_ai_messages(1)[0]
 

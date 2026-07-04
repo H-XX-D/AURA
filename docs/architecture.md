@@ -196,11 +196,14 @@ AURA does not require a special network. It produces explicit side-channel
 handshake/update messages and compact data frames that can be carried by normal
 transports:
 
-- Raw TCP frame streams
-- WebSocket messages
-- HTTP request/response bodies
-- Server-Sent Events payloads
-- Local broker messages
+- Raw TCP frame streams:
+  [`examples/aiwire_tcp_transport.py`](../examples/aiwire_tcp_transport.py)
+- WebSocket messages:
+  [`examples/aiwire_websocket_transport.py`](../examples/aiwire_websocket_transport.py)
+- HTTP request/response bodies and Server-Sent Events payloads:
+  [`examples/aiwire_http_streaming_transport.py`](../examples/aiwire_http_streaming_transport.py)
+- Local broker messages:
+  [`examples/aiwire_local_broker.py`](../examples/aiwire_local_broker.py)
 - Files or replay logs
 
 Security belongs at the transport/application boundary. For LAN services, bind

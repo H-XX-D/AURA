@@ -331,15 +331,15 @@ def test_extract_metadata_performance():
 
     # Measure extraction time (average over 1000 runs)
     iterations = 1000
-    start_time = time.time()
+    start_time = time.perf_counter()
     for _ in range(iterations):
         metadata = sidechannel.extract_metadata(encoded, include_timestamp=False)
-    elapsed_ms = (time.time() - start_time) * 1000 / iterations
+    elapsed_ms = (time.perf_counter() - start_time) * 1000 / iterations
 
     # Our implementation should be < 1ms (target is 0.17ms, we achieve ~0.035ms)
     assert elapsed_ms < 1.0
 
-    speedup = 13.0 / elapsed_ms  # vs traditional 13.0ms
+    speedup = 13.0 / max(elapsed_ms, 1e-9)  # vs traditional 13.0ms
 
     print(f"✅ Metadata extraction performance excellent (Claim 21)")
     print(f"   - Avg time: {elapsed_ms:.3f}ms")
@@ -815,12 +815,15 @@ def test_fast_path_speedup_vs_traditional():
 
     # Run multiple times to get average
     iterations = 100
-    total_time = 0.0
+    total_reported_time = 0.0
+    start_time = time.perf_counter()
     for _ in range(iterations):
         result = sidechannel.fast_path_process(encoded)
-        total_time += result["processing_time_ms"]
+        total_reported_time += result["processing_time_ms"]
 
-    avg_time_ms = total_time / iterations
+    measured_avg_ms = (time.perf_counter() - start_time) * 1000 / iterations
+    reported_avg_ms = total_reported_time / iterations
+    avg_time_ms = max(measured_avg_ms, reported_avg_ms, 1e-9)
     speedup = 13.0 / avg_time_ms  # Traditional approach takes 13.0ms
 
     # Our implementation should be much faster than 13.0ms

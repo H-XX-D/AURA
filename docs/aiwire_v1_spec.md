@@ -321,6 +321,26 @@ The three lanes share a session but must not depend on hidden decoder state:
 - A semantic lane reset SHOULD NOT invalidate completed digest-addressed blob
   transfers.
 
+## Transport Binding Guidance
+
+AIWire does not standardize a transport envelope, but each binding MUST preserve
+enough information for the receiver to choose the right lane decoder before it
+touches the payload:
+
+- A carrier that multiplexes semantic, control, and blob descriptor frames
+  SHOULD include a lane discriminator outside the AIWire payload.
+- Raw TCP bindings need an explicit length prefix or equivalent delimiter for
+  every carrier frame.
+- WebSocket, broker, and replay-log bindings MAY use one transport message per
+  carrier frame.
+- HTTP streaming bindings MAY use one event per carrier frame and SHOULD name
+  control events separately from semantic events when the platform exposes event
+  names.
+- A routine-control LUT frame MAY be as small as two bytes after the carrier
+  lane discriminator. It MUST NOT be appended to a semantic deflate frame.
+- Mission-critical system control messages SHOULD be sent on the control lane
+  with priority ahead of semantic frames and routine LUT frames.
+
 ## Ordered Data Frames
 
 An AIWire data frame is the compressed byte output from one call to the session

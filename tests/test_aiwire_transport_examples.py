@@ -4,6 +4,13 @@ import importlib.util
 
 import pytest
 
+from examples.aiwire_transport_common import (
+    CONTROL_LANE,
+    TransportCarrierFrame,
+    decode_demo_control_frame,
+    encode_route_status_control,
+    route_status_payload,
+)
 from examples import (
     aiwire_http_streaming_transport,
     aiwire_local_broker,
@@ -17,8 +24,28 @@ def _assert_demo_result(result, transport: str, count: int) -> None:
     assert result.messages_sent == count
     assert result.messages_received == count
     assert result.replies_received == count
+    assert result.control_frames_sent == count * 2
+    assert result.control_frames_received == count * 2
     assert result.raw_bytes > 0
     assert result.wire_bytes > 0
+
+
+def test_transport_carrier_frame_round_trips_control_lane() -> None:
+    payload = route_status_payload(
+        transport="unit",
+        sequence=7,
+        direction="client_to_server",
+        status="ready",
+        trace_id="trace-7",
+    )
+    control_frame = encode_route_status_control(payload)
+    carrier = TransportCarrierFrame(CONTROL_LANE, control_frame)
+    restored = TransportCarrierFrame.from_bytes(carrier.to_bytes())
+    decoded = decode_demo_control_frame(restored.payload)
+
+    assert restored.lane == CONTROL_LANE
+    assert decoded["meaning"] == "route_status"
+    assert decoded["payload"] == payload
 
 
 def test_tcp_transport_example_round_trips_aiwire_frames() -> None:

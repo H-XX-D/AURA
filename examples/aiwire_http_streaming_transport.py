@@ -11,20 +11,32 @@ from urllib.request import Request, urlopen
 
 try:
     from .aiwire_transport_common import (
+        CONTROL_LANE,
+        SEMANTIC_LANE,
+        TransportCarrierFrame,
         TransportDemoResult,
         b64,
+        decode_demo_control_frame,
         demo_messages,
+        encode_route_status_control,
         print_result,
         raw_size,
+        route_status_payload,
         unb64,
     )
 except ImportError:  # pragma: no cover - direct script execution.
     from aiwire_transport_common import (
+        CONTROL_LANE,
+        SEMANTIC_LANE,
+        TransportCarrierFrame,
         TransportDemoResult,
         b64,
+        decode_demo_control_frame,
         demo_messages,
+        encode_route_status_control,
         print_result,
         raw_size,
+        route_status_payload,
         unb64,
     )
 
@@ -43,35 +55,92 @@ class _SseHandler(BaseHTTPRequestHandler):
         decoder = AIWireSessionDecoder()
         encoder = AIWireSessionEncoder(level=3)
         received: list[dict[str, Any]] = []
+        control_received = 0
+        control_sent = 0
+        pending_control: dict[str, object] | None = None
 
         self.send_response(200)
         self.send_header("content-type", "text/event-stream")
         self.send_header("cache-control", "no-cache")
         self.end_headers()
 
-        for index, frame_text in enumerate(payload["frames"]):
-            message = decoder.decompress_message(unb64(frame_text))
+        for frame_text in payload["frames"]:
+            carrier = TransportCarrierFrame.from_bytes(unb64(frame_text))
+            if carrier.lane == CONTROL_LANE:
+                pending_control = decode_demo_control_frame(carrier.payload)
+                control_received += 1
+                continue
+            if carrier.lane != SEMANTIC_LANE:
+                raise ValueError(f"unexpected AIWire carrier lane: {carrier.lane}")
+            if pending_control is None:
+                raise ValueError("semantic frame arrived without preceding control frame")
+            message = decoder.decompress_message(carrier.payload)
             received.append(message)
+            sequence = int(pending_control["payload"]["sequence"])  # type: ignore[index]
             reply = {
                 "protocol": "local.agent",
                 "schema": "local.agent.transport.ack.v1",
                 "transport": "http-sse",
-                "sequence": index,
+                "sequence": sequence,
                 "trace_id": message.get("trace_id"),
                 "accepted": True,
             }
-            event = f"event: aiwire\ndata: {b64(encoder.compress_message(reply))}\n\n"
-            self.wfile.write(event.encode("utf-8"))
+            control_payload = route_status_payload(
+                transport="http-sse",
+                sequence=sequence,
+                direction="server_to_client",
+                status="accepted",
+                trace_id=message.get("trace_id"),
+            )
+            control_carrier = TransportCarrierFrame(
+                CONTROL_LANE,
+                encode_route_status_control(control_payload),
+            ).to_bytes()
+            semantic_carrier = TransportCarrierFrame(
+                SEMANTIC_LANE,
+                encoder.compress_message(reply),
+            ).to_bytes()
+            control_event = (
+                "event: aiwire-control\n"
+                f"data: {b64(control_carrier)}\n\n"
+            )
+            semantic_event = (
+                "event: aiwire\n"
+                f"data: {b64(semantic_carrier)}\n\n"
+            )
+            self.wfile.write(control_event.encode("utf-8"))
+            self.wfile.write(semantic_event.encode("utf-8"))
             self.wfile.flush()
+            control_sent += 1
+            pending_control = None
 
         self.server.received_messages = received  # type: ignore[attr-defined]
+        self.server.control_frames_received = control_received  # type: ignore[attr-defined]
+        self.server.control_frames_sent = control_sent  # type: ignore[attr-defined]
 
 
 def run_demo(count: int = 8, seed: int = 4202) -> TransportDemoResult:
     messages = demo_messages(count, seed)
     encoder = AIWireSessionEncoder(level=3)
-    frames = [encoder.compress_message(message) for message in messages]
-    request_body = json.dumps({"frames": [b64(frame) for frame in frames]}).encode("utf-8")
+    carrier_frames: list[TransportCarrierFrame] = []
+    for index, message in enumerate(messages):
+        control_payload = route_status_payload(
+            transport="http-sse",
+            sequence=index,
+            direction="client_to_server",
+            status="ready",
+            trace_id=message.get("trace_id"),
+        )
+        carrier_frames.append(
+            TransportCarrierFrame(CONTROL_LANE, encode_route_status_control(control_payload))
+        )
+        carrier_frames.append(
+            TransportCarrierFrame(SEMANTIC_LANE, encoder.compress_message(message))
+        )
+    request_body = json.dumps(
+        {"frames": [b64(frame.to_bytes()) for frame in carrier_frames]},
+        separators=(",", ":"),
+    ).encode("utf-8")
     wire_bytes = len(request_body)
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), _SseHandler)
@@ -87,14 +156,22 @@ def run_demo(count: int = 8, seed: int = 4202) -> TransportDemoResult:
         )
         decoder = AIWireSessionDecoder()
         replies = 0
+        control_received = 0
+        control_sent = len(messages)
         with urlopen(request, timeout=5) as response:  # noqa: S310 - local demo URL.
             for raw_line in response:
                 line = raw_line.decode("utf-8").strip()
                 if not line.startswith("data: "):
                     continue
-                reply_frame = unb64(line.removeprefix("data: "))
+                carrier = TransportCarrierFrame.from_bytes(unb64(line.removeprefix("data: ")))
                 wire_bytes += len(raw_line)
-                decoder.decompress_message(reply_frame)
+                if carrier.lane == CONTROL_LANE:
+                    decode_demo_control_frame(carrier.payload)
+                    control_received += 1
+                    continue
+                if carrier.lane != SEMANTIC_LANE:
+                    raise ValueError(f"unexpected AIWire carrier lane: {carrier.lane}")
+                decoder.decompress_message(carrier.payload)
                 replies += 1
     finally:
         server.shutdown()
@@ -102,11 +179,15 @@ def run_demo(count: int = 8, seed: int = 4202) -> TransportDemoResult:
         server.server_close()
 
     received = getattr(server, "received_messages", [])
+    server_control_received = getattr(server, "control_frames_received", 0)
+    server_control_sent = getattr(server, "control_frames_sent", 0)
     return TransportDemoResult(
         transport="http-sse",
         messages_sent=len(messages),
         messages_received=len(received),
         replies_received=replies,
+        control_frames_sent=control_sent + server_control_sent,
+        control_frames_received=control_received + server_control_received,
         raw_bytes=raw_size(messages),
         wire_bytes=wire_bytes,
     )

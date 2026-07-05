@@ -10,18 +10,42 @@ import threading
 from typing import Any
 
 try:
-    from .aiwire_transport_common import TransportDemoResult, demo_messages, print_result, raw_size
+    from .aiwire_transport_common import (
+        CONTROL_LANE,
+        SEMANTIC_LANE,
+        TransportCarrierFrame,
+        TransportDemoResult,
+        decode_demo_control_frame,
+        demo_messages,
+        encode_route_status_control,
+        print_result,
+        raw_size,
+        route_status_payload,
+    )
 except ImportError:  # pragma: no cover - direct script execution.
-    from aiwire_transport_common import TransportDemoResult, demo_messages, print_result, raw_size
+    from aiwire_transport_common import (
+        CONTROL_LANE,
+        SEMANTIC_LANE,
+        TransportCarrierFrame,
+        TransportDemoResult,
+        decode_demo_control_frame,
+        demo_messages,
+        encode_route_status_control,
+        print_result,
+        raw_size,
+        route_status_payload,
+    )
 
 from aura_compression import AIWireSessionDecoder, AIWireSessionEncoder
 
 U32 = struct.Struct("!I")
 
 
-def _write_frame(sock: socket.socket, payload: bytes) -> None:
+def _write_frame(sock: socket.socket, frame: TransportCarrierFrame) -> int:
+    payload = frame.to_bytes()
     sock.sendall(U32.pack(len(payload)))
     sock.sendall(payload)
+    return U32.size + len(payload)
 
 
 def _read_exact(sock: socket.socket, size: int) -> bytes:
@@ -34,14 +58,14 @@ def _read_exact(sock: socket.socket, size: int) -> bytes:
     return bytes(data)
 
 
-def _read_frame(sock: socket.socket) -> bytes:
+def _read_frame(sock: socket.socket) -> TransportCarrierFrame:
     size = U32.unpack(_read_exact(sock, U32.size))[0]
-    return _read_exact(sock, size)
+    return TransportCarrierFrame.from_bytes(_read_exact(sock, size))
 
 
 def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
     messages = demo_messages(count, seed)
-    received: "queue.Queue[list[dict[str, Any]] | BaseException]" = queue.Queue()
+    received: "queue.Queue[tuple[list[dict[str, Any]], int, int] | BaseException]" = queue.Queue()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -55,9 +79,36 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
                     decoder = AIWireSessionDecoder()
                     encoder = AIWireSessionEncoder(level=3)
                     server_messages: list[dict[str, Any]] = []
+                    control_received = 0
+                    control_sent = 0
                     for index in range(count):
-                        message = decoder.decompress_message(_read_frame(conn))
+                        control_frame = _read_frame(conn)
+                        if control_frame.lane != CONTROL_LANE:
+                            raise ValueError("expected control frame before semantic frame")
+                        decode_demo_control_frame(control_frame.payload)
+                        control_received += 1
+
+                        semantic_frame = _read_frame(conn)
+                        if semantic_frame.lane != SEMANTIC_LANE:
+                            raise ValueError("expected semantic frame after control frame")
+                        message = decoder.decompress_message(semantic_frame.payload)
                         server_messages.append(message)
+
+                        control_payload = route_status_payload(
+                            transport="tcp",
+                            sequence=index,
+                            direction="server_to_client",
+                            status="accepted",
+                            trace_id=message.get("trace_id"),
+                        )
+                        _write_frame(
+                            conn,
+                            TransportCarrierFrame(
+                                CONTROL_LANE,
+                                encode_route_status_control(control_payload),
+                            ),
+                        )
+                        control_sent += 1
                         reply = {
                             "protocol": "local.agent",
                             "schema": "local.agent.transport.ack.v1",
@@ -66,8 +117,14 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
                             "trace_id": message.get("trace_id"),
                             "accepted": True,
                         }
-                        _write_frame(conn, encoder.compress_message(reply))
-                    received.put(server_messages)
+                        _write_frame(
+                            conn,
+                            TransportCarrierFrame(
+                                SEMANTIC_LANE,
+                                encoder.compress_message(reply),
+                            ),
+                        )
+                    received.put((server_messages, control_received, control_sent))
             except BaseException as exc:  # pragma: no cover - surfaced through queue.
                 received.put(exc)
 
@@ -78,13 +135,39 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
         with socket.create_connection((host, port), timeout=5) as sock:
             encoder = AIWireSessionEncoder(level=3)
             decoder = AIWireSessionDecoder()
+            control_sent = 0
+            control_received = 0
             for message in messages:
+                control_payload = route_status_payload(
+                    transport="tcp",
+                    sequence=control_sent,
+                    direction="client_to_server",
+                    status="ready",
+                    trace_id=message.get("trace_id"),
+                )
+                wire_bytes += _write_frame(
+                    sock,
+                    TransportCarrierFrame(
+                        CONTROL_LANE,
+                        encode_route_status_control(control_payload),
+                    ),
+                )
+                control_sent += 1
                 frame = encoder.compress_message(message)
-                wire_bytes += U32.size + len(frame)
-                _write_frame(sock, frame)
+                wire_bytes += _write_frame(sock, TransportCarrierFrame(SEMANTIC_LANE, frame))
+
+                reply_control = _read_frame(sock)
+                if reply_control.lane != CONTROL_LANE:
+                    raise ValueError("expected control reply before semantic reply")
+                decode_demo_control_frame(reply_control.payload)
+                wire_bytes += U32.size + len(reply_control.to_bytes())
+                control_received += 1
+
                 reply_frame = _read_frame(sock)
-                wire_bytes += U32.size + len(reply_frame)
-                decoder.decompress_message(reply_frame)
+                if reply_frame.lane != SEMANTIC_LANE:
+                    raise ValueError("expected semantic reply after control reply")
+                wire_bytes += U32.size + len(reply_frame.to_bytes())
+                decoder.decompress_message(reply_frame.payload)
                 replies += 1
 
         thread.join(timeout=5)
@@ -94,11 +177,15 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
         if isinstance(server_result, BaseException):
             raise RuntimeError("TCP demo server failed") from server_result
 
+    server_messages, server_control_received, server_control_sent = server_result
+
     return TransportDemoResult(
         transport="tcp",
         messages_sent=len(messages),
-        messages_received=len(server_result),
+        messages_received=len(server_messages),
         replies_received=replies,
+        control_frames_sent=control_sent + server_control_sent,
+        control_frames_received=control_received + server_control_received,
         raw_bytes=raw_size(messages),
         wire_bytes=wire_bytes,
     )

@@ -400,7 +400,9 @@ SHA-256.
 ## Transport Examples
 
 AIWire frames are ordinary bytes after the session handshake. The repo includes
-small examples for common transport boundaries:
+small examples for common transport boundaries. Each example now carries both
+semantic frames and compact routine-control LUT frames so route/status control
+stays inspectable without decompressing the semantic stream:
 
 - [Length-prefixed TCP](examples/aiwire_tcp_transport.py)
 - [WebSocket binary messages](examples/aiwire_websocket_transport.py)
@@ -408,7 +410,9 @@ small examples for common transport boundaries:
 - [Local broker/topic queue](examples/aiwire_local_broker.py)
 
 Run them from the repo root with `PYTHONPATH=src`. The WebSocket example uses
-the optional `websocket` extra.
+the optional `websocket` extra. TCP uses an explicit length prefix; WebSocket,
+SSE, and broker examples rely on their native message/event boundaries. All
+examples keep mission-critical control out of the compact LUT path.
 
 ## General Compression API
 

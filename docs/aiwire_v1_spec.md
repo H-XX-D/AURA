@@ -202,6 +202,21 @@ Control LUT rules:
   Unknown routine codes SHOULD be ignored, NACKed, or cause a resync request by
   application policy.
 
+Routine-control compact frame wire form:
+
+```text
+uint16_be code
+optional canonical_json_payload_mapping
+```
+
+The carrier transport preserves frame boundaries, so no internal payload length
+is required. A payload is omitted when empty. When present, the payload MUST be a
+canonical JSON mapping, not a scalar or array. Debugging and text transports MAY
+represent the same frame as hexadecimal bytes, for example `0x0011` for a
+payload-free `route_status` frame. The receiver decodes the first two bytes,
+looks up the code in the handshaked LUT, and then parses any remaining bytes
+against that entry's payload schema.
+
 ## System Control Messages
 
 Mission-critical control messages stay in a self-describing system-control

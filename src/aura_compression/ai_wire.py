@@ -445,6 +445,30 @@ class AIWireControlLUTEntry:
             raise AIWireHandshakeError(f"malformed AIWire control LUT entry: {exc}") from exc
 
 
+@dataclass(frozen=True)
+class AIWireControlLUTFrame:
+    """Decoded routine-control LUT frame.
+
+    The wire form is compact by design: two big-endian bytes for the LUT code
+    followed by an optional canonical JSON payload mapping.
+    """
+
+    code: int
+    meaning: str
+    payload: Mapping[str, Any]
+    payload_schema: str = ""
+    criticality: str = "routine"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "code": _format_lut_code(self.code),
+            "meaning": self.meaning,
+            "payload": dict(self.payload),
+            "payload_schema": self.payload_schema,
+            "criticality": self.criticality,
+        }
+
+
 def normalize_aiwire_control_lut(
     entries: AIWireControlLUTEntries | None = None,
 ) -> tuple[AIWireControlLUTEntry, ...]:
@@ -489,6 +513,110 @@ def aiwire_control_lut_sha256(entries: AIWireControlLUTEntries | None = None) ->
         "entries": [entry.to_dict() for entry in normalized],
     }
     return _sha256_hex(_canonical_json_bytes(payload))
+
+
+def _control_lut_entry_by_code(
+    entries: AIWireControlLUTEntries,
+    code: int,
+) -> AIWireControlLUTEntry:
+    normalized = normalize_aiwire_control_lut(entries)
+    for entry in normalized:
+        if entry.code == code:
+            return entry
+    raise AIWireHandshakeError(f"unknown control LUT code: {_format_lut_code(code)}")
+
+
+def _control_lut_entry_by_meaning(
+    entries: AIWireControlLUTEntries,
+    meaning: str,
+) -> AIWireControlLUTEntry:
+    normalized = normalize_aiwire_control_lut(entries)
+    for entry in normalized:
+        if entry.meaning == meaning:
+            return entry
+    raise AIWireHandshakeError(f"unknown control LUT meaning: {meaning}")
+
+
+def _control_frame_bytes(frame: bytes | bytearray | memoryview | str) -> bytes:
+    if isinstance(frame, str):
+        text = frame.strip().lower()
+        if text.startswith("0x"):
+            text = text[2:]
+        text = "".join(char for char in text if not char.isspace() and char not in ":-_")
+        try:
+            return bytes.fromhex(text)
+        except ValueError as exc:
+            raise AIWireHandshakeError(f"malformed control LUT frame hex: {exc}") from exc
+    if isinstance(frame, (bytes, bytearray, memoryview)):
+        return bytes(frame)
+    raise TypeError(f"unsupported control LUT frame type: {type(frame).__name__}")
+
+
+def encode_aiwire_control_lut_frame(
+    entries: AIWireControlLUTEntries,
+    *,
+    meaning: str | None = None,
+    code: int | str | None = None,
+    payload: Mapping[str, Any] | None = None,
+) -> bytes:
+    """Encode a routine-control LUT frame as compact bytes.
+
+    ``entries`` must be the same routine-control LUT proven during handshake.
+    Mission-critical controls are not valid LUT entries and must use
+    ``AIWireSystemControlMessage`` instead.
+    """
+
+    if (meaning is None) == (code is None):
+        raise AIWireHandshakeError("provide exactly one of meaning or code")
+    entry = (
+        _control_lut_entry_by_meaning(entries, meaning)
+        if meaning is not None
+        else _control_lut_entry_by_code(entries, _parse_lut_code(code))  # type: ignore[arg-type]
+    )
+    if entry.criticality == AI_WIRE_MISSION_CRITICAL:
+        raise AIWireHandshakeError("mission-critical control must use system control messages")
+    if payload is not None and not isinstance(payload, Mapping):
+        raise AIWireHandshakeError("control LUT payload must be a mapping")
+
+    payload_bytes = b"" if not payload else _canonical_json_bytes(payload)
+    return entry.code.to_bytes(2, "big") + payload_bytes
+
+
+def aiwire_control_lut_frame_hex(frame: bytes | bytearray | memoryview | str) -> str:
+    """Return a display-safe hexadecimal control LUT frame string."""
+
+    return "0x" + _control_frame_bytes(frame).hex()
+
+
+def decode_aiwire_control_lut_frame(
+    entries: AIWireControlLUTEntries,
+    frame: bytes | bytearray | memoryview | str,
+) -> AIWireControlLUTFrame:
+    """Decode a compact routine-control LUT frame using the handshaked LUT."""
+
+    raw = _control_frame_bytes(frame)
+    if len(raw) < 2:
+        raise AIWireHandshakeError("control LUT frame is too short")
+    code = int.from_bytes(raw[:2], "big")
+    entry = _control_lut_entry_by_code(entries, code)
+    payload_bytes = raw[2:]
+    if payload_bytes:
+        try:
+            payload = json.loads(payload_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise AIWireHandshakeError(f"malformed control LUT payload: {exc}") from exc
+        if not isinstance(payload, Mapping):
+            raise AIWireHandshakeError("control LUT payload must decode to a mapping")
+        payload = dict(payload)
+    else:
+        payload = {}
+    return AIWireControlLUTFrame(
+        code=entry.code,
+        meaning=entry.meaning,
+        payload=payload,
+        payload_schema=entry.payload_schema,
+        criticality=entry.criticality,
+    )
 
 
 @dataclass(frozen=True)

@@ -11,6 +11,7 @@ from aura_compression.ai_wire import (
     AIWireControlLUTEntry,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    aiwire_control_lut_frame_hex,
     aiwire_control_lut_sha256,
     aiwire_native_status,
     aiwire_session_dictionary_state_sha256,
@@ -25,9 +26,11 @@ from aura_compression.ai_wire import (
     build_aiwire_system_control_message,
     build_structured_ai_messages,
     compress_ai_wire_frames,
+    decode_aiwire_control_lut_frame,
     decode_ai_wire_message,
     decompress_ai_wire_frames,
     discover_ai_wire_session_templates,
+    encode_aiwire_control_lut_frame,
     encode_ai_wire_message,
     negotiate_aiwire_handshake,
     negotiate_aiwire_session_resume,
@@ -281,6 +284,54 @@ def test_ai_wire_control_lut_rejects_mission_critical_entries() -> None:
                 }
             ]
         )
+
+
+def test_ai_wire_control_lut_frame_round_trips_bytes_and_hex() -> None:
+    control_lut = [
+        AIWireControlLUTEntry(0x0010, "heartbeat", "aura.aiwire.heartbeat.v1"),
+        AIWireControlLUTEntry(0x0011, "route_status", "aura.aiwire.route_status.v1"),
+    ]
+
+    frame = encode_aiwire_control_lut_frame(
+        control_lut,
+        meaning="route_status",
+        payload={"queue_depth": 7, "route": "edge-a"},
+    )
+    restored = decode_aiwire_control_lut_frame(control_lut, frame)
+    restored_from_hex = decode_aiwire_control_lut_frame(
+        control_lut,
+        aiwire_control_lut_frame_hex(frame),
+    )
+
+    assert frame[:2] == b"\x00\x11"
+    assert restored.meaning == "route_status"
+    assert restored.payload == {"queue_depth": 7, "route": "edge-a"}
+    assert restored.to_dict()["code"] == "0x0011"
+    assert restored_from_hex == restored
+
+
+def test_ai_wire_control_lut_frame_supports_empty_payload() -> None:
+    control_lut = [AIWireControlLUTEntry(0x0010, "heartbeat")]
+
+    frame = encode_aiwire_control_lut_frame(control_lut, code="0x0010")
+    restored = decode_aiwire_control_lut_frame(control_lut, "0x0010")
+
+    assert frame == b"\x00\x10"
+    assert restored.meaning == "heartbeat"
+    assert restored.payload == {}
+
+
+def test_ai_wire_control_lut_frame_rejects_unknown_code_and_bad_payload() -> None:
+    control_lut = [AIWireControlLUTEntry(0x0010, "heartbeat")]
+
+    with pytest.raises(Exception, match="unknown control LUT code"):
+        decode_aiwire_control_lut_frame(control_lut, b"\x00\x11")
+
+    with pytest.raises(Exception, match="payload must decode to a mapping"):
+        decode_aiwire_control_lut_frame(control_lut, b"\x00\x10[]")
+
+    with pytest.raises(Exception, match="provide exactly one"):
+        encode_aiwire_control_lut_frame(control_lut, meaning="heartbeat", code=0x0010)
 
 
 def test_ai_wire_system_control_message_authenticates_and_fails_closed() -> None:

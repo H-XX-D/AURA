@@ -19,9 +19,10 @@ AURA treats AI traffic as three logical lanes:
   reduce repeated structure and move changed values.
 - **Control/session lane**: handshakes, template discovery, dictionary diffs,
   ACK/NACK, resume, routing state, heartbeats, safety status, and session reset
-  signals. Routine control can use handshake-pinned LUT entries; mission-critical
-  control stays in explicit system messages. This lane must stay inspectable
-  without decompressing the semantic stream.
+  signals. Routine control can use handshake-pinned LUT entries as compact
+  two-byte codes plus optional canonical JSON payloads; mission-critical control
+  stays in explicit system messages. This lane must stay inspectable without
+  decompressing the semantic stream.
 - **Blob descriptor lane**: metadata for opaque bytes such as media, tensor
   chunks, model artifacts, logs, archives, and files. The bytes can stay in a
   normal blob/file/media transport while AIWire carries content type, hashes,

@@ -18,7 +18,7 @@ The run used:
 - Tool: `tools/stress_ai_wire_roundtrip_z6.py nary-client`
 - Topology: one Z6 coordinator/client to four edge servers
 - Codecs: `raw`, `zlib`, `aiwire`
-- Duration: 5 seconds per codec
+- Duration: 60 seconds per codec
 - Link model: 10 Mbps in each direction per target
 - Aggregate modeled server egress: 40 Mbps across four targets
 - Logical agents: 64 per target
@@ -65,7 +65,7 @@ PYTHONPATH=src python3 tools/stress_ai_wire_roundtrip_z6.py nary-client \
   --target edge-2=<edge-target-2>:8910 \
   --target edge-3=<edge-target-3>:8910 \
   --target edge-4=<edge-target-4>:8910 \
-  --seconds 5 \
+  --seconds 60 \
   --agent-count 64 \
   --pipeline-window 1 \
   --link-mbps 10 \
@@ -79,32 +79,32 @@ PYTHONPATH=src python3 tools/stress_ai_wire_roundtrip_z6.py nary-client \
 
 ## Aggregate Results
 
-`Completed 5s group` is the sum of verified request/response exchanges across
-the four targets during the 5 second codec window. `BW cap ex/s` is the modeled
+`Completed 60s group` is the sum of verified request/response exchanges across
+the four targets during the 60 second codec window. `BW cap ex/s` is the modeled
 aggregate bandwidth capacity implied by the measured framed bytes per exchange.
 
-| Codec | Completed 5s group | Ex/s group | vs raw | Framed B/ex | Saved | p95 avg | p95 max | BW cap ex/s | Util |
+| Codec | Completed 60s group | Ex/s group | vs raw | Framed B/ex | Saved | p95 avg | p95 max | BW cap ex/s | Util |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| raw | 21,710 | 4,342.0 | 1.00x | 2,305.3 | -0.3% | 67.82 | 69.06 | 4,331.6 | 100.2% |
-| zlib | 23,011 | 4,602.2 | 1.06x | 1,214.3 | 47.1% | 60.94 | 62.08 | 8,222.2 | 56.0% |
-| aiwire | 23,009 | 4,601.8 | 1.06x | 367.7 | 84.0% | 60.49 | 60.93 | 26,784.9 | 17.2% |
+| raw | 259,065 | 4,317.8 | 1.00x | 2,313.0 | -0.3% | 68.75 | 69.31 | 4,317.0 | 100.0% |
+| zlib | 287,744 | 4,795.7 | 1.11x | 1,219.3 | 47.1% | 60.77 | 61.44 | 8,187.8 | 58.6% |
+| aiwire | 279,904 | 4,665.1 | 1.08x | 368.1 | 84.0% | 62.68 | 64.00 | 26,734.6 | 17.4% |
 
 ## Per-target Results
 
-| Target | Codec | Completed 5s | Ex/s | Framed B/ex | Saved | p95 ms | BW cap ex/s | Util |
+| Target | Codec | Completed 60s | Ex/s | Framed B/ex | Saved | p95 ms | BW cap ex/s | Util |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| edge-1 | raw | 5,401 | 1,080.2 | 2,311.2 | -0.3% | 67.64 | 1,080.1 | 100.0% |
-| edge-2 | raw | 5,439 | 1,087.8 | 2,303.3 | -0.3% | 66.09 | 1,083.8 | 100.4% |
-| edge-3 | raw | 5,426 | 1,085.2 | 2,303.2 | -0.3% | 68.49 | 1,083.8 | 100.1% |
-| edge-4 | raw | 5,444 | 1,088.8 | 2,303.3 | -0.3% | 69.06 | 1,083.9 | 100.5% |
-| edge-1 | zlib | 5,880 | 1,176.0 | 1,217.3 | 47.2% | 60.32 | 2,050.3 | 57.4% |
-| edge-2 | zlib | 5,597 | 1,119.4 | 1,213.2 | 47.1% | 61.93 | 2,057.2 | 54.4% |
-| edge-3 | zlib | 5,876 | 1,175.2 | 1,213.5 | 47.1% | 59.41 | 2,057.0 | 57.1% |
-| edge-4 | zlib | 5,658 | 1,131.6 | 1,213.1 | 47.2% | 62.08 | 2,057.8 | 55.0% |
-| edge-1 | aiwire | 5,688 | 1,137.6 | 366.4 | 84.1% | 60.54 | 6,751.1 | 16.9% |
-| edge-2 | aiwire | 5,753 | 1,150.6 | 368.1 | 84.0% | 60.28 | 6,681.9 | 17.2% |
-| edge-3 | aiwire | 5,755 | 1,151.0 | 368.0 | 84.0% | 60.93 | 6,679.2 | 17.2% |
-| edge-4 | aiwire | 5,813 | 1,162.6 | 368.4 | 84.0% | 60.21 | 6,672.8 | 17.4% |
+| edge-1 | raw | 64,590 | 1,076.5 | 2,319.0 | -0.3% | 68.89 | 1,076.5 | 100.0% |
+| edge-2 | raw | 64,818 | 1,080.3 | 2,311.0 | -0.3% | 67.61 | 1,080.2 | 100.0% |
+| edge-3 | raw | 64,833 | 1,080.5 | 2,311.0 | -0.3% | 69.31 | 1,080.2 | 100.0% |
+| edge-4 | raw | 64,824 | 1,080.4 | 2,311.0 | -0.3% | 69.20 | 1,080.2 | 100.0% |
+| edge-1 | zlib | 70,536 | 1,175.6 | 1,222.2 | 47.1% | 61.18 | 2,041.7 | 57.6% |
+| edge-2 | zlib | 71,768 | 1,196.1 | 1,218.3 | 47.1% | 61.13 | 2,048.4 | 58.4% |
+| edge-3 | zlib | 74,380 | 1,239.7 | 1,218.6 | 47.1% | 59.32 | 2,048.4 | 60.5% |
+| edge-4 | zlib | 71,060 | 1,184.3 | 1,218.1 | 47.1% | 61.44 | 2,049.2 | 57.8% |
+| edge-1 | aiwire | 71,475 | 1,191.2 | 366.6 | 84.1% | 60.47 | 6,741.6 | 17.7% |
+| edge-2 | aiwire | 69,105 | 1,151.8 | 368.5 | 84.0% | 64.00 | 6,665.0 | 17.3% |
+| edge-3 | aiwire | 69,851 | 1,164.2 | 368.5 | 84.0% | 62.42 | 6,666.1 | 17.5% |
+| edge-4 | aiwire | 69,473 | 1,157.9 | 368.9 | 84.0% | 63.85 | 6,661.8 | 17.4% |
 
 ## Readout
 
@@ -117,10 +117,10 @@ The aggregate throughput result is deliberately conservative and more realistic
 than replaying the same exact frame sequence on every peer. The cluster
 variation roughly doubled the raw framed exchange size compared with the clean
 fixture run. Raw JSON filled the four modeled 10 Mbps links almost exactly.
-zlib reduced bytes enough that link utilization dropped to 56.0%. AIWire
-reduced each verified varied exchange to about 367.7 framed bytes, so modeled
-bandwidth capacity rose to about 26,785 exchanges per second across the four
-targets. The measured Python coordinator used 17.2% of that capacity.
+zlib reduced bytes enough that link utilization dropped to 58.6%. AIWire
+reduced each verified varied exchange to about 368.1 framed bytes, so modeled
+bandwidth capacity rose to about 26,735 exchanges per second across the four
+targets. The measured Python coordinator used 17.4% of that capacity.
 
 That means the bottleneck moved. On this four-target n-ary run, AIWire's main
 benefit was not fully expressed as more completed exchanges because the Z6

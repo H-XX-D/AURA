@@ -168,17 +168,17 @@ with the same static dictionary and 8 session templates, then ran concurrent
 fixture replay across all four targets with a deterministic cluster variation
 profile. That profile gives each peer different roles, routes, workloads,
 epochs, queue depths, token windows, and telemetry while preserving SHA-verified
-request/response checks:
+request/response checks. A 60-second-per-codec sustained run measured:
 
-| Codec | Completed 5s group | Ex/s group | vs raw | Framed B/ex | BW cap ex/s | Saved | p95 avg | Util |
+| Codec | Completed 60s group | Ex/s group | vs raw | Framed B/ex | BW cap ex/s | Saved | p95 avg | Util |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| raw | 21,710 | 4,342.0 | 1.00x | 2,305.3 | 4,331.6 | -0.3% | 67.82 | 100.2% |
-| zlib | 23,011 | 4,602.2 | 1.06x | 1,214.3 | 8,222.2 | 47.1% | 60.94 | 56.0% |
-| aiwire | 23,009 | 4,601.8 | 1.06x | 367.7 | 26,784.9 | 84.0% | 60.49 | 17.2% |
+| raw | 259,065 | 4,317.8 | 1.00x | 2,313.0 | 4,317.0 | -0.3% | 68.75 | 100.0% |
+| zlib | 287,744 | 4,795.7 | 1.11x | 1,219.3 | 8,187.8 | 47.1% | 60.77 | 58.6% |
+| aiwire | 279,904 | 4,665.1 | 1.08x | 368.1 | 26,734.6 | 84.0% | 62.68 | 17.4% |
 
 This aggregate run shows the next bottleneck clearly: AIWire created about
-26,785 modeled exchanges/second of bandwidth capacity across the four 10 Mbps
-links, but the Python coordinator and one-request windows only used `17.2%` of
+26,735 modeled exchanges/second of bandwidth capacity across the four 10 Mbps
+links, but the Python coordinator and one-request windows only used `17.4%` of
 that headroom.
 
 Read the n-ary relay report:
@@ -510,7 +510,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py nary-client \
   --target edge-2=<target-2>:8910 \
   --target edge-3=<target-3>:8910 \
   --target edge-4=<target-4>:8910 \
-  --seconds 5 \
+  --seconds 60 \
   --agent-count 64 \
   --pipeline-window 1 \
   --link-mbps 10 \

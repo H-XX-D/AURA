@@ -181,14 +181,29 @@ This aggregate run shows the next bottleneck clearly: AIWire created about
 links, but the Python coordinator and one-request windows only used `17.4%` of
 that headroom.
 
+A follow-up AIWire-only 60-second sweep widened the per-agent pipeline window
+on the same n-ary cluster workload:
+
+| Pipeline window | Aggregate window/target | Completed 60s group | Ex/s group | vs window 1 | Framed B/ex | p95 avg | Util |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 64 | 279,904 | 4,665.1 | 1.00x | 368.1 | 62.68 | 17.4% |
+| 2 | 128 | 269,437 | 4,490.6 | 0.96x | 368.1 | 125.34 | 16.8% |
+| 4 | 256 | 276,090 | 4,601.5 | 0.99x | 368.1 | 251.51 | 17.2% |
+| 8 | 512 | 237,916 | 3,965.3 | 0.85x | 368.1 | 739.82 | 14.8% |
+
+That sweep narrows the next engineering target. More queue depth on one Python
+stream does not fill the saved bandwidth; it mostly increases tail latency. The
+next useful benchmark path is multiple sessions/connections per target or a
+native/concurrent coordinator and server path.
+
 Read the n-ary relay report:
 [AIWire N-ary Z6-to-Nano Benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
 
 The key interpretation is bandwidth proportionality. Smaller frames create room
 for more messages, but the runtime must keep enough exchanges in flight to fill
 that room. Raw JSON fills the modeled link quickly; AIWire and AIToken+AIWire
-need more concurrent logical agents or larger per-agent windows before bandwidth
-becomes the bottleneck again.
+need true concurrent sessions, connections, or native parallelism before
+bandwidth becomes the bottleneck again.
 
 Current local benchmark-profile smoke on 2026-07-05 uses the Python AIWire path,
 level 3, seed 1729, and synthetic public-safe `corpus_metadata` on every

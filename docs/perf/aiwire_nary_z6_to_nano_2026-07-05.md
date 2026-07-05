@@ -22,7 +22,8 @@ The run used:
 - Link model: 10 Mbps in each direction per target
 - Aggregate modeled server egress: 40 Mbps across four targets
 - Logical agents: 64 per target
-- Per-agent pipeline window: 1
+- Per-agent pipeline window: 1 baseline, with AIWire-only follow-up at 2, 4,
+  and 8
 - Fixture response verification: SHA-256
 - Fixture variation profile: `cluster`
 - AIWire backend: Python
@@ -88,6 +89,48 @@ aggregate bandwidth capacity implied by the measured framed bytes per exchange.
 | raw | 259,065 | 4,317.8 | 1.00x | 2,313.0 | -0.3% | 68.75 | 69.31 | 4,317.0 | 100.0% |
 | zlib | 287,744 | 4,795.7 | 1.11x | 1,219.3 | 47.1% | 60.77 | 61.44 | 8,187.8 | 58.6% |
 | aiwire | 279,904 | 4,665.1 | 1.08x | 368.1 | 84.0% | 62.68 | 64.00 | 26,734.6 | 17.4% |
+
+## AIWire Pipeline-Window Sweep
+
+After the baseline run, the same Z6-to-four-edge n-ary workload was repeated
+for AIWire only while widening the per-agent pipeline window. This isolates the
+question of whether one Python stream can consume the bandwidth headroom AIWire
+creates.
+
+Command shape:
+
+```bash
+PYTHONPATH=src python3 tools/stress_ai_wire_roundtrip_z6.py nary-client \
+  --target edge-1=<edge-target-1>:8910 \
+  --target edge-2=<edge-target-2>:8910 \
+  --target edge-3=<edge-target-3>:8910 \
+  --target edge-4=<edge-target-4>:8910 \
+  --seconds 60 \
+  --agent-count 64 \
+  --pipeline-window <1|2|4|8> \
+  --link-mbps 10 \
+  --codecs aiwire \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --fixture-variation-profile cluster \
+  --force-session-templates \
+  --target-parallelism 4
+```
+
+| Pipeline window | Aggregate window/target | Completed 60s group | Ex/s group | vs window 1 | Framed B/ex | Saved | p95 avg | p95 max | BW cap ex/s | Util |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 64 | 279,904 | 4,665.1 | 1.00x | 368.1 | 84.0% | 62.68 | 64.00 | 26,734.6 | 17.4% |
+| 2 | 128 | 269,437 | 4,490.6 | 0.96x | 368.1 | 84.0% | 125.34 | 129.71 | 26,735.5 | 16.8% |
+| 4 | 256 | 276,090 | 4,601.5 | 0.99x | 368.1 | 84.0% | 251.51 | 253.50 | 26,735.5 | 17.2% |
+| 8 | 512 | 237,916 | 3,965.3 | 0.85x | 368.1 | 84.0% | 739.82 | 926.68 | 26,737.9 | 14.8% |
+
+The extra queue depth did not increase sustained throughput. Window 4 stayed
+near the baseline exchange rate but quadrupled p95 latency, and window 8 reduced
+throughput while pushing p95 into the high hundreds of milliseconds. That means
+the current limiter is not only the number of outstanding frames; it is the
+single Python stream/server execution path. To consume AIWire's bandwidth
+headroom, the next benchmark should add multiple sessions or connections per
+target, or move the coordinator/server hot path to native/concurrent execution.
 
 ## Per-target Results
 

@@ -14,8 +14,8 @@ from aura_compression.ai_wire import (
     AIWireNativeError,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
-    aiwire_session_templates_sha256,
     aiwire_native_status,
+    aiwire_session_templates_sha256,
     build_aiwire_handshake,
     build_aiwire_session_template_update,
     build_delta_structured_ai_messages,
@@ -25,7 +25,6 @@ from aura_compression.ai_wire import (
     negotiate_aiwire_nary_handshake,
     summarize_ai_wire_corpus,
 )
-
 
 DEFAULT_MESSAGE_COUNT = 1024
 LENGTH_PREFIX_BYTES = 4
@@ -223,21 +222,16 @@ def _build_sustained_session_model(
         "steady_state_raw_delta_bytes": steady_state_raw_delta_bytes,
         "steady_state_wire_delta_bytes": steady_state_wire_bytes,
         "steady_state_wire_bytes_per_message": steady_state_wire_bytes / message_count,
-        "steady_state_raw_delta_bytes_per_message": steady_state_raw_delta_bytes
-        / message_count,
+        "steady_state_raw_delta_bytes_per_message": steady_state_raw_delta_bytes / message_count,
         "amortized_setup_bytes_per_message": setup_framed_bytes / message_count,
         "amortized_wire_bytes_per_message": total_wire_with_setup / message_count,
         "total_wire_bytes_with_setup": total_wire_with_setup,
         "setup_share_percent": (
-            setup_framed_bytes / total_wire_with_setup * 100.0
-            if total_wire_with_setup
-            else 0.0
+            setup_framed_bytes / total_wire_with_setup * 100.0 if total_wire_with_setup else 0.0
         ),
         "steady_state_ratio": encode_stats.ratio,
         "amortized_ratio_with_setup": (
-            steady_state_raw_delta_bytes / total_wire_with_setup
-            if total_wire_with_setup
-            else 0.0
+            steady_state_raw_delta_bytes / total_wire_with_setup if total_wire_with_setup else 0.0
         ),
         "steady_state_saved_percent": (
             (1 - steady_state_wire_bytes / steady_state_raw_delta_bytes) * 100.0

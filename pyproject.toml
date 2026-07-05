@@ -41,6 +41,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=22.0.0",
+    "isort>=5.12.0",
     "flake8>=5.0.0",
     "mypy>=0.990",
 ]
@@ -65,6 +66,7 @@ line_length = 100
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --strict-markers"
+pythonpath = ["src"]
 # coverage options (requires pytest-cov: pip install pytest-cov)
 # addopts = "-ra -q --strict-markers --cov=src/aura_compression --cov-report=html --cov-report=term --cov-fail-under=80"
 testpaths = ["tests"]

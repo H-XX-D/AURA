@@ -495,7 +495,9 @@ def normalize_aiwire_control_lut(
             entry = AIWireControlLUTEntry(code=_parse_lut_code(item[0]), meaning=str(item[1]))
 
         if entry.code in seen_codes:
-            raise AIWireHandshakeError(f"duplicate control LUT code: {_format_lut_code(entry.code)}")
+            raise AIWireHandshakeError(
+                f"duplicate control LUT code: {_format_lut_code(entry.code)}"
+            )
         if entry.meaning in seen_meanings:
             raise AIWireHandshakeError(f"duplicate control LUT meaning: {entry.meaning}")
         seen_codes.add(entry.code)
@@ -2473,7 +2475,9 @@ def decode_aiwire_fallback_frame(codec: str, payload: bytes | bytearray | memory
         decompressor = zlib.decompressobj()
         restored = decompressor.decompress(frame) + decompressor.flush()
     except zlib.error as exc:
-        raise AIWireFallbackError(f"AIWire zlib fallback frame decompression failed: {exc}") from exc
+        raise AIWireFallbackError(
+            f"AIWire zlib fallback frame decompression failed: {exc}"
+        ) from exc
     if decompressor.unused_data:
         raise AIWireFallbackError("AIWire zlib fallback frame contains unused compressed data")
     return restored

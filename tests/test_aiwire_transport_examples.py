@@ -5,18 +5,18 @@ from collections.abc import Iterable
 
 import pytest
 
+from examples import (
+    aiwire_http_streaming_transport,
+    aiwire_local_broker,
+    aiwire_tcp_transport,
+    aiwire_websocket_transport,
+)
 from examples.aiwire_transport_common import (
     CONTROL_LANE,
     TransportCarrierFrame,
     decode_demo_control_frame,
     encode_route_status_control,
     route_status_payload,
-)
-from examples import (
-    aiwire_http_streaming_transport,
-    aiwire_local_broker,
-    aiwire_tcp_transport,
-    aiwire_websocket_transport,
 )
 
 

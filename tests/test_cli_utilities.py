@@ -8,6 +8,10 @@ from pathlib import Path
 
 import pytest
 
+from aura_compression.cli.benchmark import main as benchmark_main
+from aura_compression.cli.compress import main as cli_compress_main
+from aura_compression.cli.decompress import main as cli_decompress_main
+from aura_compression.cli.server import main as server_main
 from tools.compress_large_file import (
     _output_stats,
     _parse_chunk_size,
@@ -16,10 +20,6 @@ from tools.compress_large_file import (
     compress_path,
     inspect_container,
 )
-from aura_compression.cli.benchmark import main as benchmark_main
-from aura_compression.cli.compress import main as cli_compress_main
-from aura_compression.cli.decompress import main as cli_decompress_main
-from aura_compression.cli.server import main as server_main
 
 
 @pytest.mark.parametrize(

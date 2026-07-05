@@ -333,6 +333,9 @@ touches the payload:
   SHOULD include a lane discriminator outside the AIWire payload.
 - Raw TCP bindings need an explicit length prefix or equivalent delimiter for
   every carrier frame.
+- Raw TCP receivers MUST treat short `recv()` results as normal partial reads,
+  continue until the complete carrier frame is assembled, and fail closed if the
+  connection closes before the declared length is satisfied.
 - WebSocket, broker, and replay-log bindings MAY use one transport message per
   carrier frame.
 - HTTP streaming bindings MAY use one event per carrier frame and SHOULD name

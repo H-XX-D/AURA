@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+from collections.abc import Iterable
 
 import pytest
 
@@ -30,6 +31,20 @@ def _assert_demo_result(result, transport: str, count: int) -> None:
     assert result.wire_bytes > 0
 
 
+class _FragmentedSocket:
+    def __init__(self, chunks: Iterable[bytes]) -> None:
+        self._chunks = list(chunks)
+
+    def recv(self, size: int) -> bytes:
+        if not self._chunks:
+            return b""
+        chunk = self._chunks.pop(0)
+        if len(chunk) > size:
+            self._chunks.insert(0, chunk[size:])
+            return chunk[:size]
+        return chunk
+
+
 def test_transport_carrier_frame_round_trips_control_lane() -> None:
     payload = route_status_payload(
         transport="unit",
@@ -46,6 +61,52 @@ def test_transport_carrier_frame_round_trips_control_lane() -> None:
     assert restored.lane == CONTROL_LANE
     assert decoded["meaning"] == "route_status"
     assert decoded["payload"] == payload
+
+
+def test_tcp_transport_frame_reader_handles_fragmented_reads() -> None:
+    payload = route_status_payload(
+        transport="tcp",
+        sequence=3,
+        direction="client_to_server",
+        status="ready",
+        trace_id="trace-fragmented",
+    )
+    carrier = TransportCarrierFrame(CONTROL_LANE, encode_route_status_control(payload))
+    encoded = carrier.to_bytes()
+    frame = aiwire_tcp_transport.U32.pack(len(encoded)) + encoded
+    fragmented = _FragmentedSocket(
+        [
+            frame[:1],
+            frame[1:3],
+            frame[3:4],
+            frame[4:6],
+            frame[6:9],
+            frame[9:],
+        ]
+    )
+
+    restored = aiwire_tcp_transport._read_frame(fragmented)  # type: ignore[arg-type]
+    decoded = decode_demo_control_frame(restored.payload)
+
+    assert restored.lane == CONTROL_LANE
+    assert decoded["payload"] == payload
+
+
+def test_tcp_transport_frame_reader_rejects_interrupted_partial_frame() -> None:
+    payload = route_status_payload(
+        transport="tcp",
+        sequence=4,
+        direction="client_to_server",
+        status="ready",
+        trace_id="trace-interrupted",
+    )
+    carrier = TransportCarrierFrame(CONTROL_LANE, encode_route_status_control(payload))
+    encoded = carrier.to_bytes()
+    frame = aiwire_tcp_transport.U32.pack(len(encoded)) + encoded
+    fragmented = _FragmentedSocket([frame[:2], frame[2:5], frame[5:8]])
+
+    with pytest.raises(EOFError, match="socket closed"):
+        aiwire_tcp_transport._read_frame(fragmented)  # type: ignore[arg-type]
 
 
 def test_tcp_transport_example_round_trips_aiwire_frames() -> None:

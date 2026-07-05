@@ -143,6 +143,25 @@ Nano-class targets (`2.39x` raw).
 Read the LAN report:
 [AI-to-AI LAN Benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
 
+The follow-up Z6-to-Nano relay run on 2026-07-05 moved the client onto the Z6
+and reached four Jetson Orin Nano-class targets from there. It used the public
+fixture corpus, updated session templates, SHA-verified responses, modeled
+10 Mbps links in both directions, 64 logical agents, and one in-flight request
+per agent:
+
+| Codec | Completed 5s avg | Ex/s avg | vs raw | Framed B/ex | BW cap ex/s | Saved | p95 ms | Util |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| raw | 11,272.0 | 2,254.4 | 1.00x | 1,105.4 | 2,254.3 | -0.7% | 28.89 | 100.0% |
+| zlib | 19,328.3 | 3,865.7 | 1.71x | 643.2 | 3,865.2 | 41.4% | 16.95 | 100.0% |
+| aiwire | 36,489.5 | 7,297.9 | 3.24x | 45.5 | 54,308.2 | 95.9% | 12.88 | 13.4% |
+
+Raw and zlib saturated the modeled 10 Mbps link. AIWire averaged `3.24x` raw
+and `1.89x` zlib, while using only `13.4%` of the modeled link because the
+sustained session deltas were much smaller.
+
+Read the Z6 relay report:
+[AIWire Z6-to-Nano Relay Benchmark](docs/perf/z6_to_nano_aiwire_2026-07-05.md)
+
 The key interpretation is bandwidth proportionality. Smaller frames create room
 for more messages, but the runtime must keep enough exchanges in flight to fill
 that room. Raw JSON fills the modeled link quickly; AIWire and AIToken+AIWire
@@ -502,6 +521,7 @@ delta streams.
 - [Realistic network benchmarks](docs/perf/realistic_network_benchmarks.md)
 - [AI-to-AI messaging metrics](docs/perf/ai_to_ai_messaging_metrics_2026-07-04.md)
 - [AI-to-AI LAN benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
+- [AIWire Z6-to-Nano relay benchmark](docs/perf/z6_to_nano_aiwire_2026-07-05.md)
 - [AIWire fixture saturation benchmark](docs/perf/aiwire_fixture_saturation_2026-07-04.md)
 - [Transport examples](examples/README.md)
 - [Large-file and API notes](docs/api/compressor.md)

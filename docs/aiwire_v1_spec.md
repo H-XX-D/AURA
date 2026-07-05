@@ -72,6 +72,7 @@ Those concerns belong at the transport or application layer.
 | zlib memory level | `8` |
 | Default compression level | `3` |
 | Flush mode | `z_sync_flush` |
+| Sync-flush frame suffix | `00 00 ff ff` |
 | Max session templates | `4096` |
 | Max template bytes | `4096` |
 | Max session dictionary bytes | `262144` |
@@ -356,6 +357,9 @@ compressed = deflate(raw) + Z_SYNC_FLUSH
 
 The decoder uses the matching live inflate stream and consumes one compressed
 frame at a time. A frame MUST NOT contain unused compressed data after inflate.
+Reference bindings SHOULD reject frames that do not end with the raw-deflate
+Z_SYNC_FLUSH suffix `00 00 ff ff`; otherwise a truncated frame can sometimes
+produce partial output before the missing flush boundary is detected.
 
 Because the stream is stateful, data frames are not independently decodable.
 Peers MUST NOT reorder, drop, duplicate, or replay data frames inside a live
@@ -666,6 +670,7 @@ If a peer detects any of the following, it MUST stop using the current AIWire
 stream:
 
 - Handshake rejection without accepted fallback.
+- Missing data-frame sync-flush marker.
 - Data-frame inflate error.
 - Unused compressed data after inflate.
 - Dictionary/template hash mismatch.

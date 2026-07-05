@@ -7,8 +7,10 @@ import pytest
 
 from aura_compression.ai_wire import (
     AI_WIRE_DICTIONARY_FNV1A64,
+    AI_WIRE_SYNC_FLUSH_SUFFIX,
     AI_WIRE_STATIC_DICTIONARY,
     AIWireControlLUTEntry,
+    AIWireFrameError,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
     aiwire_control_lut_frame_hex,
@@ -62,6 +64,34 @@ def test_ai_wire_round_trips_ordered_frames() -> None:
     assert decoder.stats.frames == len(frames)
     assert encoder.stats.bytes_in == sum(len(frame) for frame in frames)
     assert decoder.stats.bytes_out == encoder.stats.bytes_in
+
+
+def test_ai_wire_decoder_rejects_truncated_frame_without_advancing_stats() -> None:
+    encoder = AIWireSessionEncoder(level=3, use_native=False)
+    decoder = AIWireSessionDecoder(use_native=False)
+    frame = encoder.compress_message({"protocol": "mcp", "jsonrpc": "2.0", "id": 1})
+
+    assert frame.endswith(AI_WIRE_SYNC_FLUSH_SUFFIX)
+    with pytest.raises(AIWireFrameError, match="truncated"):
+        decoder.decompress_frame(frame[:-1])
+
+    assert decoder.stats.frames == 0
+    assert decoder.stats.bytes_in == 0
+    assert decoder.stats.bytes_out == 0
+
+
+def test_ai_wire_decoder_rejects_corrupt_frame_without_advancing_stats() -> None:
+    encoder = AIWireSessionEncoder(level=3, use_native=False)
+    decoder = AIWireSessionDecoder(use_native=False)
+    frame = encoder.compress_message({"protocol": "mcp", "jsonrpc": "2.0", "id": 1})
+    corrupt = (b"\xff" * (len(frame) - len(AI_WIRE_SYNC_FLUSH_SUFFIX))) + AI_WIRE_SYNC_FLUSH_SUFFIX
+
+    with pytest.raises(AIWireFrameError, match="decompression failed"):
+        decoder.decompress_frame(corrupt)
+
+    assert decoder.stats.frames == 0
+    assert decoder.stats.bytes_in == 0
+    assert decoder.stats.bytes_out == 0
 
 
 def test_ai_wire_helpers_round_trip_string_frames() -> None:

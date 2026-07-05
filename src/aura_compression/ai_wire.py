@@ -49,6 +49,7 @@ AI_WIRE_WBITS = -15
 AI_WIRE_MEM_LEVEL = 8
 AI_WIRE_DEFAULT_LEVEL = 3
 AI_WIRE_FLUSH_MODE = "z_sync_flush"
+AI_WIRE_SYNC_FLUSH_SUFFIX = b"\x00\x00\xff\xff"
 AI_WIRE_DELTA_VERSION = 1
 AI_WIRE_MAX_SESSION_TEMPLATES = 4096
 AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS = 128
@@ -1645,6 +1646,10 @@ class AIWireNativeError(RuntimeError):
     """Raised when the native C++ AIWire backend reports an error."""
 
 
+class AIWireFrameError(ValueError):
+    """Raised when an AIWire data frame cannot be safely decoded."""
+
+
 class AIWireHandshakeError(ValueError):
     """Raised when an AIWire protocol handshake cannot be negotiated."""
 
@@ -2597,15 +2602,25 @@ class AIWireSessionDecoder:
         self.close()
 
     def decompress_frame(self, payload: bytes) -> bytes:
+        frame = bytes(payload)
+        if not frame.endswith(AI_WIRE_SYNC_FLUSH_SUFFIX):
+            raise AIWireFrameError("AIWire frame is truncated or missing Z_SYNC_FLUSH marker")
+
         if self._native is not None:
-            restored = self._native.decompress_frame(payload)
+            try:
+                restored = self._native.decompress_frame(frame)
+            except AIWireNativeError as exc:
+                raise AIWireFrameError(f"AIWire frame decompression failed: {exc}") from exc
         else:
             assert self._decompressor is not None
-            restored = self._decompressor.decompress(payload)
+            try:
+                restored = self._decompressor.decompress(frame)
+            except zlib.error as exc:
+                raise AIWireFrameError(f"AIWire frame decompression failed: {exc}") from exc
         if self._decompressor is not None and self._decompressor.unused_data:
-            raise ValueError("AI wire frame contains unused compressed data")
+            raise AIWireFrameError("AIWire frame contains unused compressed data")
         self._frames += 1
-        self._bytes_in += len(payload)
+        self._bytes_in += len(frame)
         self._bytes_out += len(restored)
         return restored
 

@@ -48,7 +48,7 @@ Goal: freeze the minimum protocol contract.
 - Define handshake fields, template update signals, accepted fallback behavior,
   resync behavior, and failure modes.
 - Add cross-version dictionary compatibility tests.
-- Add corrupted-frame and truncated-frame tests.
+- Keep corrupted-frame and truncated-frame tests in the fast AIWire gate.
 - Add streaming tests with partial reads/writes and interrupted delta state.
 - Add negotiated fallback tests for `raw` and `zlib`.
 - Make stats stable enough for benchmark comparison over time.

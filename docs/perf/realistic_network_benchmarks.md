@@ -134,6 +134,11 @@ PYTHONPATH=src python tools/run_aiwire_network_suite.py \
 For a single manual profile, add the same fixture flags to both the server and
 client commands.
 
+For working-cluster traffic, add `--fixture-variation-profile cluster` on the
+client side. In n-ary runs, each target label becomes a distinct peer label, so
+the public fixture is varied by role, route, workload, epoch, queue depth, token
+window, and telemetry while preserving SHA-256 response verification.
+
 ## Run One Manual Profile Across Machines
 
 Start the server using the server-side profile values:

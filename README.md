@@ -162,6 +162,28 @@ sustained session deltas were much smaller.
 Read the Z6 relay report:
 [AIWire Z6-to-Nano Relay Benchmark](docs/perf/z6_to_nano_aiwire_2026-07-05.md)
 
+The n-ary follow-up used the Z6 as one coordinator for four Nano-class peers.
+It probed each peer, accepted one fail-closed AIWire n-ary handshake contract
+with the same static dictionary and 8 session templates, then ran concurrent
+fixture replay across all four targets with a deterministic cluster variation
+profile. That profile gives each peer different roles, routes, workloads,
+epochs, queue depths, token windows, and telemetry while preserving SHA-verified
+request/response checks:
+
+| Codec | Completed 5s group | Ex/s group | vs raw | Framed B/ex | BW cap ex/s | Saved | p95 avg | Util |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| raw | 21,710 | 4,342.0 | 1.00x | 2,305.3 | 4,331.6 | -0.3% | 67.82 | 100.2% |
+| zlib | 23,011 | 4,602.2 | 1.06x | 1,214.3 | 8,222.2 | 47.1% | 60.94 | 56.0% |
+| aiwire | 23,009 | 4,601.8 | 1.06x | 367.7 | 26,784.9 | 84.0% | 60.49 | 17.2% |
+
+This aggregate run shows the next bottleneck clearly: AIWire created about
+26,785 modeled exchanges/second of bandwidth capacity across the four 10 Mbps
+links, but the Python coordinator and one-request windows only used `17.2%` of
+that headroom.
+
+Read the n-ary relay report:
+[AIWire N-ary Z6-to-Nano Benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
+
 The key interpretation is bandwidth proportionality. Smaller frames create room
 for more messages, but the runtime must keep enough exchanges in flight to fill
 that room. Raw JSON fills the modeled link quickly; AIWire and AIToken+AIWire
@@ -468,6 +490,39 @@ In fixture mode, the client and server compare request/response corpus digests
 during the handshake and the client verifies each replayed fixture response by
 SHA-256.
 
+To coordinate multiple peers under one fail-closed AIWire n-ary contract, start
+each target server with one extra run for the handshake probe, then use
+`nary-client` from the coordinator:
+
+```bash
+# Each target. For raw,zlib,aiwire, runs = 1 probe + 3 codec runs.
+PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py server \
+  --host 0.0.0.0 \
+  --port 8910 \
+  --runs 4 \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --link-mbps 10
+
+# Coordinator/client.
+PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py nary-client \
+  --target edge-1=<target-1>:8910 \
+  --target edge-2=<target-2>:8910 \
+  --target edge-3=<target-3>:8910 \
+  --target edge-4=<target-4>:8910 \
+  --seconds 5 \
+  --agent-count 64 \
+  --pipeline-window 1 \
+  --link-mbps 10 \
+  --codecs raw,zlib,aiwire \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --fixture-variation-profile cluster \
+  --force-session-templates \
+  --target-parallelism 4 \
+  --output /tmp/aura_nary_fixture_replay.json
+```
+
 ## Transport Examples
 
 AIWire frames are ordinary bytes after the session handshake. The repo includes
@@ -522,6 +577,7 @@ delta streams.
 - [AI-to-AI messaging metrics](docs/perf/ai_to_ai_messaging_metrics_2026-07-04.md)
 - [AI-to-AI LAN benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
 - [AIWire Z6-to-Nano relay benchmark](docs/perf/z6_to_nano_aiwire_2026-07-05.md)
+- [AIWire n-ary Z6-to-Nano benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
 - [AIWire fixture saturation benchmark](docs/perf/aiwire_fixture_saturation_2026-07-04.md)
 - [Transport examples](examples/README.md)
 - [Large-file and API notes](docs/api/compressor.md)

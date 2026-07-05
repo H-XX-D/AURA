@@ -15,6 +15,7 @@ import threading
 import time
 import zlib
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -38,6 +39,7 @@ from aura_compression.ai_wire import (
     discover_ai_wire_session_templates,
     encode_ai_wire_message,
     negotiate_aiwire_handshake,
+    negotiate_aiwire_nary_handshake,
     normalize_aiwire_session_templates,
 )
 from aura_compression.ai_wire_fixtures import load_aiwire_session_fixture_corpus
@@ -317,6 +319,164 @@ def _repeat_frames(frames: tuple[bytes, ...], count: int) -> list[bytes]:
     return [frames[index % len(frames)] for index in range(count)]
 
 
+CLUSTER_VARIATION_ROLES = (
+    "coordinator",
+    "router",
+    "planner",
+    "tool-runner",
+    "retriever",
+    "critic",
+    "memory-writer",
+    "monitor",
+)
+CLUSTER_VARIATION_WORKLOADS = (
+    "mcp_tool_call",
+    "a2a_task_delta",
+    "openai_response_stream",
+    "local_agent_trace",
+    "handoff_review",
+    "memory_commit",
+    "artifact_update",
+    "health_check",
+)
+CLUSTER_VARIATION_ZONES = ("lab-a", "lab-b", "edge-mesh", "desk-lan")
+
+
+def _fixture_peer_seed(peer_label: str) -> int:
+    digest = hashlib.sha256(peer_label.encode("utf-8")).hexdigest()
+    return int(digest[:8], 16)
+
+
+def _cluster_variation_frame(
+    frame: bytes,
+    *,
+    direction: str,
+    peer_label: str,
+    exchange_index: int,
+) -> bytes:
+    message = json.loads(frame)
+    if not isinstance(message, dict):
+        return frame
+
+    peer_seed = _fixture_peer_seed(peer_label)
+    role = CLUSTER_VARIATION_ROLES[
+        (peer_seed + exchange_index) % len(CLUSTER_VARIATION_ROLES)
+    ]
+    workload = CLUSTER_VARIATION_WORKLOADS[
+        (peer_seed // 3 + exchange_index * 2) % len(CLUSTER_VARIATION_WORKLOADS)
+    ]
+    zone = CLUSTER_VARIATION_ZONES[
+        (peer_seed // 7 + exchange_index) % len(CLUSTER_VARIATION_ZONES)
+    ]
+    epoch = exchange_index // 36
+    shard = (peer_seed + exchange_index * 7) % 17
+    queue_depth = (peer_seed + exchange_index * 5) % 64
+    token_window = 2048 + ((peer_seed + exchange_index * 97) % 14) * 512
+    gpu_load = 18 + ((peer_seed + exchange_index * 11) % 79)
+    memory_pressure = 21 + ((peer_seed + exchange_index * 13) % 67)
+    route_from = peer_label if direction == "server_to_client" else "z6-coordinator"
+    route_to = "z6-coordinator" if direction == "server_to_client" else peer_label
+
+    message["cluster_context"] = {
+        "schema": "aura.cluster.fixture_variation.v1",
+        "profile": "working_cluster",
+        "peer": peer_label,
+        "role": role,
+        "zone": zone,
+        "workload": workload,
+        "direction": direction,
+        "route": {
+            "from": route_from,
+            "to": route_to,
+            "lane": "semantic",
+            "shard": shard,
+        },
+        "epoch": epoch,
+        "sequence": exchange_index,
+        "telemetry": {
+            "queue_depth": queue_depth,
+            "inflight_agents": 4 + ((peer_seed + exchange_index) % 29),
+            "gpu_load_percent": gpu_load,
+            "memory_pressure_percent": memory_pressure,
+            "token_window": token_window,
+            "retry_budget": 1 + ((peer_seed + exchange_index) % 4),
+            "backpressure": queue_depth > 48 or memory_pressure > 78,
+        },
+    }
+    metadata = message.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = {}
+    metadata.update(
+        {
+            "cluster_peer": peer_label,
+            "cluster_role": role,
+            "cluster_epoch": epoch,
+            "cluster_workload": workload,
+        }
+    )
+    message["metadata"] = metadata
+
+    if isinstance(message.get("trace_id"), str):
+        message["trace_id"] = (
+            f"{message['trace_id']}:{peer_label}:e{epoch}:x{exchange_index % 997}"
+        )
+    if "id" in message and isinstance(message["id"], (int, str)):
+        message["id"] = f"{peer_label}-{message['id']}-{exchange_index % 997}"
+
+    return _json_bytes(message)
+
+
+def _vary_fixture_frame(
+    frame: bytes,
+    *,
+    direction: str,
+    peer_label: str,
+    exchange_index: int,
+    profile: str,
+) -> bytes:
+    if profile == "none":
+        return frame
+    if profile == "cluster":
+        return _cluster_variation_frame(
+            frame,
+            direction=direction,
+            peer_label=peer_label,
+            exchange_index=exchange_index,
+        )
+    raise ValueError(f"unsupported fixture variation profile: {profile}")
+
+
+def _fixture_frame_for(
+    fixture_replay: FixtureReplayCorpus,
+    *,
+    direction: str,
+    exchange_index: int,
+    profile: str,
+    peer_label: str,
+) -> bytes:
+    frames = (
+        fixture_replay.request_frames
+        if direction == "client_to_server"
+        else fixture_replay.response_frames
+    )
+    base = frames[exchange_index % fixture_replay.exchange_count]
+    return _vary_fixture_frame(
+        base,
+        direction=direction,
+        peer_label=peer_label,
+        exchange_index=exchange_index,
+        profile=profile,
+    )
+
+
+def _args_fixture_variation_profile(args: argparse.Namespace) -> str:
+    return str(getattr(args, "fixture_variation_profile", "none") or "none")
+
+
+def _args_fixture_peer_label(args: argparse.Namespace) -> str:
+    return str(getattr(args, "fixture_peer_label", "client") or "client")
+
+
 def _client_session_templates(
     args: argparse.Namespace,
     frames: list[bytes],
@@ -498,6 +658,13 @@ class InFlightRequest:
     start_ns: int
 
 
+@dataclass(frozen=True)
+class RelayTarget:
+    label: str
+    host: str
+    port: int
+
+
 def _server_negotiate(
     hello: dict[str, Any],
 ) -> tuple[str, dict[str, Any] | None, tuple[tuple[int, str], ...]]:
@@ -543,6 +710,8 @@ def server_once(
     exchanges = int(hello["exchanges"])
     duration_mode = bool(hello.get("duration_mode", False))
     fixture_requested = bool(hello.get("fixture_replay", False))
+    fixture_variation_profile = str(hello.get("fixture_variation_profile", "none") or "none")
+    fixture_peer_label = str(hello.get("fixture_peer_label", "peer") or "peer")
     if fixture_requested:
         if fixture_replay is None:
             _write_frame(
@@ -587,6 +756,74 @@ def server_once(
             return
 
     codec, negotiation, session_templates = _server_negotiate(hello)
+    if bool(hello.get("handshake_probe", False)):
+        if not codec:
+            _write_frame(
+                conn,
+                _json_bytes(
+                    {
+                        "accepted": False,
+                        "codec": requested_codec,
+                        "negotiated_codec": "",
+                        "server_link_mbps": link_mbps,
+                        "server_one_way_delay_ms": one_way_delay_ms,
+                        "server_jitter_ms": jitter_ms,
+                        "server_tail_pause_probability": tail_pause_probability,
+                        "server_tail_pause_ms": tail_pause_ms,
+                        "handshake_probe": True,
+                        "aiwire_negotiation": negotiation,
+                    }
+                ),
+            )
+            return
+
+        probe_session = CodecSession(
+            codec=codec,
+            level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)),
+            cache_dir=cache_dir,
+            session_templates=session_templates,
+        )
+        _write_frame(
+            conn,
+            _json_bytes(
+                {
+                    "accepted": True,
+                    "codec": requested_codec,
+                    "negotiated_codec": codec,
+                    "backend": probe_session.backend,
+                    "server_link_mbps": link_mbps,
+                    "server_one_way_delay_ms": one_way_delay_ms,
+                    "server_jitter_ms": jitter_ms,
+                    "server_tail_pause_probability": tail_pause_probability,
+                    "server_tail_pause_ms": tail_pause_ms,
+                    "handshake_probe": True,
+                    "session_template_count": len(session_templates),
+                    "session_template_sha256": aiwire_session_templates_sha256(
+                        session_templates
+                    ),
+                    "fixture_replay": fixture_requested,
+                    "fixture_variation_profile": fixture_variation_profile,
+                    "fixture_peer_label": fixture_peer_label,
+                    "fixture_corpus": fixture_replay.path if fixture_replay else "",
+                    "fixture_schema": fixture_replay.schema if fixture_replay else "",
+                    "fixture_exchange_count": (
+                        fixture_replay.exchange_count if fixture_replay else 0
+                    ),
+                    "fixture_session_template_mode": (
+                        fixture_replay.session_template_mode if fixture_replay else ""
+                    ),
+                    "fixture_request_sha256": (
+                        fixture_replay.request_sha256 if fixture_replay else ""
+                    ),
+                    "fixture_response_sha256": (
+                        fixture_replay.response_sha256 if fixture_replay else ""
+                    ),
+                    "aiwire_negotiation": negotiation,
+                }
+            ),
+        )
+        return
+
     if not codec:
         _write_frame(
             conn,
@@ -628,6 +865,8 @@ def server_once(
                 "session_template_count": len(session_templates),
                 "session_template_sha256": aiwire_session_templates_sha256(session_templates),
                 "fixture_replay": fixture_requested,
+                "fixture_variation_profile": fixture_variation_profile,
+                "fixture_peer_label": fixture_peer_label,
                 "fixture_corpus": fixture_replay.path if fixture_replay else "",
                 "fixture_schema": fixture_replay.schema if fixture_replay else "",
                 "fixture_exchange_count": fixture_replay.exchange_count if fixture_replay else 0,
@@ -677,11 +916,22 @@ def server_once(
 
         if fixture_requested:
             assert fixture_replay is not None
-            fixture_index = index % fixture_replay.exchange_count
-            expected_request = fixture_replay.request_frames[fixture_index]
+            expected_request = _fixture_frame_for(
+                fixture_replay,
+                direction="client_to_server",
+                exchange_index=index,
+                profile=fixture_variation_profile,
+                peer_label=fixture_peer_label,
+            )
             if hashlib.sha256(request).hexdigest() != hashlib.sha256(expected_request).hexdigest():
                 raise RuntimeError(f"fixture request verification failed at exchange {index}")
-            response = fixture_replay.response_frames[fixture_index]
+            response = _fixture_frame_for(
+                fixture_replay,
+                direction="server_to_client",
+                exchange_index=index,
+                profile=fixture_variation_profile,
+                peer_label=fixture_peer_label,
+            )
         else:
             response = _response_for(index, request)
         raw_response_bytes += len(response)
@@ -715,6 +965,8 @@ def server_once(
                 "tail_pause_probability": tail_pause_probability,
                 "tail_pause_ms": tail_pause_ms,
                 "fixture_replay": fixture_requested,
+                "fixture_variation_profile": fixture_variation_profile,
+                "fixture_peer_label": fixture_peer_label,
                 "fixture_corpus": fixture_replay.path if fixture_replay else "",
                 "fixture_exchange_count": fixture_replay.exchange_count if fixture_replay else 0,
                 "server_decompress_ms": server_decompress_ns / 1_000_000,
@@ -766,6 +1018,8 @@ def _client_stress_codec(
     agent_count = max(1, args.agent_count)
     per_agent_pipeline_window = max(1, args.pipeline_window)
     aggregate_pipeline_window = agent_count * per_agent_pipeline_window
+    fixture_variation_profile = _args_fixture_variation_profile(args)
+    fixture_peer_label = _args_fixture_peer_label(args)
     session_templates: tuple[tuple[int, str], ...] = ()
     if codec in AIWIRE_NEGOTIATED_CODECS:
         session_templates = _client_session_templates(
@@ -797,6 +1051,8 @@ def _client_stress_codec(
                 "fixture_session_template_mode": fixture_replay.session_template_mode,
                 "fixture_request_sha256": fixture_replay.request_sha256,
                 "fixture_response_sha256": fixture_replay.response_sha256,
+                "fixture_variation_profile": fixture_variation_profile,
+                "fixture_peer_label": fixture_peer_label,
             }
         )
     if codec in AIWIRE_NEGOTIATED_CODECS:
@@ -868,15 +1124,31 @@ def _client_stress_codec(
 
         def send_next() -> None:
             nonlocal client_compress_ns, raw_request_bytes, request_wire_bytes, sent_exchanges
-            request = (
-                frames[sent_exchanges % len(frames)] if duration_mode else frames[sent_exchanges]
-            )
+            if fixture_replay is not None:
+                request = _fixture_frame_for(
+                    fixture_replay,
+                    direction="client_to_server",
+                    exchange_index=sent_exchanges,
+                    profile=fixture_variation_profile,
+                    peer_label=fixture_peer_label,
+                )
+            else:
+                request = (
+                    frames[sent_exchanges % len(frames)]
+                    if duration_mode
+                    else frames[sent_exchanges]
+                )
             request_sha = hashlib.sha256(request).hexdigest()
             expected_response_sha256 = None
             if fixture_replay is not None:
-                fixture_index = sent_exchanges % fixture_replay.exchange_count
                 expected_response_sha256 = hashlib.sha256(
-                    fixture_replay.response_frames[fixture_index]
+                    _fixture_frame_for(
+                        fixture_replay,
+                        direction="server_to_client",
+                        exchange_index=sent_exchanges,
+                        profile=fixture_variation_profile,
+                        peer_label=fixture_peer_label,
+                    )
                 ).hexdigest()
             exchange_start = time.perf_counter_ns()
 
@@ -1010,6 +1282,8 @@ def _client_stress_codec(
         "fixture_schema": ack.get("fixture_schema", ""),
         "fixture_exchange_count": ack.get("fixture_exchange_count", 0),
         "fixture_session_template_mode": ack.get("fixture_session_template_mode", ""),
+        "fixture_variation_profile": ack.get("fixture_variation_profile", "none"),
+        "fixture_peer_label": ack.get("fixture_peer_label", ""),
         "fixture_request_sha256": ack.get("fixture_request_sha256", ""),
         "fixture_response_sha256": ack.get("fixture_response_sha256", ""),
         "response_verification": (
@@ -1072,7 +1346,9 @@ def _client_stress_codec(
     }
 
 
-def run_client(args: argparse.Namespace) -> None:
+def _load_client_frames(
+    args: argparse.Namespace,
+) -> tuple[list[bytes], FixtureReplayCorpus | None]:
     fixture_replay = (
         _load_fixture_replay_corpus(
             args.fixture_corpus,
@@ -1089,6 +1365,222 @@ def run_client(args: argparse.Namespace) -> None:
         )
     else:
         frames = build_ai_wire_messages(args.exchanges, args.seed)
+    return frames, fixture_replay
+
+
+def _safe_label(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in value)
+    return cleaned.strip("-") or "target"
+
+
+def _client_args_for_target(args: argparse.Namespace, target: RelayTarget) -> argparse.Namespace:
+    child = argparse.Namespace(**vars(args))
+    child.host = target.host
+    child.port = target.port
+    child.output = None
+    child.cache_dir = f"{args.cache_dir}-{_safe_label(target.label)}"
+    child.fixture_peer_label = target.label
+    return child
+
+
+def _parse_relay_target(value: str, default_port: int) -> RelayTarget:
+    if "=" in value:
+        label, endpoint = value.split("=", 1)
+        label = label.strip()
+    else:
+        endpoint = value
+        label = ""
+
+    endpoint = endpoint.strip()
+    port = default_port
+    host = endpoint
+    if endpoint.startswith("[") and "]" in endpoint:
+        host_part, _, port_part = endpoint[1:].partition("]")
+        host = host_part
+        if port_part.startswith(":") and port_part[1:].isdigit():
+            port = int(port_part[1:])
+    elif ":" in endpoint:
+        host_part, port_part = endpoint.rsplit(":", 1)
+        if port_part.isdigit():
+            host = host_part
+            port = int(port_part)
+
+    label = label or host
+    if not label or not host:
+        raise ValueError(f"invalid relay target: {value!r}")
+    return RelayTarget(label=label, host=host, port=port)
+
+
+def _collect_relay_targets(args: argparse.Namespace) -> list[RelayTarget]:
+    values = list(args.target or [])
+    if args.targets_file:
+        for line in Path(args.targets_file).read_text().splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                values.append(stripped)
+    if not values:
+        raise RuntimeError("nary-client requires at least one --target")
+
+    targets = [_parse_relay_target(value, args.port) for value in values]
+    labels = [target.label for target in targets]
+    if len(labels) != len(set(labels)):
+        raise RuntimeError(f"target labels must be unique: {labels}")
+    return targets
+
+
+def _probe_aiwire_peer(
+    target: RelayTarget,
+    args: argparse.Namespace,
+    frames: list[bytes],
+    fixture_replay: FixtureReplayCorpus | None,
+) -> dict[str, Any]:
+    child = _client_args_for_target(args, target)
+    fixture_variation_profile = _args_fixture_variation_profile(child)
+    fixture_peer_label = _args_fixture_peer_label(child)
+    session_templates = _client_session_templates(
+        child,
+        frames,
+        fixture_replay=fixture_replay,
+    )
+    hello: dict[str, Any] = {
+        "codec": "aiwire",
+        "exchanges": 0,
+        "duration_mode": False,
+        "duration_seconds": 0,
+        "handshake_probe": True,
+        "client_link_mbps": child.link_mbps,
+        "client_one_way_delay_ms": child.one_way_delay_ms,
+        "client_jitter_ms": child.jitter_ms,
+        "client_tail_pause_probability": child.tail_pause_probability,
+        "client_tail_pause_ms": child.tail_pause_ms,
+        "agent_count": max(1, child.agent_count),
+        "per_agent_pipeline_window": max(1, child.pipeline_window),
+        "aggregate_pipeline_window": max(1, child.agent_count) * max(1, child.pipeline_window),
+        "fixture_replay": fixture_replay is not None,
+        "aiwire_level": child.aiwire_level,
+        "allow_aiwire_fallback": child.allow_aiwire_fallback,
+        "aiwire_handshake": build_aiwire_handshake(
+            level=child.aiwire_level,
+            fallback_codecs=("zlib", "raw") if child.allow_aiwire_fallback else (),
+            session_templates=session_templates,
+            require_session_templates=child.force_session_templates,
+        ).to_dict(),
+    }
+    if fixture_replay is not None:
+        hello.update(
+            {
+                "fixture_corpus": fixture_replay.path,
+                "fixture_schema": fixture_replay.schema,
+                "fixture_exchange_count": fixture_replay.exchange_count,
+                "fixture_session_template_mode": fixture_replay.session_template_mode,
+                "fixture_request_sha256": fixture_replay.request_sha256,
+                "fixture_response_sha256": fixture_replay.response_sha256,
+                "fixture_variation_profile": fixture_variation_profile,
+                "fixture_peer_label": fixture_peer_label,
+            }
+        )
+
+    connect_start = time.perf_counter_ns()
+    with socket.create_connection((target.host, target.port), timeout=child.timeout) as sock:
+        _configure_low_latency(sock)
+        _write_frame(sock, _json_bytes(hello))
+        ack = json.loads(_read_frame(sock))
+    handshake_ms = (time.perf_counter_ns() - connect_start) / 1_000_000
+    if not ack.get("accepted"):
+        raise RuntimeError(f"{target.label} AIWire handshake probe failed: {ack}")
+    if fixture_replay is not None and not ack.get("fixture_replay"):
+        raise RuntimeError(f"{target.label} fixture replay probe was not accepted: {ack}")
+
+    aiwire_negotiation = ack.get("aiwire_negotiation")
+    if not isinstance(aiwire_negotiation, dict) or not aiwire_negotiation.get("accepted"):
+        raise RuntimeError(f"{target.label} did not return an accepted AIWire negotiation")
+    peer_handshake = aiwire_negotiation.get("server")
+    if not isinstance(peer_handshake, dict):
+        raise RuntimeError(f"{target.label} did not return a server handshake")
+
+    return {
+        "target": target.label,
+        "handshake_ms": handshake_ms,
+        "backend": ack.get("backend"),
+        "session_template_count": ack.get("session_template_count", 0),
+        "session_template_sha256": ack.get("session_template_sha256", ""),
+        "fixture_replay": ack.get("fixture_replay", False),
+        "fixture_exchange_count": ack.get("fixture_exchange_count", 0),
+        "fixture_variation_profile": ack.get("fixture_variation_profile", "none"),
+        "fixture_peer_label": ack.get("fixture_peer_label", ""),
+        "peer_handshake": peer_handshake,
+        "aiwire_negotiation": aiwire_negotiation,
+    }
+
+
+def _run_target_codec(
+    target_index: int,
+    target: RelayTarget,
+    codec: str,
+    args: argparse.Namespace,
+    frames: list[bytes],
+    fixture_replay: FixtureReplayCorpus | None,
+) -> dict[str, Any]:
+    child = _client_args_for_target(args, target)
+    row = _client_stress_codec(codec, frames, child, fixture_replay)
+    row["target"] = target.label
+    row["target_index"] = target_index
+    return row
+
+
+def _aggregate_nary_results(
+    rows: list[dict[str, Any]],
+    codec_order: list[str],
+) -> list[dict[str, Any]]:
+    by_codec = {codec: [row for row in rows if row["codec"] == codec] for codec in codec_order}
+    raw_completed = sum(
+        float(row["deadline_completed_exchanges"]) for row in by_codec.get("raw", [])
+    )
+    raw_eps = sum(float(row["deadline_exchanges_per_second"]) for row in by_codec.get("raw", []))
+    aggregates: list[dict[str, Any]] = []
+    for codec in codec_order:
+        codec_rows = by_codec.get(codec, [])
+        if not codec_rows:
+            continue
+        target_count = len(codec_rows)
+        completed = sum(float(row["deadline_completed_exchanges"]) for row in codec_rows)
+        eps = sum(float(row["deadline_exchanges_per_second"]) for row in codec_rows)
+        exchanges = sum(float(row["exchanges"]) for row in codec_rows)
+        raw_bytes = sum(float(row["raw_bytes"]) for row in codec_rows)
+        framed_wire_bytes = sum(float(row["framed_wire_bytes"]) for row in codec_rows)
+        bandwidth_capacity_eps = sum(
+            float(row["bandwidth_capacity_exchanges_per_second"]) for row in codec_rows
+        )
+        aggregates.append(
+            {
+                "codec": codec,
+                "target_count": target_count,
+                "deadline_completed_exchanges": completed,
+                "deadline_exchanges_per_second": eps,
+                "vs_raw_completed": completed / raw_completed if raw_completed else 0.0,
+                "vs_raw_exchanges_per_second": eps / raw_eps if raw_eps else 0.0,
+                "framed_bytes_per_exchange": (
+                    framed_wire_bytes / exchanges if exchanges else 0.0
+                ),
+                "framed_wire_saved_percent": (
+                    (1 - framed_wire_bytes / raw_bytes) * 100 if raw_bytes else 0.0
+                ),
+                "roundtrip_ms_p95_avg": (
+                    sum(float(row["roundtrip_ms_p95"]) for row in codec_rows) / target_count
+                ),
+                "roundtrip_ms_p95_max": max(float(row["roundtrip_ms_p95"]) for row in codec_rows),
+                "bandwidth_capacity_exchanges_per_second": bandwidth_capacity_eps,
+                "bandwidth_utilization_percent": (
+                    eps / bandwidth_capacity_eps * 100 if bandwidth_capacity_eps else 0.0
+                ),
+                "verified": all(bool(row["verified"]) for row in codec_rows),
+            }
+        )
+    return aggregates
+
+
+def run_client(args: argparse.Namespace) -> None:
+    frames, fixture_replay = _load_client_frames(args)
     results = []
     for codec in args.codecs.split(","):
         codec = codec.strip()
@@ -1105,6 +1597,95 @@ def run_client(args: argparse.Namespace) -> None:
             "fixture_session_template_count": len(fixture_replay.session_templates),
             "fixture_request_sha256": fixture_replay.request_sha256,
             "fixture_response_sha256": fixture_replay.response_sha256,
+            "fixture_variation_profile": _args_fixture_variation_profile(args),
+            "fixture_peer_label": _args_fixture_peer_label(args),
+        }
+    print(json.dumps(output, indent=2, sort_keys=True))
+    if args.output:
+        Path(args.output).write_text(json.dumps(output, indent=2, sort_keys=True) + "\n")
+
+
+def run_nary_client(args: argparse.Namespace) -> None:
+    frames, fixture_replay = _load_client_frames(args)
+    targets = _collect_relay_targets(args)
+    codec_order = [codec.strip() for codec in args.codecs.split(",") if codec.strip()]
+    session_templates = _client_session_templates(
+        args,
+        frames,
+        fixture_replay=fixture_replay,
+    )
+
+    max_workers = min(max(1, args.target_parallelism), len(targets))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        probe_futures = {
+            executor.submit(_probe_aiwire_peer, target, args, frames, fixture_replay): target
+            for target in targets
+        }
+        probes_by_label: dict[str, dict[str, Any]] = {}
+        for future in as_completed(probe_futures):
+            target = probe_futures[future]
+            probes_by_label[target.label] = future.result()
+
+    peer_handshakes = [probes_by_label[target.label]["peer_handshake"] for target in targets]
+    nary_negotiation = negotiate_aiwire_nary_handshake(
+        peer_handshakes,
+        level=args.aiwire_level,
+        fallback_codecs=(),
+        allow_fallback=False,
+        session_templates=session_templates,
+        require_session_templates=args.force_session_templates,
+    )
+    if not nary_negotiation.accepted:
+        raise RuntimeError(f"n-ary AIWire negotiation failed: {nary_negotiation.reason}")
+
+    results: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for codec in codec_order:
+            futures = {
+                executor.submit(
+                    _run_target_codec,
+                    index,
+                    target,
+                    codec,
+                    args,
+                    frames,
+                    fixture_replay,
+                ): target
+                for index, target in enumerate(targets, start=1)
+            }
+            for future in as_completed(futures):
+                results.append(future.result())
+
+    order = {codec: index for index, codec in enumerate(codec_order)}
+    results.sort(key=lambda row: (order.get(str(row["codec"]), len(order)), row["target_index"]))
+    output: dict[str, Any] = {
+        "mode": "nary_client",
+        "participant_count": len(targets) + 1,
+        "remote_peer_count": len(targets),
+        "targets": [{"index": index, "label": target.label} for index, target in enumerate(targets, start=1)],
+        "nary_negotiation": nary_negotiation.to_dict(),
+        "nary_peer_probes": [
+            {
+                key: value
+                for key, value in probes_by_label[target.label].items()
+                if key not in {"peer_handshake", "aiwire_negotiation"}
+            }
+            for target in targets
+        ],
+        "aggregate": _aggregate_nary_results(results, codec_order),
+        "results": results,
+    }
+    if fixture_replay is not None:
+        output["fixture_replay"] = {
+            "fixture_corpus": fixture_replay.path,
+            "fixture_schema": fixture_replay.schema,
+            "fixture_session_count": fixture_replay.session_count,
+            "fixture_exchange_count": fixture_replay.exchange_count,
+            "fixture_session_template_mode": fixture_replay.session_template_mode,
+            "fixture_session_template_count": len(fixture_replay.session_templates),
+            "fixture_request_sha256": fixture_replay.request_sha256,
+            "fixture_response_sha256": fixture_replay.response_sha256,
+            "fixture_variation_profile": _args_fixture_variation_profile(args),
         }
     print(json.dumps(output, indent=2, sort_keys=True))
     if args.output:
@@ -1235,8 +1816,125 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="updated",
         help="fixture session-template set to advertise during AIWire handshakes",
     )
+    client.add_argument(
+        "--fixture-variation-profile",
+        choices=("none", "cluster"),
+        default="none",
+        help="deterministically vary fixture frames to mimic a working cluster",
+    )
+    client.add_argument(
+        "--fixture-peer-label",
+        default="client",
+        help="peer label used by fixture variation profiles",
+    )
     client.add_argument("--output")
     client.set_defaults(func=run_client)
+
+    nary_client = sub.add_parser(
+        "nary-client",
+        help=(
+            "probe multiple AIWire peers, negotiate one fail-closed n-ary "
+            "session contract, then run concurrent fixture replay clients"
+        ),
+    )
+    nary_client.add_argument(
+        "--target",
+        action="append",
+        help="target as label=host[:port] or host[:port]; repeat for each peer",
+    )
+    nary_client.add_argument(
+        "--targets-file",
+        help="optional newline-delimited target list using the same format as --target",
+    )
+    nary_client.add_argument("--port", type=int, default=8910)
+    nary_client.add_argument("--exchanges", type=int, default=5000)
+    nary_client.add_argument("--seconds", type=float, default=0.0)
+    nary_client.add_argument("--seed", type=int, default=1729)
+    nary_client.add_argument("--codecs", default="raw,zlib,aiwire")
+    nary_client.add_argument("--aiwire-level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
+    nary_client.add_argument("--allow-aiwire-fallback", action="store_true")
+    nary_client.add_argument(
+        "--session-template-file",
+        help="JSON mapping/list of AIWire session templates to require in the handshake",
+    )
+    nary_client.add_argument(
+        "--discover-session-templates",
+        action="store_true",
+        help="discover bounded AIWire session templates from the benchmark corpus",
+    )
+    nary_client.add_argument(
+        "--force-session-templates",
+        action="store_true",
+        help="fail AIWire negotiation unless the session template set is non-empty and matched",
+    )
+    nary_client.add_argument("--session-template-limit", type=int, default=16)
+    nary_client.add_argument("--session-template-sample-size", type=int, default=256)
+    nary_client.add_argument("--session-template-min-frequency", type=int, default=2)
+    nary_client.add_argument("--session-template-threshold", type=float, default=1.01)
+    nary_client.add_argument("--cache-dir", default="/tmp/aura-aiwire-stress-nary-cache")
+    nary_client.add_argument("--timeout", type=float, default=120.0)
+    nary_client.add_argument(
+        "--link-mbps", type=float, default=0.0, help="per-direction egress rate; 0 is unlimited"
+    )
+    nary_client.add_argument(
+        "--one-way-delay-ms", type=float, default=0.0, help="egress propagation delay per frame"
+    )
+    nary_client.add_argument(
+        "--jitter-ms", type=float, default=0.0, help="uniform +/- egress jitter per frame"
+    )
+    nary_client.add_argument(
+        "--tail-pause-probability",
+        type=float,
+        default=0.0,
+        help="probability that an egress frame receives an extra queue/retransmit-style delay",
+    )
+    nary_client.add_argument(
+        "--tail-pause-ms",
+        type=float,
+        default=0.0,
+        help="maximum extra delay for tail-pause events",
+    )
+    nary_client.add_argument("--impairment-seed", type=int, default=1729)
+    nary_client.add_argument(
+        "--pipeline-window",
+        type=int,
+        default=1,
+        help="maximum in-flight request frames per logical agent",
+    )
+    nary_client.add_argument(
+        "--agent-count",
+        type=int,
+        default=1,
+        help="logical agents sharing the session; aggregate window is agent-count * pipeline-window",
+    )
+    nary_client.add_argument(
+        "--target-parallelism",
+        type=int,
+        default=64,
+        help="maximum target peers to probe or benchmark at once",
+    )
+    nary_client.add_argument(
+        "--fixture-corpus",
+        type=Path,
+        help=(
+            "replay and verify requests/responses from a public AIWire fixture corpus; "
+            f"for example {DEFAULT_FIXTURE_CORPUS}"
+        ),
+    )
+    nary_client.add_argument(
+        "--fixture-session-templates",
+        choices=("none", "initial", "updated"),
+        default="updated",
+        help="fixture session-template set to advertise during AIWire handshakes",
+    )
+    nary_client.add_argument(
+        "--fixture-variation-profile",
+        choices=("none", "cluster"),
+        default="none",
+        help="deterministically vary fixture frames per target to mimic a working cluster",
+    )
+    nary_client.add_argument("--output")
+    nary_client.set_defaults(func=run_nary_client)
 
     return parser.parse_args(argv)
 

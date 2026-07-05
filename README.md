@@ -248,6 +248,7 @@ from aura_compression import (
     build_structured_ai_messages,
     compress_ai_wire_frames,
     decompress_ai_wire_frames,
+    summarize_ai_wire_corpus,
 )
 
 messages = build_structured_ai_messages(1024)
@@ -259,6 +260,7 @@ restored, decode_stats = decompress_ai_wire_frames(compressed)
 assert len(restored) == len(messages)
 print(encode_stats.as_dict())
 print(delta_stats.as_dict())
+print(summarize_ai_wire_corpus(delta_messages))
 ```
 
 Node.js helper API:

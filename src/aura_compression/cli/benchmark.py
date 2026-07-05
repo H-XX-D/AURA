@@ -12,6 +12,7 @@ from aura_compression.ai_wire import (
     compress_ai_wire_frames,
     decompress_ai_wire_frames,
     encode_ai_wire_message,
+    summarize_ai_wire_corpus,
 )
 
 
@@ -37,6 +38,7 @@ def main(argv: list[str] | None = None) -> int:
     result = {
         "messages": args.messages,
         "dictionary_sha256": AI_WIRE_DICTIONARY_SHA256,
+        "corpus_summary": summarize_ai_wire_corpus(messages),
         "encode_seconds": encoded_at - started,
         "decode_seconds": finished - encoded_at,
         "encode_stats": encode_stats.as_dict(),

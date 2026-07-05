@@ -44,6 +44,7 @@ from aura_compression.ai_wire import (
     negotiate_aiwire_handshake,
     negotiate_aiwire_session_resume,
     normalize_aiwire_control_lut,
+    summarize_ai_wire_corpus,
     verify_aiwire_session_dictionary_ack,
     verify_aiwire_session_resume_response,
     verify_aiwire_system_control_message,
@@ -274,6 +275,55 @@ def test_delta_structured_ai_message_corpus_round_trips_and_discovers_templates(
     assert encode_stats.frames == len(messages)
     assert decode_stats.frames == len(messages)
     assert encode_stats.ratio > 5.0
+
+
+def test_ai_wire_corpus_summary_tracks_size_keys_and_protocol_mix() -> None:
+    messages = build_structured_ai_messages(60, seed=6262)
+    raw_lengths = [len(encode_ai_wire_message(message)) for message in messages]
+
+    summary = summarize_ai_wire_corpus(messages)
+    encoded_summary = summarize_ai_wire_corpus(
+        [encode_ai_wire_message(message) for message in messages]
+    )
+
+    assert summary["message_count"] == 60
+    assert summary["json_message_count"] == 60
+    assert summary["non_json_message_count"] == 0
+    assert summary["total_bytes"] == sum(raw_lengths)
+    assert summary["average_frame_bytes"] == pytest.approx(sum(raw_lengths) / len(raw_lengths))
+    assert summary["min_frame_bytes"] == min(raw_lengths)
+    assert summary["max_frame_bytes"] == max(raw_lengths)
+    assert len(summary["corpus_sha256"]) == 64
+    assert summary["protocol_mix"]["mcp"] > 0
+    assert summary["protocol_mix"]["openai.responses"] > 0
+    assert summary["top_level_key_counts"]["protocol"] == 60
+    assert summary["nested_key_counts"]["trace_id"] > 0
+    assert encoded_summary["protocol_mix"] == summary["protocol_mix"]
+    assert encoded_summary["corpus_sha256"] == summary["corpus_sha256"]
+
+
+def test_delta_ai_wire_corpus_summary_tracks_changed_value_mix() -> None:
+    messages = build_delta_structured_ai_messages(80, seed=5150)
+    summary = summarize_ai_wire_corpus(messages)
+
+    assert summary["message_count"] == 80
+    assert summary["protocol_mix"] == {
+        "a2a": 16,
+        "agent.trace": 8,
+        "local.agent": 24,
+        "mcp": 16,
+        "openai.responses": 16,
+    }
+    assert summary["delta_changed_value_mix"] == {
+        "argument": 16,
+        "artifact": 16,
+        "route": 8,
+        "status": 24,
+        "token": 8,
+        "trace": 8,
+    }
+    assert summary["top_level_key_counts"]["delta_profile"] == 80
+    assert summary["nested_key_counts"]["session_id"] >= 80
 
 
 def test_ai_wire_session_message_api_decodes_json() -> None:

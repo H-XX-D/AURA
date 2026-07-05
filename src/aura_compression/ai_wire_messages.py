@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -48,6 +50,111 @@ def build_ai_wire_messages(count: int, seed: int = 1729) -> list[bytes]:
         encode_ai_wire_message(message)
         for message in build_structured_ai_messages(count=count, seed=seed)
     ]
+
+
+def _sorted_counter(counter: Counter[str]) -> dict[str, int]:
+    return {key: counter[key] for key in sorted(counter)}
+
+
+def _message_mapping_for_summary(
+    message: AIWireFrame,
+    raw: bytes,
+) -> Mapping[str, Any] | None:
+    if isinstance(message, Mapping):
+        return message
+    try:
+        decoded = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return decoded if isinstance(decoded, Mapping) else None
+
+
+def _count_nested_json_keys(value: Any, counter: Counter[str]) -> None:
+    if isinstance(value, Mapping):
+        for key, nested_value in value.items():
+            counter[str(key)] += 1
+            _count_nested_json_keys(nested_value, counter)
+    elif isinstance(value, list):
+        for nested_value in value:
+            _count_nested_json_keys(nested_value, counter)
+
+
+def summarize_ai_wire_corpus(messages: Iterable[AIWireFrame]) -> dict[str, Any]:
+    """Summarize corpus size, frame bytes, keys, and protocol-shaped fields."""
+
+    message_count = 0
+    total_bytes = 0
+    min_frame_bytes: int | None = None
+    max_frame_bytes = 0
+    json_message_count = 0
+    digest = hashlib.sha256()
+    protocol_mix: Counter[str] = Counter()
+    method_mix: Counter[str] = Counter()
+    schema_mix: Counter[str] = Counter()
+    type_mix: Counter[str] = Counter()
+    event_mix: Counter[str] = Counter()
+    delta_changed_value_mix: Counter[str] = Counter()
+    top_level_key_counts: Counter[str] = Counter()
+    nested_key_counts: Counter[str] = Counter()
+
+    for message in messages:
+        raw = encode_ai_wire_message(message)
+        frame_bytes = len(raw)
+        message_count += 1
+        total_bytes += frame_bytes
+        min_frame_bytes = (
+            frame_bytes if min_frame_bytes is None else min(min_frame_bytes, frame_bytes)
+        )
+        max_frame_bytes = max(max_frame_bytes, frame_bytes)
+        digest.update(frame_bytes.to_bytes(8, "big"))
+        digest.update(raw)
+
+        mapping = _message_mapping_for_summary(message, raw)
+        if mapping is None:
+            protocol_mix["non_json"] += 1
+            continue
+
+        json_message_count += 1
+        protocol_mix[str(mapping.get("protocol", "unknown"))] += 1
+        for key in mapping:
+            top_level_key_counts[str(key)] += 1
+        _count_nested_json_keys(mapping, nested_key_counts)
+
+        for source_key, counter in (
+            ("method", method_mix),
+            ("schema", schema_mix),
+            ("type", type_mix),
+            ("event", event_mix),
+        ):
+            value = mapping.get(source_key)
+            if value is not None:
+                counter[str(value)] += 1
+
+        delta_profile = mapping.get("delta_profile")
+        if isinstance(delta_profile, Mapping):
+            changed_value = delta_profile.get("changed_value")
+            if changed_value is not None:
+                delta_changed_value_mix[str(changed_value)] += 1
+
+    average_frame_bytes = total_bytes / message_count if message_count else 0.0
+    return {
+        "message_count": message_count,
+        "json_message_count": json_message_count,
+        "non_json_message_count": message_count - json_message_count,
+        "total_bytes": total_bytes,
+        "average_frame_bytes": average_frame_bytes,
+        "min_frame_bytes": min_frame_bytes or 0,
+        "max_frame_bytes": max_frame_bytes,
+        "corpus_sha256": digest.hexdigest(),
+        "protocol_mix": _sorted_counter(protocol_mix),
+        "method_mix": _sorted_counter(method_mix),
+        "schema_mix": _sorted_counter(schema_mix),
+        "type_mix": _sorted_counter(type_mix),
+        "event_mix": _sorted_counter(event_mix),
+        "delta_changed_value_mix": _sorted_counter(delta_changed_value_mix),
+        "top_level_key_counts": _sorted_counter(top_level_key_counts),
+        "nested_key_counts": _sorted_counter(nested_key_counts),
+    }
 
 
 def discover_ai_wire_session_templates(

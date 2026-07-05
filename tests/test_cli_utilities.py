@@ -109,6 +109,10 @@ def test_package_cli_benchmark_smoke(capsys):
     assert output["encode_stats"]["ratio"] == output["ratio"]
     assert output["decode_stats"]["frames"] == 8
     assert output["decode_stats"]["bytes_out"] == output["decode_bytes_out"]
+    assert output["corpus_summary"]["message_count"] == 8
+    assert output["corpus_summary"]["total_bytes"] == output["bytes_in"]
+    assert output["corpus_summary"]["protocol_mix"]
+    assert len(output["corpus_summary"]["corpus_sha256"]) == 64
 
 
 def test_package_cli_server_guidance(capsys):

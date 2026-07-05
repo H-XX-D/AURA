@@ -31,6 +31,7 @@ from .ai_wire_messages import (
     decode_ai_wire_message,
     discover_ai_wire_session_templates,
     encode_ai_wire_message,
+    summarize_ai_wire_corpus,
 )
 
 AI_WIRE_VERSION = 1

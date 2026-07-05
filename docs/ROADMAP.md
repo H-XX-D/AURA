@@ -73,7 +73,8 @@ Goal: benchmark against realistic protocol-shaped data.
 - Keep saved fixture corpora deterministic, public-safe, and side-channel
   complete. The first AIWire session fixture is
   [`fixtures/aiwire_sessions/public_session_corpus_v1.json`](../fixtures/aiwire_sessions/public_session_corpus_v1.json).
-- Track corpus size, average frame size, key distribution, and protocol mix.
+- Keep stable corpus summaries for size, average frame size, key distribution,
+  protocol mix, and delta value mix.
 - Benchmark with small, medium, and bursty message sizes.
 - Add CI-friendly benchmark smoke tests that detect major regressions without
   requiring a full LAN lab.

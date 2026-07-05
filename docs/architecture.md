@@ -144,6 +144,9 @@ Important functions:
 - `build_delta_structured_ai_messages(count, seed)`: generates stable-session
   delta-shaped traffic after structure has been handshaked.
 - `build_ai_wire_messages(count, seed)`: generates encoded benchmark frames.
+- `summarize_ai_wire_corpus(messages)`: reports corpus byte size, average frame
+  size, protocol mix, top-level key counts, nested key counts, and delta value
+  mix for benchmark comparison.
 
 The generated corpus currently includes OpenAI-style responses, MCP tool calls,
 A2A messages, local agent deltas, traces, handoffs, reviews, memory writes, and

@@ -479,7 +479,8 @@ delta streams.
 
 ```bash
 PYTHONPATH=src pytest tests/test_ai_wire.py tests/test_ai_wire_token.py \
-  tests/test_aiwire_session_fixtures.py tests/test_aiwire_bandwidth_extrapolation.py \
+  tests/test_aiwire_benchmark_smoke.py tests/test_aiwire_session_fixtures.py \
+  tests/test_aiwire_bandwidth_extrapolation.py \
   tests/test_aiwire_fixture_saturation.py tests/test_aiwire_stress_fixture_replay.py \
   tests/test_aiwire_network_profiles.py -q
 pytest -q

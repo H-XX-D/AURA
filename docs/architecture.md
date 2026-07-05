@@ -266,7 +266,7 @@ ports unintentionally.
 Focused AIWire checks:
 
 ```bash
-PYTHONPATH=src pytest tests/test_ai_wire.py -q
+PYTHONPATH=src pytest tests/test_ai_wire.py tests/test_aiwire_benchmark_smoke.py -q
 ```
 
 Full test suite:

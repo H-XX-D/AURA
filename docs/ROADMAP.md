@@ -76,7 +76,7 @@ Goal: benchmark against realistic protocol-shaped data.
 - Keep stable corpus summaries for size, average frame size, key distribution,
   protocol mix, and delta value mix.
 - Keep local benchmark profiles for small, medium, and bursty message sizes.
-- Add CI-friendly benchmark smoke tests that detect major regressions without
+- Keep CI-friendly benchmark smoke tests that detect major regressions without
   requiring a full LAN lab.
 - Keep the fixture-backed saturation benchmark current so bandwidth, latency,
   CPU ceiling, and concurrent-agent requirements are measured on the same

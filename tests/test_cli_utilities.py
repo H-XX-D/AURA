@@ -103,6 +103,12 @@ def test_package_cli_benchmark_smoke(capsys):
     output = json.loads(capsys.readouterr().out)
     assert output["messages"] == 8
     assert output["ratio"] > 0
+    assert output["encode_stats"]["frames"] == 8
+    assert output["encode_stats"]["bytes_in"] == output["bytes_in"]
+    assert output["encode_stats"]["bytes_out"] == output["bytes_out"]
+    assert output["encode_stats"]["ratio"] == output["ratio"]
+    assert output["decode_stats"]["frames"] == 8
+    assert output["decode_stats"]["bytes_out"] == output["decode_bytes_out"]
 
 
 def test_package_cli_server_guidance(capsys):

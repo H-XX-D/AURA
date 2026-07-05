@@ -16,6 +16,7 @@ from aura_compression.ai_wire import (
     AIWireFrameError,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    AIWireStats,
     aiwire_control_lut_frame_hex,
     aiwire_control_lut_sha256,
     aiwire_native_status,
@@ -149,6 +150,38 @@ def test_ai_wire_helpers_round_trip_string_frames() -> None:
     assert restored == [frame.encode("utf-8") for frame in frames]
     assert encode_stats.frames == 12
     assert decode_stats.frames == 12
+
+
+def test_ai_wire_stats_as_dict_has_stable_benchmark_schema() -> None:
+    stats = AIWireStats(frames=4, bytes_in=1000, bytes_out=250)
+
+    assert stats.as_dict() == {
+        "frames": 4,
+        "bytes_in": 1000,
+        "bytes_out": 250,
+        "ratio": 4.0,
+        "average_bytes_in": 250.0,
+        "average_bytes_out": 62.5,
+    }
+    assert tuple(stats.as_dict()) == (
+        "frames",
+        "bytes_in",
+        "bytes_out",
+        "ratio",
+        "average_bytes_in",
+        "average_bytes_out",
+    )
+
+
+def test_ai_wire_stats_as_dict_handles_empty_sessions() -> None:
+    assert AIWireStats(frames=0, bytes_in=0, bytes_out=0).as_dict() == {
+        "frames": 0,
+        "bytes_in": 0,
+        "bytes_out": 0,
+        "ratio": 0.0,
+        "average_bytes_in": 0.0,
+        "average_bytes_out": 0.0,
+    }
 
 
 def test_ai_wire_round_trips_structured_messages() -> None:

@@ -52,7 +52,8 @@ Goal: freeze the minimum protocol contract.
 - Keep TCP partial-frame read/write tests and interrupted delta-state tests in
   the fast AIWire gate.
 - Keep negotiated fallback tests for `raw` and `zlib` in the fast AIWire gate.
-- Make stats stable enough for benchmark comparison over time.
+- Keep stable stats serialization in the fast AIWire gate for benchmark
+  comparison over time.
 
 Definition of done:
 

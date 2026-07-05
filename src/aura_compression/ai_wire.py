@@ -2495,6 +2495,18 @@ class AIWireStats:
     def average_bytes_out(self) -> float:
         return self.bytes_out / self.frames if self.frames else 0.0
 
+    def as_dict(self) -> dict[str, int | float]:
+        """Return the stable benchmark serialization for AIWire counters."""
+
+        return {
+            "frames": self.frames,
+            "bytes_in": self.bytes_in,
+            "bytes_out": self.bytes_out,
+            "ratio": self.ratio,
+            "average_bytes_in": self.average_bytes_in,
+            "average_bytes_out": self.average_bytes_out,
+        }
+
 
 class AIWireSessionEncoder:
     """Stateful encoder for ordered AI-to-AI message frames."""

@@ -39,6 +39,8 @@ def main(argv: list[str] | None = None) -> int:
         "dictionary_sha256": AI_WIRE_DICTIONARY_SHA256,
         "encode_seconds": encoded_at - started,
         "decode_seconds": finished - encoded_at,
+        "encode_stats": encode_stats.as_dict(),
+        "decode_stats": decode_stats.as_dict(),
         "bytes_in": encode_stats.bytes_in,
         "bytes_out": encode_stats.bytes_out,
         "ratio": encode_stats.ratio,

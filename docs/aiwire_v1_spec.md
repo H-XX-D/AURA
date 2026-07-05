@@ -379,6 +379,23 @@ creates new encoder/decoder state.
 For bidirectional agent communication, each direction SHOULD use its own encoder
 and decoder state.
 
+## Benchmark Stats
+
+Reference bindings SHOULD expose stable per-session counters for benchmark and
+regression tooling. The Python `AIWireStats.as_dict()` schema is:
+
+| Field | Meaning |
+| --- | --- |
+| `frames` | Number of frames accepted by the encoder or decoder |
+| `bytes_in` | Bytes consumed by that direction |
+| `bytes_out` | Bytes emitted by that direction |
+| `ratio` | `bytes_in / bytes_out`, or `0.0` when `bytes_out == 0` |
+| `average_bytes_in` | `bytes_in / frames`, or `0.0` for empty sessions |
+| `average_bytes_out` | `bytes_out / frames`, or `0.0` for empty sessions |
+
+Tools MAY add transport-specific fields, latency, elapsed time, or legacy
+aliases, but these six fields SHOULD remain stable for longitudinal comparison.
+
 ## Session Dictionary Construction
 
 The compression dictionary is built from:

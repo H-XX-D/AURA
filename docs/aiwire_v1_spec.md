@@ -72,6 +72,9 @@ Those concerns belong at the transport or application layer.
 | zlib memory level | `8` |
 | Default compression level | `3` |
 | Flush mode | `z_sync_flush` |
+| Static dictionary size | `32768` bytes |
+| Static dictionary SHA-256 | `f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117` |
+| Static dictionary FNV-1a64 | `94dd21718372952e` |
 | Sync-flush frame suffix | `00 00 ff ff` |
 | Fallback codecs | `zlib`, `raw` |
 | Max session templates | `4096` |

@@ -7,6 +7,7 @@ import pytest
 
 from aura_compression.ai_wire import (
     AI_WIRE_DICTIONARY_FNV1A64,
+    AI_WIRE_DICTIONARY_SHA256,
     AI_WIRE_FALLBACK_CODECS,
     AI_WIRE_SYNC_FLUSH_SUFFIX,
     AI_WIRE_STATIC_DICTIONARY,
@@ -54,6 +55,14 @@ def _agent_frames(count: int = 96) -> list[bytes]:
 def test_static_dictionary_is_zlib_sized() -> None:
     assert 0 < len(AI_WIRE_STATIC_DICTIONARY) <= 32768
     assert b'"method":"tools/call"' in AI_WIRE_STATIC_DICTIONARY
+
+
+def test_static_dictionary_identity_is_pinned_for_v1_compatibility() -> None:
+    assert len(AI_WIRE_STATIC_DICTIONARY) == 32768
+    assert AI_WIRE_DICTIONARY_SHA256 == (
+        "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117"
+    )
+    assert f"{AI_WIRE_DICTIONARY_FNV1A64:016x}" == "94dd21718372952e"
 
 
 def test_ai_wire_round_trips_ordered_frames() -> None:
@@ -689,6 +698,21 @@ def test_ai_wire_handshake_rejects_dictionary_mismatch_without_fallback() -> Non
     assert negotiation.reason == "dictionary_sha256_mismatch"
 
 
+def test_ai_wire_handshake_rejects_dictionary_size_mismatch_without_fallback() -> None:
+    peer = build_aiwire_handshake(level=3).to_dict()
+    peer["dictionary_size"] = len(AI_WIRE_STATIC_DICTIONARY) - 1
+
+    negotiation = negotiate_aiwire_handshake(
+        peer,
+        level=3,
+        allow_fallback=False,
+    )
+
+    assert negotiation.accepted is False
+    assert negotiation.codec == ""
+    assert negotiation.reason == "dictionary_size_mismatch"
+
+
 def test_ai_wire_handshake_can_negotiate_fallback() -> None:
     peer = build_aiwire_handshake(level=3, fallback_codecs=("zlib", "raw")).to_dict()
     peer["versions"] = [999]
@@ -721,6 +745,54 @@ def test_ai_wire_handshake_can_negotiate_raw_fallback_when_zlib_is_not_common() 
     assert negotiation.codec == "raw"
     assert negotiation.version is None
     assert negotiation.reason == "dictionary_sha256_mismatch"
+
+
+def test_ai_wire_legacy_dictionary_identity_can_only_use_fallback() -> None:
+    peer = build_aiwire_handshake(level=3, fallback_codecs=("zlib", "raw")).to_dict()
+    peer["dictionary_sha256"] = "1" * 64
+    peer["dictionary_size"] = len(AI_WIRE_STATIC_DICTIONARY) - 128
+
+    negotiation = negotiate_aiwire_handshake(
+        peer,
+        level=3,
+        fallback_codecs=("zlib", "raw"),
+        allow_fallback=True,
+    )
+
+    assert negotiation.accepted is True
+    assert negotiation.codec == "zlib"
+    assert negotiation.version is None
+    assert negotiation.reason == "dictionary_sha256_mismatch"
+
+
+def test_ai_wire_session_dictionary_state_hash_tracks_static_dictionary_identity() -> None:
+    session_templates = {128: '{"protocol":"mcp","id":{0}'}
+    current_state = aiwire_session_dictionary_state_sha256(
+        session_templates,
+        epoch=2,
+        static_dictionary_sha256=AI_WIRE_DICTIONARY_SHA256,
+    )
+    legacy_state = aiwire_session_dictionary_state_sha256(
+        session_templates,
+        epoch=2,
+        static_dictionary_sha256="2" * 64,
+    )
+
+    assert current_state != legacy_state
+
+    hello = build_aiwire_session_resume_hello(
+        peer_id="agent-legacy",
+        cached_state_hashes=[legacy_state],
+        static_dictionary_sha256="2" * 64,
+    )
+    response = negotiate_aiwire_session_resume(
+        hello,
+        available_state_hashes=[legacy_state],
+        static_dictionary_sha256=AI_WIRE_DICTIONARY_SHA256,
+    )
+
+    assert response.accepted is False
+    assert response.reason == "static_dictionary_sha256_mismatch"
 
 
 def test_ai_wire_fallback_frames_round_trip_raw_and_zlib() -> None:

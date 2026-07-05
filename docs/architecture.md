@@ -279,5 +279,6 @@ uvx isort --check-only src/aura_compression tests tools/stress_ai_wire_roundtrip
 - The general hybrid compressor has more experimental surface than production
   hardening.
 - Public docs and benchmark reports should avoid host-specific private details.
-- Cross-version dictionary compatibility needs explicit tests before long-lived
-  deployments.
+- Cross-version dictionary compatibility is covered in the fast AIWire gate;
+  long-lived deployments still need a broader compatibility matrix as
+  dictionaries evolve.

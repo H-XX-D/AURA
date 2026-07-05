@@ -47,7 +47,7 @@ Goal: freeze the minimum protocol contract.
   implementation and tests.
 - Define handshake fields, template update signals, accepted fallback behavior,
   resync behavior, and failure modes.
-- Add cross-version dictionary compatibility tests.
+- Keep cross-version dictionary compatibility tests in the fast AIWire gate.
 - Keep corrupted-frame and truncated-frame tests in the fast AIWire gate.
 - Keep TCP partial-frame read/write tests and interrupted delta-state tests in
   the fast AIWire gate.

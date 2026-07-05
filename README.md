@@ -244,17 +244,21 @@ For batch-style tests:
 
 ```python
 from aura_compression import (
+    build_delta_structured_ai_messages,
     build_structured_ai_messages,
     compress_ai_wire_frames,
     decompress_ai_wire_frames,
 )
 
 messages = build_structured_ai_messages(1024)
+delta_messages = build_delta_structured_ai_messages(1024)
 compressed, encode_stats = compress_ai_wire_frames(messages)
+delta_compressed, delta_stats = compress_ai_wire_frames(delta_messages)
 restored, decode_stats = decompress_ai_wire_frames(compressed)
 
 assert len(restored) == len(messages)
 print(encode_stats.as_dict())
+print(delta_stats.as_dict())
 ```
 
 Node.js helper API:
@@ -479,7 +483,8 @@ The near-term roadmap is to harden AIWire first:
 - Keep the AIWire v1 side-channel and delta-frame spec aligned with tests
 - Define the session-template update signal and delta/resync behavior
 - Keep benchmark reports reproducible and public-safe
-- Keep improving realistic MCP, A2A, OpenAI, and local agent message corpora
+- Keep improving realistic MCP, A2A, OpenAI, local agent, and delta-shaped
+  message corpora
 - Keep public session fixture corpora deterministic and side-channel complete
 - Improve ARM64/native backend performance for edge targets
 - Expand transport examples beyond the current TCP, WebSocket, HTTP streaming,

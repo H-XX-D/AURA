@@ -118,6 +118,265 @@ def _text_part(text: str) -> dict[str, str]:
     return {"kind": "text", "text": text}
 
 
+def build_delta_structured_ai_messages(
+    count: int,
+    seed: int = 1729,
+    *,
+    session_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Build stable-session messages where mostly values change.
+
+    The corpus models the hot path after two agents have handshaked structure:
+    session, task, route, and template identifiers stay stable while status,
+    token, argument, artifact, and trace values move across the wire.
+    """
+
+    rng = random.Random(seed)
+    stable_session_id = session_id or f"delta-session-{seed:04d}"
+    stable_task_id = f"delta-task-{seed % 10000:04d}"
+    stable_context_id = f"delta-context-{seed % 4096:04d}"
+    stable_trace_id = f"delta-trace-{seed:04d}"
+    stable_response_id = f"delta-response-{seed % 10000:04d}"
+    stable_item_id = f"delta-item-{seed % 10000:04d}"
+    stable_artifact_id = f"delta-artifact-{seed % 10000:04d}"
+    stable_route = "agents.delta-session.events"
+    states = ["submitted", "working", "input_required", "working", "completed"]
+    tokens = [
+        "checking",
+        "retrieval",
+        "evidence",
+        "patch",
+        "validation",
+        "handoff",
+        "summary",
+    ]
+    tools = ["read_file", "search_logs", "run_shell", "write_patch"]
+    repos = ["payments-api", "retrieval-worker", "aura-bridge"]
+    messages: list[dict[str, Any]] = []
+
+    def common_meta(index: int, changed_value: str) -> dict[str, Any]:
+        return {
+            "synthetic": True,
+            "delta_corpus": True,
+            "session_id": stable_session_id,
+            "task_id": stable_task_id,
+            "template_epoch": 1,
+            "sequence": index + 1,
+            "changed_value": changed_value,
+        }
+
+    for i in range(count):
+        variant = i % 10
+        step = i // 10
+        state = states[i % len(states)]
+        token = tokens[(i + rng.randrange(len(tokens))) % len(tokens)]
+        tool = tools[i % len(tools)]
+        repo = repos[i % len(repos)]
+        progress = min(100, 5 + i * 3)
+        elapsed_ms = 12 + ((seed + i * 7) % 89)
+        payload: dict[str, Any]
+
+        if variant == 0:
+            payload = {
+                "protocol": "mcp",
+                "jsonrpc": "2.0",
+                "id": i + 1,
+                "method": "tools/call",
+                "params": {
+                    "name": tool,
+                    "arguments": {
+                        "session_id": stable_session_id,
+                        "task_id": stable_task_id,
+                        "repository": repo,
+                        "query": f"{token} step:{step} status:{state}",
+                        "limit": 10 + (i % 5),
+                    },
+                    "_meta": {
+                        "trace_id": stable_trace_id,
+                        "route": stable_route,
+                        "template_epoch": 1,
+                    },
+                },
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "argument"),
+            }
+        elif variant == 1:
+            payload = {
+                "protocol": "mcp",
+                "jsonrpc": "2.0",
+                "id": i + 1,
+                "result": {
+                    "resultType": "complete",
+                    "content": [_text_part(f"{token} result chunk {step}")],
+                    "structuredContent": {
+                        "session_id": stable_session_id,
+                        "task_id": stable_task_id,
+                        "status": state,
+                        "elapsed_ms": elapsed_ms,
+                        "matches": [
+                            {"file": f"{repo}/handler.py", "line": 40 + step, "score": 0.91}
+                        ],
+                    },
+                    "isError": False,
+                },
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "status"),
+            }
+        elif variant == 2:
+            payload = {
+                "protocol": "a2a",
+                "event": "TaskStatusUpdateEvent",
+                "taskId": stable_task_id,
+                "contextId": stable_context_id,
+                "final": state == "completed",
+                "status": {
+                    "state": state,
+                    "message": {
+                        "messageId": f"delta-status-{i:06d}",
+                        "role": "agent",
+                        "parts": [_text_part(f"{token} progress {progress}%")],
+                    },
+                    "timestamp": f"2026-07-04T18:{i % 60:02d}:00Z",
+                },
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "status"),
+            }
+        elif variant == 3:
+            payload = {
+                "protocol": "a2a",
+                "event": "TaskArtifactUpdateEvent",
+                "taskId": stable_task_id,
+                "contextId": stable_context_id,
+                "append": True,
+                "lastChunk": i + 10 >= count,
+                "artifact": {
+                    "artifactId": stable_artifact_id,
+                    "name": "delta-diagnostic-summary",
+                    "parts": [
+                        _text_part(f"{token} artifact chunk {step}"),
+                        {
+                            "kind": "data",
+                            "data": {
+                                "repository": repo,
+                                "p95_delta_ms": 20 + (i % 17),
+                                "sample": step,
+                            },
+                            "metadata": {"schema": "diagnostic_summary.delta.v1"},
+                        },
+                    ],
+                },
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "artifact"),
+            }
+        elif variant == 4:
+            payload = {
+                "protocol": "openai.responses",
+                "type": "response.output_text.delta",
+                "trace_id": stable_trace_id,
+                "response_id": stable_response_id,
+                "item_id": stable_item_id,
+                "output_index": 0,
+                "content_index": i,
+                "delta": f"{token} ",
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "token"),
+            }
+        elif variant == 5:
+            payload = {
+                "protocol": "openai.responses",
+                "type": "function_call_output",
+                "trace_id": stable_trace_id,
+                "call_id": f"delta-call-{i % 4:02d}",
+                "output": _json_arguments(
+                    ok=True,
+                    session_id=stable_session_id,
+                    task_id=stable_task_id,
+                    rows=3 + (i % 7),
+                    status=state,
+                    elapsed_ms=elapsed_ms,
+                    summary=f"{tool} emitted {token} delta {step}",
+                ),
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "argument"),
+            }
+        elif variant == 6:
+            payload = {
+                "protocol": "local.agent",
+                "schema": "local.agent.delta.status.v1",
+                "trace_id": stable_trace_id,
+                "task_id": stable_task_id,
+                "delta": {
+                    "op": "replace",
+                    "path": "/status/state",
+                    "value": state,
+                    "previous": states[(i - 1) % len(states)],
+                },
+                "clock": {"lamport": seed * 1000 + i, "source": "delta-agent"},
+                "route": stable_route,
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "status"),
+            }
+        elif variant == 7:
+            payload = {
+                "protocol": "local.agent",
+                "schema": "local.agent.delta.tool_result.v1",
+                "trace_id": stable_trace_id,
+                "tool_call_id": f"delta-call-{i % 4:02d}",
+                "delta": {
+                    "op": "append",
+                    "path": "/tool_results/-",
+                    "value": {
+                        "name": tool,
+                        "ok": True,
+                        "elapsed_ms": elapsed_ms,
+                        "summary": f"{token} evidence {step}",
+                    },
+                },
+                "route": stable_route,
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "artifact"),
+            }
+        elif variant == 8:
+            payload = {
+                "protocol": "agent.trace",
+                "event": "step.delta",
+                "trace_id": stable_trace_id,
+                "span_id": f"delta-span-{i % 6:02d}",
+                "task": {"id": stable_task_id, "session_id": stable_session_id},
+                "values": {
+                    "token": token,
+                    "status": state,
+                    "progress": progress,
+                    "elapsed_ms": elapsed_ms,
+                },
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "trace"),
+            }
+        else:
+            payload = {
+                "protocol": "local.agent",
+                "schema": "local.agent.route_hint.v1",
+                "trace_id": stable_trace_id,
+                "route": {
+                    "topic": stable_route,
+                    "shard": f"{repo}-{i % 3}",
+                    "priority": "high" if state == "input_required" else "normal",
+                    "requires_decompression": False,
+                },
+                "hash_modifiers": {
+                    "tenant": "bench",
+                    "session_bucket": seed % 16,
+                    "task_bucket": step,
+                },
+                "session": {"id": stable_session_id, "template_epoch": 1},
+                "delta_profile": common_meta(i, "route"),
+            }
+
+        messages.append(payload)
+
+    return messages
+
+
 def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str, Any]]:
     """Build realistic structured AI-to-AI protocol messages.
 

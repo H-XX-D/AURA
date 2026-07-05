@@ -26,6 +26,7 @@ from typing import Any, Iterable, Mapping
 from .ai_wire_messages import (
     AIWireFrame,
     build_ai_wire_messages,
+    build_delta_structured_ai_messages,
     build_structured_ai_messages,
     decode_ai_wire_message,
     discover_ai_wire_session_templates,

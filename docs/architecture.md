@@ -123,8 +123,9 @@ trace_id, task_id, tool_call_id, arguments, status, artifacts
 
 On the local LAN benchmark, AIWire moved more verified request/response
 exchanges than raw JSON and stateless zlib under the same modeled bandwidth.
-The next benchmark target is to make the corpus more explicitly delta-shaped:
-repeat the same agent/task/session structures while moving only changed values.
+The generated corpus now includes a delta-shaped helper that repeats the same
+agent/task/session structures while moving only changed status, token,
+argument, artifact, route, and trace values.
 See [AI-to-AI LAN Benchmark](perf/ai_to_ai_lan_benchmark_2026-07-04.md).
 
 ## Structured Message Helpers
@@ -140,10 +141,13 @@ Important functions:
   values.
 - `build_structured_ai_messages(count, seed)`: generates protocol-shaped test
   messages.
+- `build_delta_structured_ai_messages(count, seed)`: generates stable-session
+  delta-shaped traffic after structure has been handshaked.
 - `build_ai_wire_messages(count, seed)`: generates encoded benchmark frames.
 
 The generated corpus currently includes OpenAI-style responses, MCP tool calls,
-A2A messages, traces, handoffs, reviews, and memory writes.
+A2A messages, local agent deltas, traces, handoffs, reviews, memory writes, and
+stable-session delta traffic.
 
 `ai_wire_fixtures.py` builds saved session corpora that wrap those message
 shapes in the AIWire side-channel lifecycle: forced handshake, initial session

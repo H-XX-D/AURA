@@ -66,8 +66,8 @@ Goal: benchmark against realistic protocol-shaped data.
 
 - Expand the generated corpus for MCP requests, MCP responses, A2A tasks,
   OpenAI tool calls, structured outputs, traces, reviews, and memory writes.
-- Add delta-shaped corpora where the task/session/template is stable and only
-  status, token, argument, artifact, or trace values change.
+- Keep generated delta-shaped corpora where the task/session/template is stable
+  and only status, token, argument, artifact, route, or trace values change.
 - Keep current corpus variants aligned with public protocol shapes and mark
   synthetic fields clearly.
 - Keep saved fixture corpora deterministic, public-safe, and side-channel

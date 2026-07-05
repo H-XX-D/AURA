@@ -30,6 +30,7 @@ from aura_compression.ai_wire import (
     build_aiwire_session_resume_hello,
     build_aiwire_session_template_update,
     build_aiwire_system_control_message,
+    build_delta_structured_ai_messages,
     build_structured_ai_messages,
     compress_ai_wire_frames,
     decode_aiwire_fallback_frame,
@@ -238,6 +239,41 @@ def test_structured_ai_message_corpus_covers_protocol_families() -> None:
         "local.agent.delta.tool_result.v1",
         "local.agent.route_hint.v1",
     }.issubset(schemas)
+
+
+def test_delta_structured_ai_message_corpus_keeps_session_shape_stable() -> None:
+    messages = build_delta_structured_ai_messages(80, seed=5150)
+
+    assert len(messages) == 80
+    assert {message["session"]["id"] for message in messages} == {"delta-session-5150"}
+    assert {message["session"]["template_epoch"] for message in messages} == {1}
+    assert {message["delta_profile"]["task_id"] for message in messages} == {"delta-task-5150"}
+    assert {message["delta_profile"]["changed_value"] for message in messages}.issuperset(
+        {"argument", "artifact", "route", "status", "token", "trace"}
+    )
+    assert {message["protocol"] for message in messages}.issuperset(
+        {"a2a", "agent.trace", "local.agent", "mcp", "openai.responses"}
+    )
+
+
+def test_delta_structured_ai_message_corpus_round_trips_and_discovers_templates() -> None:
+    messages = build_delta_structured_ai_messages(120, seed=6161)
+    raw_frames = [encode_ai_wire_message(message) for message in messages]
+
+    discovered_templates = discover_ai_wire_session_templates(
+        messages,
+        max_templates=6,
+        min_frequency=4,
+        starting_template_id=192,
+    )
+    compressed, encode_stats = compress_ai_wire_frames(messages, level=3, use_native=False)
+    restored, decode_stats = decompress_ai_wire_frames(compressed, use_native=False)
+
+    assert restored == raw_frames
+    assert discovered_templates
+    assert encode_stats.frames == len(messages)
+    assert decode_stats.frames == len(messages)
+    assert encode_stats.ratio > 5.0
 
 
 def test_ai_wire_session_message_api_decodes_json() -> None:

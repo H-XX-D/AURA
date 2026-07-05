@@ -112,11 +112,13 @@ Status: next active performance track.
   Python/native comparisons use the same corpus and output schema.
 - Profile Jetson Nano-class CPUs and remove avoidable Python overhead.
 - Keep session/connection sharding in the n-ary benchmark harness as a
-  measurement tool. The corrected concurrent Python sharding sweep regressed
-  throughput and tail latency, so the next implementation target is native,
-  async, or multiprocess coordinator/server execution.
+  measurement tool. Corrected thread and forked-process server sharding both
+  regressed throughput and tail latency, so they are diagnostics rather than
+  the performance path.
 - Add a native server mode to the benchmark harness when the backend is
   available.
+- Add an async/native coordinator loop that can keep AIWire's saved-bandwidth
+  headroom occupied without adding Python worker contention.
 - Compare Python AIWire, native AIWire, stateless zlib, and raw JSON under the
   same link model.
 

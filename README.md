@@ -207,8 +207,24 @@ split evenly across its replay sessions.
 
 That result rules out Python thread sharding as the fix. AIWire still saves the
 bytes, but the current Python coordinator/server hot path loses throughput and
-tail latency as session count rises. The next useful performance path is native,
-async, or multiprocess coordinator/server execution.
+tail latency as session count rises.
+
+A follow-up replaced the thread worker pool with forked server processes while
+keeping the same Z6 coordinator, four Nano-class targets, 60-second windows,
+10 Mbps-per-target model, and AIWire-only session shard sweep:
+
+| Server worker mode | Session shards/target | Total sessions | Completed 60s group | Ex/s group | vs window 1 | Framed B/ex | p95 avg | Util |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| baseline | 1 | 4 | 279,904 | 4,665.1 | 1.00x | 368.1 | 62.68 | 17.4% |
+| processes | 2 | 8 | 224,431 | 3,740.5 | 0.80x | 370.3 | 154.95 | 14.0% |
+| processes | 4 | 16 | 185,747 | 3,095.8 | 0.66x | 370.2 | 391.69 | 11.6% |
+| processes | 8 | 32 | 144,208 | 2,403.5 | 0.52x | 370.3 | 1,068.25 | 9.0% |
+
+That also missed the target. The useful conclusion is narrower: AIWire is already
+bandwidth-proportional at the byte level, but Python worker fan-out around the
+current harness does not convert that saved bandwidth into more completed
+messages. The next performance step should remove Python from the hot path or
+move the coordinator/server loop to an async/native design.
 
 Read the n-ary relay report:
 [AIWire N-ary Z6-to-Nano Benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
@@ -526,12 +542,14 @@ an equal share of that target's modeled `--link-mbps` budget.
 
 ```bash
 # Each target. runs = 1 probe + codec_count * session_shards.
-# For sharded runs, set connection-workers >= session_shards.
+# For thread-sharded runs, set connection-workers >= session_shards.
+# For POSIX forked server workers, use connection-processes instead.
 PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py server \
   --host 0.0.0.0 \
   --port 8910 \
   --runs 4 \
   --connection-workers 1 \
+  --connection-processes 0 \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \
   --link-mbps 10

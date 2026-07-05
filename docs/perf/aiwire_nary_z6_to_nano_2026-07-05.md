@@ -183,8 +183,65 @@ PYTHONPATH=src python3 tools/stress_ai_wire_roundtrip_z6.py nary-client \
 The corrected concurrent sharding result is negative. Independent sessions did
 not unlock AIWire's bandwidth headroom in the current Python implementation.
 They increased contention, reduced completed exchanges, and raised tail latency.
-That narrows the next useful performance work to native, async, or multiprocess
-coordinator/server execution rather than more Python threads.
+That narrowed the next useful performance question to whether process isolation
+on the server side would avoid the Python thread bottleneck.
+
+## AIWire Process-Worker Session-Shard Sweep
+
+The follow-up replaced the thread worker pool with forked server processes
+sharing the same listening socket. The Z6 coordinator/client, four edge targets,
+public fixture corpus, 60-second windows, 10 Mbps-per-target link model, and
+AIWire-only session shard sweep stayed the same.
+
+Server command shape:
+
+```bash
+# POSIX/fork targets only. Runs = 1 probe + one AIWire replay per session
+# shard for each sweep entry.
+PYTHONPATH=src python3 tools/stress_ai_wire_roundtrip_z6.py server \
+  --host 0.0.0.0 \
+  --port 8910 \
+  --runs 17 \
+  --connection-processes 8 \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --link-mbps 10
+```
+
+Coordinator command shape:
+
+```bash
+PYTHONPATH=src python3 tools/stress_ai_wire_roundtrip_z6.py nary-client \
+  --target edge-1=<edge-target-1>:8910 \
+  --target edge-2=<edge-target-2>:8910 \
+  --target edge-3=<edge-target-3>:8910 \
+  --target edge-4=<edge-target-4>:8910 \
+  --seconds 60 \
+  --agent-count 64 \
+  --pipeline-window 1 \
+  --session-shards <2|4|8> \
+  --link-mbps 10 \
+  --codecs aiwire \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --fixture-variation-profile cluster \
+  --force-session-templates \
+  --target-parallelism 64
+```
+
+| Server worker mode | Session shards/target | Total sessions | Completed 60s group | Ex/s group | vs window 1 | Framed B/ex | Saved | p95 avg | p95 max | BW cap ex/s | Util |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| baseline | 1 | 4 | 279,904 | 4,665.1 | 1.00x | 368.1 | 84.0% | 62.68 | 64.00 | 26,734.6 | 17.4% |
+| processes | 2 | 8 | 224,431 | 3,740.5 | 0.80x | 370.3 | 84.3% | 154.95 | 156.30 | 26,721.7 | 14.0% |
+| processes | 4 | 16 | 185,747 | 3,095.8 | 0.66x | 370.2 | 84.3% | 391.69 | 422.58 | 26,732.0 | 11.6% |
+| processes | 8 | 32 | 144,208 | 2,403.5 | 0.52x | 370.3 | 84.3% | 1,068.25 | 1,135.29 | 26,701.4 | 9.0% |
+
+The process-worker result was also negative. It closely matched the thread
+sharding shape: more independent sessions reduced completed exchanges and drove
+tail latency up while the framed bytes per exchange stayed nearly constant. The
+limiter is not only Python thread scheduling on the edge server. The next
+useful track is a native or async coordinator/server path that reduces per-frame
+Python hot-path work instead of adding more Python worker wrappers.
 
 ## Per-target Results
 
@@ -226,3 +283,6 @@ logical agent limited the run first. The important signal is still useful for
 edge networking: even with varied working-cluster traffic, after the sustained
 handshake AIWire leaves most of the modeled link free for more agents, wider
 windows, safety checks, retries, control traffic, or other payload lanes.
+Thread and process session sharding did not consume that room in the current
+Python harness, so future performance work should focus on the native/async
+hot path rather than adding more Python-side workers.

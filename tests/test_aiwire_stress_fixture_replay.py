@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import multiprocessing as mp
 import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+import pytest
 
 TOOLS = Path(__file__).resolve().parents[1] / "tools"
 if str(TOOLS) not in sys.path:
@@ -252,6 +255,10 @@ def test_nary_client_replays_public_fixture_across_two_peers() -> None:
     assert aggregate["aiwire"]["verified"] is True
 
 
+@pytest.mark.skipif(
+    "fork" not in mp.get_all_start_methods(),
+    reason="process-worker server mode requires multiprocessing fork support",
+)
 def test_nary_client_replays_public_fixture_with_session_shards() -> None:
     ports = [_free_port(), _free_port()]
     server_cmds = [
@@ -265,7 +272,7 @@ def test_nary_client_replays_public_fixture_with_session_shards() -> None:
             str(port),
             "--runs",
             "3",
-            "--connection-workers",
+            "--connection-processes",
             "2",
             "--fixture-corpus",
             str(FIXTURE_PATH),

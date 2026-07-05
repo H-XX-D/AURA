@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import multiprocessing as mp
 import queue
 import random
 import socket
@@ -1007,6 +1008,26 @@ def _serve_server_connection(
         )
 
 
+def _run_server_process_worker(
+    server_fd: int,
+    args: argparse.Namespace,
+    fixture_replay: FixtureReplayCorpus | None,
+    remaining_accepts: Any,
+    accept_lock: Any,
+) -> None:
+    server = socket.socket(fileno=server_fd)
+    try:
+        while True:
+            with accept_lock:
+                if remaining_accepts.value <= 0:
+                    return
+                remaining_accepts.value -= 1
+            conn, _addr = server.accept()
+            _serve_server_connection(conn, args, fixture_replay)
+    finally:
+        server.close()
+
+
 def run_server(args: argparse.Namespace) -> None:
     fixture_replay = (
         _load_fixture_replay_corpus(
@@ -1019,8 +1040,39 @@ def run_server(args: argparse.Namespace) -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((args.host, args.port))
+        process_workers = max(0, int(args.connection_processes))
         connection_workers = max(1, int(args.connection_workers))
-        server.listen(max(8, connection_workers))
+        server.listen(max(8, connection_workers, process_workers))
+        if process_workers > 0:
+            if "fork" not in mp.get_all_start_methods():
+                raise RuntimeError("--connection-processes requires multiprocessing fork support")
+            ctx = mp.get_context("fork")
+            remaining_accepts = ctx.Value("i", int(args.runs))
+            accept_lock = ctx.Lock()
+            processes = [
+                ctx.Process(
+                    target=_run_server_process_worker,
+                    args=(
+                        server.fileno(),
+                        args,
+                        fixture_replay,
+                        remaining_accepts,
+                        accept_lock,
+                    ),
+                )
+                for _ in range(process_workers)
+            ]
+            for process in processes:
+                process.start()
+            for process in processes:
+                process.join()
+            failures = [
+                process.exitcode for process in processes if process.exitcode not in (0, None)
+            ]
+            if failures:
+                raise RuntimeError(f"server process worker failed with exit codes {failures}")
+            return
+
         if connection_workers == 1:
             for _ in range(args.runs):
                 conn, _addr = server.accept()
@@ -1774,6 +1826,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=1,
         help="maximum accepted connections to serve concurrently",
+    )
+    server.add_argument(
+        "--connection-processes",
+        type=int,
+        default=0,
+        help=(
+            "forked worker processes sharing the listening socket; use for "
+            "CPU-bound concurrent replay"
+        ),
     )
     server.add_argument("--cache-dir", default="/tmp/aura-aiwire-stress-server-cache")
     server.add_argument(

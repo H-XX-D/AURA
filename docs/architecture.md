@@ -57,6 +57,8 @@ The three lanes have different jobs:
   OpenAI-style tool calls, JSON-RPC, traces, handoffs, task state, and results.
 - **Control/session lane**: handshake, template discovery, dictionary diffs,
   ACK/NACK, resume, routing status, heartbeat, safety state, and reset signals.
+  Routine control can be handshake-pinned to compact LUT entries; mission-critical
+  control remains explicit system control.
 - **Blob descriptor lane**: metadata for opaque bytes. The referenced bytes can
   move through ordinary file, media, byte-stream, object-store, or shared-memory
   paths while AIWire carries type, route, status, hashes, and chunk manifests.
@@ -159,6 +161,8 @@ AIWire peers should agree on:
 - Supported versions
 - Static dictionary hash
 - Session template hashes and limits
+- Routine control LUT hash, count, and epoch
+- Mission-critical system-control behavior
 - Template update signal behavior
 - Delta frame and resync behavior
 - Compression level

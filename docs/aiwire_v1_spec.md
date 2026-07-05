@@ -26,8 +26,10 @@ AIWire v1 covers:
 
 - Protocol identity and version negotiation.
 - Static dictionary agreement.
+- Optional routine-control LUT agreement.
 - Semantic/message lane framing for canonical structured messages.
 - Control/session lane messages for connection, state, and safety management.
+- Mission-critical system control messages.
 - Blob descriptor lane messages for opaque payload metadata.
 - Optional session-template agreement.
 - Ordered data frames encoded with a live raw-deflate stream.
@@ -57,6 +59,8 @@ Those concerns belong at the transport or application layer.
 | Delta version | `1` |
 | Handshake schema | `aura.aiwire.handshake.v1` |
 | Negotiation schema | `aura.aiwire.negotiation.v1` |
+| Control LUT schema | `aura.aiwire.control_lut.v1` |
+| System control schema | `aura.aiwire.system_control.v1` |
 | Blob descriptor schema | `aura.aiwire.blob_descriptor.v1` |
 | Template update schema | `aura.aiwire.session_templates.update.v1` |
 | Dictionary state schema | `aura.aiwire.session_dictionary.state.v1` |
@@ -72,6 +76,7 @@ Those concerns belong at the transport or application layer.
 | Max template bytes | `4096` |
 | Max session dictionary bytes | `262144` |
 | Max diff additions | `128` |
+| Max routine-control LUT entries | `1024` |
 | Nonce bytes | `16`, encoded as 32 lowercase hex characters |
 
 The static dictionary is implementation-versioned by SHA-256. Peers MUST compare
@@ -127,6 +132,11 @@ recoverable:
   state, dictionary diffs, ACK/NACK, resume hello/response, reset requests,
   heartbeats, route status, safety status, congestion hints, retry hints, and
   fallback decisions.
+- Routine control messages MAY use compact hexadecimal LUT entries after the
+  handshake proves both peers agree on the LUT hash, count, and epoch.
+- Mission-critical control messages MUST remain system control messages and
+  MUST NOT be represented only by mutable session dictionary entries or routine
+  LUT codes.
 - Control messages MUST be decodable without inflating the semantic/message
   lane.
 - State-changing control messages SHOULD be idempotent by session ID, epoch,
@@ -153,6 +163,90 @@ payloads through the structured-message codec:
 - Descriptor frames MUST NOT carry plaintext encryption keys or unbounded
   application metadata.
 - Large opaque binaries SHOULD NOT be inserted into the semantic/message lane.
+
+## Routine Control LUT
+
+The routine-control LUT is a handshake-pinned lookup table for compact,
+non-mission-critical control messages. It exists so routine control can cross
+the wire as a small hexadecimal entry while both peers still agree on what that
+entry means.
+
+Each LUT entry is canonical JSON before hashing:
+
+| Field | Required | Meaning |
+|---|---:|---|
+| `code` | yes | Hexadecimal uint16 string, for example `0x0010` |
+| `meaning` | yes | Stable control meaning, for example `heartbeat` or `route_status` |
+| `payload_schema` | no | Schema for any payload that follows the compact code |
+| `criticality` | yes | `routine` or `important` |
+
+The LUT state hash is:
+
+```text
+sha256(canonical_json({
+  "schema": "aura.aiwire.control_lut.v1",
+  "protocol": "aura.aiwire",
+  "entries": [normalized_entry, ...]
+}))
+```
+
+Control LUT rules:
+
+- Entries are sorted by numeric `code` before hashing.
+- Codes and meanings MUST be unique.
+- A LUT MUST contain at most 1024 entries.
+- `criticality="mission_critical"` is invalid in the routine-control LUT.
+- If either peer requires or advertises a non-empty control LUT, peers MUST
+  compare `control_lut_sha256` and `control_lut_count` during handshake.
+- A peer MUST NOT interpret an unknown LUT code as mission-critical control.
+  Unknown routine codes SHOULD be ignored, NACKed, or cause a resync request by
+  application policy.
+
+## System Control Messages
+
+Mission-critical control messages stay in a self-describing system-control
+envelope. They do not depend on the semantic compression stream, the session
+template dictionary, or the routine-control LUT.
+
+| Field | Required | Meaning |
+|---|---:|---|
+| `schema` | yes | `aura.aiwire.system_control.v1` |
+| `protocol` | yes | `aura.aiwire` |
+| `lane` | yes | `control` |
+| `criticality` | yes | `mission_critical` |
+| `control_type` | yes | Known mission-critical control type |
+| `session_id` | yes | Session being controlled |
+| `epoch` | yes | Non-negative session epoch |
+| `sequence` | yes | Non-negative control sequence number |
+| `nonce` | yes | 16 random bytes encoded as 32 lowercase hex characters |
+| `state_hash` | no | Related dictionary, LUT, or safety state hash |
+| `payload` | yes | Bounded canonical JSON mapping |
+| `auth_tag` | no | HMAC over the unsigned canonical JSON payload when an auth key is configured |
+
+Mission-critical control types include:
+
+- `handshake_accept`
+- `handshake_reject`
+- `dictionary_update`
+- `epoch_reset`
+- `resync_required`
+- `auth_failure`
+- `safety_policy`
+- `key_rotation`
+- `emergency_stop`
+- `critical_route_authority`
+- `critical_verification_failure`
+
+System control rules:
+
+- A receiver MUST fail closed on an unknown mission-critical `control_type`.
+- A receiver MUST reject malformed nonce, epoch, sequence, or hash fields.
+- A receiver with an auth key MUST verify `auth_tag` before applying the
+  message.
+- System control messages MUST NOT be compressed into session templates or
+  represented only as routine-control LUT codes.
+- System control messages SHOULD be prioritized ahead of semantic messages,
+  routine control, and bulk blob bytes.
 
 ## Blob Descriptor Frame
 
@@ -202,6 +296,11 @@ The three lanes share a session but must not depend on hidden decoder state:
   blob bytes.
 - Blob descriptors MUST NOT mutate the session dictionary. Dictionary changes
   must use the explicit template update or dictionary diff/ACK flows.
+- Mission-critical system control messages MUST remain parseable without the
+  session dictionary, semantic compression stream, or routine-control LUT.
+- Routine LUT control messages MUST NOT be used for emergency stop, auth
+  failure, epoch reset, dictionary mutation, key rotation, or critical
+  verification failure.
 - Under congestion, peers SHOULD prioritize control/session lane messages ahead
   of semantic messages and bulk blob bytes.
 - A semantic lane reset SHOULD NOT invalidate completed digest-addressed blob
@@ -286,6 +385,11 @@ Before sending AIWire data frames, a peer sends an `AIWireHandshake` object:
 | `session_template_count` | yes | Number of templates |
 | `session_template_epoch` | yes | Template epoch, initially usually `0` |
 | `require_session_templates` | yes | If true, fail unless templates match |
+| `control_lut` | conditional | Routine-control LUT entries; omitted when empty and not required |
+| `control_lut_sha256` | conditional | Hash of normalized routine-control LUT |
+| `control_lut_count` | conditional | Number of routine-control LUT entries |
+| `control_lut_epoch` | conditional | Routine-control LUT epoch |
+| `require_control_lut` | conditional | If true, fail unless routine-control LUTs match |
 
 The receiver MUST parse and validate:
 
@@ -296,6 +400,8 @@ The receiver MUST parse and validate:
 - Static dictionary mode, hash, and size.
 - `wbits`, `mem_level`, and `flush_mode`.
 - Session template payload hash and count.
+- Routine-control LUT payload hash and count when required or either side sends
+  a non-empty LUT.
 
 The receiver responds with an `AIWireNegotiation` object:
 

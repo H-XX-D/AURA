@@ -8,8 +8,10 @@ import pytest
 from aura_compression.ai_wire import (
     AI_WIRE_DICTIONARY_FNV1A64,
     AI_WIRE_STATIC_DICTIONARY,
+    AIWireControlLUTEntry,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    aiwire_control_lut_sha256,
     aiwire_native_status,
     aiwire_session_dictionary_state_sha256,
     aiwire_session_templates_sha256,
@@ -20,6 +22,7 @@ from aura_compression.ai_wire import (
     build_aiwire_session_dictionary_diff,
     build_aiwire_session_resume_hello,
     build_aiwire_session_template_update,
+    build_aiwire_system_control_message,
     build_structured_ai_messages,
     compress_ai_wire_frames,
     decode_ai_wire_message,
@@ -28,8 +31,10 @@ from aura_compression.ai_wire import (
     encode_ai_wire_message,
     negotiate_aiwire_handshake,
     negotiate_aiwire_session_resume,
+    normalize_aiwire_control_lut,
     verify_aiwire_session_dictionary_ack,
     verify_aiwire_session_resume_response,
+    verify_aiwire_system_control_message,
 )
 
 
@@ -218,6 +223,93 @@ def test_ai_wire_handshake_rejects_session_template_mismatch() -> None:
     assert negotiation.accepted is False
     assert negotiation.codec == ""
     assert negotiation.reason == "session_template_sha256_mismatch"
+
+
+def test_ai_wire_handshake_accepts_matching_control_lut() -> None:
+    control_lut = [
+        AIWireControlLUTEntry(0x0010, "heartbeat", "aura.aiwire.heartbeat.v1"),
+        AIWireControlLUTEntry(0x0011, "route_status", "aura.aiwire.route_status.v1"),
+    ]
+    peer = build_aiwire_handshake(
+        level=3,
+        control_lut=control_lut,
+        control_lut_epoch=2,
+        require_control_lut=True,
+    )
+
+    negotiation = negotiate_aiwire_handshake(
+        peer.to_dict(),
+        level=3,
+        control_lut=list(reversed(control_lut)),
+        control_lut_epoch=2,
+        require_control_lut=True,
+        allow_fallback=False,
+    )
+
+    assert negotiation.accepted is True
+    assert negotiation.codec == "aiwire"
+    assert peer.control_lut_sha256 == aiwire_control_lut_sha256(control_lut)
+    assert negotiation.server_handshake.control_lut_count == 2
+    assert negotiation.server_handshake.control_lut_epoch == 2
+
+
+def test_ai_wire_handshake_rejects_control_lut_mismatch() -> None:
+    peer = build_aiwire_handshake(
+        control_lut=[AIWireControlLUTEntry(0x0010, "heartbeat")],
+        require_control_lut=True,
+    )
+
+    negotiation = negotiate_aiwire_handshake(
+        peer.to_dict(),
+        control_lut=[AIWireControlLUTEntry(0x0010, "different_heartbeat")],
+        require_control_lut=True,
+        allow_fallback=False,
+    )
+
+    assert negotiation.accepted is False
+    assert negotiation.reason == "control_lut_sha256_mismatch"
+
+
+def test_ai_wire_control_lut_rejects_mission_critical_entries() -> None:
+    with pytest.raises(Exception, match="mission-critical"):
+        normalize_aiwire_control_lut(
+            [
+                {
+                    "code": "0xc001",
+                    "meaning": "emergency_stop",
+                    "criticality": "mission_critical",
+                }
+            ]
+        )
+
+
+def test_ai_wire_system_control_message_authenticates_and_fails_closed() -> None:
+    message = build_aiwire_system_control_message(
+        control_type="emergency_stop",
+        session_id="session-1",
+        epoch=3,
+        sequence=9,
+        payload={"reason": "operator_stop"},
+        auth_key=b"critical-secret",
+        nonce="a" * 32,
+    )
+
+    restored = verify_aiwire_system_control_message(
+        message.to_dict(),
+        auth_key=b"critical-secret",
+    )
+    assert restored.control_type == "emergency_stop"
+    assert restored.payload == {"reason": "operator_stop"}
+
+    tampered = message.to_dict()
+    tampered["payload"] = {"reason": "changed"}
+    with pytest.raises(Exception, match="auth tag mismatch"):
+        verify_aiwire_system_control_message(tampered, auth_key=b"critical-secret")
+
+    unknown = message.to_dict()
+    unknown["control_type"] = "experimental_critical_action"
+    with pytest.raises(Exception, match="unknown mission-critical"):
+        verify_aiwire_system_control_message(unknown, auth_key=b"critical-secret")
 
 
 def test_ai_wire_session_template_update_signal_applies_delta() -> None:

@@ -19,8 +19,9 @@ AURA treats AI traffic as three logical lanes:
   reduce repeated structure and move changed values.
 - **Control/session lane**: handshakes, template discovery, dictionary diffs,
   ACK/NACK, resume, routing state, heartbeats, safety status, and session reset
-  signals. This lane must stay inspectable without decompressing the semantic
-  stream.
+  signals. Routine control can use handshake-pinned LUT entries; mission-critical
+  control stays in explicit system messages. This lane must stay inspectable
+  without decompressing the semantic stream.
 - **Blob descriptor lane**: metadata for opaque bytes such as media, tensor
   chunks, model artifacts, logs, archives, and files. The bytes can stay in a
   normal blob/file/media transport while AIWire carries content type, hashes,
@@ -56,6 +57,12 @@ controlled environments.
 The main metric is not compression ratio by itself. The question is how many
 verified semantic exchanges fit through the link once bandwidth, p95 latency,
 codec CPU, and enough in-flight agent work are all accounted for.
+
+The safety point is that saved bytes become verification budget. When repeated
+structure stops filling the link, agents can spend the headroom on ACK/NACK,
+hash checks, route status, replay, challenge frames, and independent
+double-checks. Mission-critical control does not depend on compact LUT decoding;
+it remains explicit system control.
 
 ## Why AI-to-AI Traffic Fits
 

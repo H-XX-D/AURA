@@ -37,6 +37,8 @@ AI_WIRE_SUPPORTED_VERSIONS = (AI_WIRE_VERSION,)
 AI_WIRE_PROTOCOL = "aura.aiwire"
 AI_WIRE_HANDSHAKE_SCHEMA = "aura.aiwire.handshake.v1"
 AI_WIRE_NEGOTIATION_SCHEMA = "aura.aiwire.negotiation.v1"
+AI_WIRE_CONTROL_LUT_SCHEMA = "aura.aiwire.control_lut.v1"
+AI_WIRE_SYSTEM_CONTROL_SCHEMA = "aura.aiwire.system_control.v1"
 AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA = "aura.aiwire.session_templates.update.v1"
 AI_WIRE_SESSION_DICTIONARY_STATE_SCHEMA = "aura.aiwire.session_dictionary.state.v1"
 AI_WIRE_SESSION_DICTIONARY_DIFF_SCHEMA = "aura.aiwire.session_dictionary.diff.v1"
@@ -52,7 +54,25 @@ AI_WIRE_MAX_SESSION_TEMPLATES = 4096
 AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS = 128
 AI_WIRE_MAX_SESSION_TEMPLATE_BYTES = 4096
 AI_WIRE_MAX_SESSION_DICTIONARY_BYTES = 262144
+AI_WIRE_MAX_CONTROL_LUT_ENTRIES = 1024
 AI_WIRE_NONCE_BYTES = 16
+AI_WIRE_MISSION_CRITICAL = "mission_critical"
+AI_WIRE_ROUTINE_CONTROL_CRITICALITIES = ("routine", "important")
+AI_WIRE_MISSION_CRITICAL_CONTROL_TYPES = frozenset(
+    {
+        "handshake_accept",
+        "handshake_reject",
+        "dictionary_update",
+        "epoch_reset",
+        "resync_required",
+        "auth_failure",
+        "safety_policy",
+        "key_rotation",
+        "emergency_stop",
+        "critical_route_authority",
+        "critical_verification_failure",
+    }
+)
 
 
 _COMMON_AI_JSON_TERMS: tuple[str, ...] = (
@@ -252,6 +272,7 @@ AI_WIRE_STATIC_DICTIONARY = _build_static_dictionary()
 AI_WIRE_DICTIONARY_SHA256 = hashlib.sha256(AI_WIRE_STATIC_DICTIONARY).hexdigest()
 
 AIWireSessionTemplates = Mapping[int, str] | Iterable[tuple[int, str] | Mapping[str, Any]]
+AIWireControlLUTEntries = Iterable[Any]
 AIWireAuthKey = bytes | bytearray | memoryview | str | None
 
 
@@ -358,6 +379,254 @@ def _verify_aiwire_payload_auth(
 
 def _make_aiwire_nonce() -> str:
     return secrets.token_hex(AI_WIRE_NONCE_BYTES)
+
+
+def _validate_aiwire_nonce(value: str, field_name: str = "nonce") -> None:
+    expected_length = AI_WIRE_NONCE_BYTES * 2
+    if len(value) != expected_length or any(char not in "0123456789abcdef" for char in value):
+        raise AIWireHandshakeError(
+            f"{field_name} must be {expected_length} lowercase hex characters"
+        )
+
+
+def _parse_lut_code(value: int | str) -> int:
+    if isinstance(value, str):
+        text = value.lower()
+        code = int(text, 16) if text.startswith("0x") else int(text)
+    else:
+        code = int(value)
+    if not 0 <= code <= 65535:
+        raise AIWireHandshakeError(f"control LUT code out of uint16 range: {code}")
+    return code
+
+
+def _format_lut_code(code: int) -> str:
+    return f"0x{code:04x}"
+
+
+@dataclass(frozen=True)
+class AIWireControlLUTEntry:
+    """Handshake-pinned compact representation for noncritical control messages."""
+
+    code: int
+    meaning: str
+    payload_schema: str = ""
+    criticality: str = "routine"
+
+    def __post_init__(self) -> None:
+        _parse_lut_code(self.code)
+        if not self.meaning:
+            raise AIWireHandshakeError("control LUT meaning must be non-empty")
+        if self.criticality == AI_WIRE_MISSION_CRITICAL:
+            raise AIWireHandshakeError(
+                "mission-critical control messages must use system control messages"
+            )
+        if self.criticality not in AI_WIRE_ROUTINE_CONTROL_CRITICALITIES:
+            raise AIWireHandshakeError(f"unsupported control LUT criticality: {self.criticality}")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "code": _format_lut_code(self.code),
+            "meaning": self.meaning,
+            "payload_schema": self.payload_schema,
+            "criticality": self.criticality,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireControlLUTEntry":
+        try:
+            return cls(
+                code=_parse_lut_code(value["code"]),
+                meaning=str(value["meaning"]),
+                payload_schema=str(value.get("payload_schema", "")),
+                criticality=str(value.get("criticality", "routine")),
+            )
+        except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire control LUT entry: {exc}") from exc
+
+
+def normalize_aiwire_control_lut(
+    entries: AIWireControlLUTEntries | None = None,
+) -> tuple[AIWireControlLUTEntry, ...]:
+    """Return a deterministic routine-control LUT for handshake hashing."""
+
+    if entries is None:
+        return ()
+
+    normalized: list[AIWireControlLUTEntry] = []
+    seen_codes: set[int] = set()
+    seen_meanings: set[str] = set()
+    for item in entries:
+        if isinstance(item, AIWireControlLUTEntry):
+            entry = item
+        elif isinstance(item, Mapping):
+            entry = AIWireControlLUTEntry.from_dict(item)
+        else:
+            entry = AIWireControlLUTEntry(code=_parse_lut_code(item[0]), meaning=str(item[1]))
+
+        if entry.code in seen_codes:
+            raise AIWireHandshakeError(f"duplicate control LUT code: {_format_lut_code(entry.code)}")
+        if entry.meaning in seen_meanings:
+            raise AIWireHandshakeError(f"duplicate control LUT meaning: {entry.meaning}")
+        seen_codes.add(entry.code)
+        seen_meanings.add(entry.meaning)
+        normalized.append(entry)
+
+    if len(normalized) > AI_WIRE_MAX_CONTROL_LUT_ENTRIES:
+        raise AIWireHandshakeError("control LUT entry limit exceeded")
+    return tuple(sorted(normalized, key=lambda entry: entry.code))
+
+
+def aiwire_control_lut_sha256(entries: AIWireControlLUTEntries | None = None) -> str:
+    """Hash a routine-control LUT in canonical order for handshake comparison."""
+
+    normalized = normalize_aiwire_control_lut(entries)
+    if not normalized:
+        return ""
+    payload = {
+        "schema": AI_WIRE_CONTROL_LUT_SCHEMA,
+        "protocol": AI_WIRE_PROTOCOL,
+        "entries": [entry.to_dict() for entry in normalized],
+    }
+    return _sha256_hex(_canonical_json_bytes(payload))
+
+
+@dataclass(frozen=True)
+class AIWireSystemControlMessage:
+    """Self-describing mission-critical control message.
+
+    These messages intentionally do not depend on the mutable session template
+    dictionary or compact control LUT. Unknown mission-critical messages fail
+    closed at parse time.
+    """
+
+    control_type: str
+    session_id: str
+    epoch: int
+    sequence: int
+    payload: Mapping[str, Any]
+    nonce: str
+    state_hash: str | None = None
+    auth_tag: str = ""
+
+    def to_unsigned_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_SYSTEM_CONTROL_SCHEMA,
+            "protocol": AI_WIRE_PROTOCOL,
+            "lane": "control",
+            "criticality": AI_WIRE_MISSION_CRITICAL,
+            "control_type": self.control_type,
+            "session_id": self.session_id,
+            "epoch": self.epoch,
+            "sequence": self.sequence,
+            "nonce": self.nonce,
+            "state_hash": self.state_hash,
+            "payload": dict(self.payload),
+        }
+
+    def to_dict(self) -> dict[str, object]:
+        payload = self.to_unsigned_dict()
+        payload["auth_tag"] = self.auth_tag
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireSystemControlMessage":
+        if value.get("schema") != AI_WIRE_SYSTEM_CONTROL_SCHEMA:
+            raise AIWireHandshakeError("unsupported AIWire system control schema")
+        if value.get("protocol") != AI_WIRE_PROTOCOL:
+            raise AIWireHandshakeError("unsupported AIWire protocol")
+        if value.get("lane") != "control":
+            raise AIWireHandshakeError("AIWire system control lane must be control")
+        if value.get("criticality") != AI_WIRE_MISSION_CRITICAL:
+            raise AIWireHandshakeError("AIWire system control must be mission critical")
+
+        try:
+            control_type = str(value["control_type"])
+            if control_type not in AI_WIRE_MISSION_CRITICAL_CONTROL_TYPES:
+                raise AIWireHandshakeError(f"unknown mission-critical control type: {control_type}")
+            nonce = str(value["nonce"])
+            _validate_aiwire_nonce(nonce)
+            state_hash = str(value["state_hash"]) if value.get("state_hash") is not None else None
+            if state_hash is not None:
+                _validate_sha256_hex(state_hash, "state_hash")
+            payload = value.get("payload", {})
+            if not isinstance(payload, Mapping):
+                raise AIWireHandshakeError("system control payload must be a mapping")
+            epoch = int(value["epoch"])
+            sequence = int(value["sequence"])
+            if epoch < 0:
+                raise AIWireHandshakeError("system control epoch must be non-negative")
+            if sequence < 0:
+                raise AIWireHandshakeError("system control sequence must be non-negative")
+            return cls(
+                control_type=control_type,
+                session_id=str(value["session_id"]),
+                epoch=epoch,
+                sequence=sequence,
+                payload=dict(payload),
+                nonce=nonce,
+                state_hash=state_hash,
+                auth_tag=str(value.get("auth_tag", "")),
+            )
+        except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire system control message: {exc}") from exc
+
+
+def build_aiwire_system_control_message(
+    *,
+    control_type: str,
+    session_id: str,
+    epoch: int,
+    sequence: int,
+    payload: Mapping[str, Any] | None = None,
+    state_hash: str | None = None,
+    auth_key: AIWireAuthKey = None,
+    nonce: str | None = None,
+) -> AIWireSystemControlMessage:
+    """Build and optionally authenticate a mission-critical system control message."""
+
+    message = AIWireSystemControlMessage(
+        control_type=control_type,
+        session_id=session_id,
+        epoch=epoch,
+        sequence=sequence,
+        payload=dict(payload or {}),
+        nonce=nonce or _make_aiwire_nonce(),
+        state_hash=state_hash,
+    )
+    parsed = AIWireSystemControlMessage.from_dict(message.to_dict())
+    auth_tag = _sign_aiwire_payload(parsed.to_unsigned_dict(), auth_key)
+    return AIWireSystemControlMessage(
+        control_type=parsed.control_type,
+        session_id=parsed.session_id,
+        epoch=parsed.epoch,
+        sequence=parsed.sequence,
+        payload=parsed.payload,
+        nonce=parsed.nonce,
+        state_hash=parsed.state_hash,
+        auth_tag=auth_tag,
+    )
+
+
+def verify_aiwire_system_control_message(
+    message: Mapping[str, Any] | AIWireSystemControlMessage,
+    *,
+    auth_key: AIWireAuthKey = None,
+) -> AIWireSystemControlMessage:
+    """Parse and verify a mission-critical system control message."""
+
+    parsed = (
+        message
+        if isinstance(message, AIWireSystemControlMessage)
+        else AIWireSystemControlMessage.from_dict(message)
+    )
+    _verify_aiwire_payload_auth(
+        parsed.to_unsigned_dict(),
+        parsed.auth_tag,
+        auth_key,
+        "AIWire system control",
+    )
+    return parsed
 
 
 def _template_pattern_sha256(pattern: str) -> str:
@@ -1593,9 +1862,14 @@ class AIWireHandshake:
     session_template_count: int
     session_template_epoch: int
     require_session_templates: bool
+    control_lut: tuple[AIWireControlLUTEntry, ...]
+    control_lut_sha256: str
+    control_lut_count: int
+    control_lut_epoch: int
+    require_control_lut: bool
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "schema": AI_WIRE_HANDSHAKE_SCHEMA,
             "protocol": AI_WIRE_PROTOCOL,
             "versions": list(self.versions),
@@ -1619,6 +1893,17 @@ class AIWireHandshake:
             "session_template_epoch": self.session_template_epoch,
             "require_session_templates": self.require_session_templates,
         }
+        if self.control_lut_count or self.control_lut_epoch or self.require_control_lut:
+            payload.update(
+                {
+                    "control_lut": [entry.to_dict() for entry in self.control_lut],
+                    "control_lut_sha256": self.control_lut_sha256,
+                    "control_lut_count": self.control_lut_count,
+                    "control_lut_epoch": self.control_lut_epoch,
+                    "require_control_lut": self.require_control_lut,
+                }
+            )
+        return payload
 
     @classmethod
     def from_dict(cls, value: dict[str, object]) -> "AIWireHandshake":
@@ -1633,6 +1918,7 @@ class AIWireHandshake:
             session_templates = normalize_aiwire_session_templates(
                 value.get("session_templates", ())
             )
+            control_lut = normalize_aiwire_control_lut(value.get("control_lut", ()))
             session_template_sha256 = str(
                 value.get(
                     "session_template_sha256",
@@ -1646,6 +1932,14 @@ class AIWireHandshake:
             )
             if session_template_count != len(session_templates):
                 raise AIWireHandshakeError("session template count does not match payload")
+            control_lut_sha256 = str(
+                value.get("control_lut_sha256", aiwire_control_lut_sha256(control_lut))
+            )
+            if control_lut_sha256 != aiwire_control_lut_sha256(control_lut):
+                raise AIWireHandshakeError("control LUT hash does not match payload")
+            control_lut_count = int(value.get("control_lut_count", len(control_lut)))
+            if control_lut_count != len(control_lut):
+                raise AIWireHandshakeError("control LUT count does not match payload")
             return cls(
                 versions=versions,
                 preferred_version=int(value["preferred_version"]),
@@ -1668,6 +1962,11 @@ class AIWireHandshake:
                 session_template_count=session_template_count,
                 session_template_epoch=int(value.get("session_template_epoch", 0)),
                 require_session_templates=bool(value.get("require_session_templates", False)),
+                control_lut=control_lut,
+                control_lut_sha256=control_lut_sha256,
+                control_lut_count=control_lut_count,
+                control_lut_epoch=int(value.get("control_lut_epoch", 0)),
+                require_control_lut=bool(value.get("require_control_lut", False)),
             )
         except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
             raise AIWireHandshakeError(f"malformed AIWire handshake: {exc}") from exc
@@ -1703,11 +2002,15 @@ def build_aiwire_handshake(
     session_templates: AIWireSessionTemplates | None = None,
     session_template_epoch: int = 0,
     require_session_templates: bool = False,
+    control_lut: AIWireControlLUTEntries | None = None,
+    control_lut_epoch: int = 0,
+    require_control_lut: bool = False,
 ) -> AIWireHandshake:
     if not 0 <= level <= 9:
         raise ValueError(f"zlib level must be in [0, 9], got {level}")
 
     normalized_templates = normalize_aiwire_session_templates(session_templates)
+    normalized_control_lut = normalize_aiwire_control_lut(control_lut)
     native_status = aiwire_native_status()
     backend = (
         "native"
@@ -1735,6 +2038,11 @@ def build_aiwire_handshake(
         session_template_count=len(normalized_templates),
         session_template_epoch=session_template_epoch,
         require_session_templates=require_session_templates,
+        control_lut=normalized_control_lut,
+        control_lut_sha256=aiwire_control_lut_sha256(normalized_control_lut),
+        control_lut_count=len(normalized_control_lut),
+        control_lut_epoch=control_lut_epoch,
+        require_control_lut=require_control_lut,
     )
 
 
@@ -1749,6 +2057,9 @@ def negotiate_aiwire_handshake(
     session_templates: AIWireSessionTemplates | None = None,
     session_template_epoch: int = 0,
     require_session_templates: bool = False,
+    control_lut: AIWireControlLUTEntries | None = None,
+    control_lut_epoch: int = 0,
+    require_control_lut: bool = False,
 ) -> AIWireNegotiation:
     peer = (
         peer_handshake
@@ -1763,6 +2074,9 @@ def negotiate_aiwire_handshake(
         session_templates=session_templates,
         session_template_epoch=session_template_epoch,
         require_session_templates=require_session_templates,
+        control_lut=control_lut,
+        control_lut_epoch=control_lut_epoch,
+        require_control_lut=require_control_lut,
     )
 
     common_versions = sorted(set(peer.versions).intersection(local.versions), reverse=True)
@@ -1771,6 +2085,12 @@ def negotiate_aiwire_handshake(
         or local.require_session_templates
         or bool(peer.session_template_count)
         or bool(local.session_template_count)
+    )
+    control_lut_is_required = (
+        peer.require_control_lut
+        or local.require_control_lut
+        or bool(peer.control_lut_count)
+        or bool(local.control_lut_count)
     )
     reason = None
     if not common_versions:
@@ -1783,6 +2103,12 @@ def negotiate_aiwire_handshake(
         peer.require_session_templates or local.require_session_templates
     ) and not local.session_template_count:
         reason = "session_templates_required"
+    elif control_lut_is_required and peer.control_lut_count != local.control_lut_count:
+        reason = "control_lut_count_mismatch"
+    elif control_lut_is_required and peer.control_lut_sha256 != local.control_lut_sha256:
+        reason = "control_lut_sha256_mismatch"
+    elif (peer.require_control_lut or local.require_control_lut) and not local.control_lut_count:
+        reason = "control_lut_required"
     elif peer.use_static_dictionary != local.use_static_dictionary:
         reason = "static_dictionary_mode_mismatch"
     elif peer.use_static_dictionary and peer.dictionary_sha256 != local.dictionary_sha256:

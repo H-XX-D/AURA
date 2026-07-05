@@ -75,7 +75,7 @@ Goal: benchmark against realistic protocol-shaped data.
   [`fixtures/aiwire_sessions/public_session_corpus_v1.json`](../fixtures/aiwire_sessions/public_session_corpus_v1.json).
 - Keep stable corpus summaries for size, average frame size, key distribution,
   protocol mix, and delta value mix.
-- Benchmark with small, medium, and bursty message sizes.
+- Keep local benchmark profiles for small, medium, and bursty message sizes.
 - Add CI-friendly benchmark smoke tests that detect major regressions without
   requiring a full LAN lab.
 - Keep the fixture-backed saturation benchmark current so bandwidth, latency,

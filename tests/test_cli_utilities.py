@@ -102,6 +102,8 @@ def test_package_cli_benchmark_smoke(capsys):
     assert benchmark_main(["--messages", "8"]) == 0
     output = json.loads(capsys.readouterr().out)
     assert output["messages"] == 8
+    assert output["benchmark_profile"] == "custom"
+    assert output["corpus"] == "structured"
     assert output["ratio"] > 0
     assert output["encode_stats"]["frames"] == 8
     assert output["encode_stats"]["bytes_in"] == output["bytes_in"]
@@ -113,6 +115,29 @@ def test_package_cli_benchmark_smoke(capsys):
     assert output["corpus_summary"]["total_bytes"] == output["bytes_in"]
     assert output["corpus_summary"]["protocol_mix"]
     assert len(output["corpus_summary"]["corpus_sha256"]) == 64
+
+
+def test_package_cli_benchmark_supports_delta_profile(capsys):
+    assert benchmark_main(["--profile", "small", "--corpus", "delta"]) == 0
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["benchmark_profile"] == "small"
+    assert output["corpus"] == "delta"
+    assert output["messages"] == 128
+    assert output["corpus_summary"]["message_count"] == 128
+    assert output["corpus_summary"]["delta_changed_value_mix"]["status"] > 0
+
+
+def test_package_cli_benchmark_supports_bursty_profile(capsys):
+    assert benchmark_main(["--profile", "bursty", "--messages", "32"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    summary = output["corpus_summary"]
+
+    assert output["benchmark_profile"] == "bursty"
+    assert output["messages"] == 32
+    assert summary["top_level_key_counts"]["benchmark_profile"] == 32
+    assert summary["top_level_key_counts"]["burst_payload"] > 0
+    assert summary["max_frame_bytes"] > summary["min_frame_bytes"] * 3
 
 
 def test_package_cli_server_guidance(capsys):

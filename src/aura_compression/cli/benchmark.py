@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import time
+from typing import Any
 
 from aura_compression.ai_wire import (
     AI_WIRE_DICTIONARY_SHA256,
+    build_delta_structured_ai_messages,
     build_structured_ai_messages,
     compress_ai_wire_frames,
     decompress_ai_wire_frames,
@@ -16,14 +19,119 @@ from aura_compression.ai_wire import (
 )
 
 
+DEFAULT_MESSAGE_COUNT = 1024
+BENCHMARK_PROFILES: dict[str, dict[str, Any]] = {
+    "custom": {
+        "messages": DEFAULT_MESSAGE_COUNT,
+        "description": "Caller-selected message count.",
+    },
+    "small": {
+        "messages": 128,
+        "description": "Short local smoke run for quick regressions.",
+    },
+    "medium": {
+        "messages": DEFAULT_MESSAGE_COUNT,
+        "description": "Default protocol-shaped corpus size.",
+    },
+    "bursty": {
+        "messages": 2048,
+        "description": "Mixed message sizes with periodic large synthetic payloads.",
+    },
+}
+
+
+def _build_base_messages(corpus: str, count: int, seed: int) -> list[dict[str, Any]]:
+    if corpus == "delta":
+        return build_delta_structured_ai_messages(count, seed=seed)
+    if corpus == "structured":
+        return build_structured_ai_messages(count, seed=seed)
+    raise ValueError(f"unsupported benchmark corpus: {corpus}")
+
+
+def _build_bursty_messages(corpus: str, count: int, seed: int) -> list[dict[str, Any]]:
+    messages = _build_base_messages(corpus, count, seed)
+    bursty: list[dict[str, Any]] = []
+
+    for index, message in enumerate(messages):
+        payload = copy.deepcopy(message)
+        if index % 16 == 0:
+            size_class = "large"
+            payload["burst_payload"] = {
+                "kind": "synthetic.large_result",
+                "chunks": [
+                    {
+                        "index": chunk_index,
+                        "text": (
+                            f"burst segment {chunk_index} for message {index}: "
+                            "verified evidence, route hints, tool output, and "
+                            "status deltas remain public-safe synthetic data."
+                        ),
+                    }
+                    for chunk_index in range(8)
+                ],
+            }
+        elif index % 4 == 0:
+            size_class = "medium"
+            payload["burst_payload"] = {
+                "kind": "synthetic.medium_result",
+                "summary": f"medium burst payload for message {index}",
+            }
+        else:
+            size_class = "small"
+
+        payload["benchmark_profile"] = {
+            "profile": "bursty",
+            "corpus": corpus,
+            "size_class": size_class,
+            "synthetic": True,
+        }
+        bursty.append(payload)
+
+    return bursty
+
+
+def _build_benchmark_messages(
+    *,
+    corpus: str,
+    profile: str,
+    count: int,
+    seed: int,
+) -> list[dict[str, Any]]:
+    if profile == "bursty":
+        return _build_bursty_messages(corpus, count, seed)
+    return _build_base_messages(corpus, count, seed)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--messages", type=int, default=1024, help="Number of messages")
+    parser.add_argument(
+        "--profile",
+        choices=tuple(BENCHMARK_PROFILES),
+        default="custom",
+        help="Benchmark size profile. --messages overrides the profile count.",
+    )
+    parser.add_argument(
+        "--corpus",
+        choices=("structured", "delta"),
+        default="structured",
+        help="Synthetic corpus family to benchmark.",
+    )
+    parser.add_argument("--messages", type=int, default=None, help="Number of messages")
     parser.add_argument("--seed", type=int, default=1729, help="Synthetic corpus seed")
     parser.add_argument("--level", type=int, default=3, help="zlib compression level, 0-9")
     args = parser.parse_args(argv)
 
-    messages = build_structured_ai_messages(args.messages, seed=args.seed)
+    profile = BENCHMARK_PROFILES[args.profile]
+    message_count = args.messages if args.messages is not None else int(profile["messages"])
+    if message_count <= 0:
+        parser.error("--messages must be positive")
+
+    messages = _build_benchmark_messages(
+        corpus=args.corpus,
+        profile=args.profile,
+        count=message_count,
+        seed=args.seed,
+    )
     started = time.perf_counter()
     frames, encode_stats = compress_ai_wire_frames(messages, level=args.level, use_native=False)
     encoded_at = time.perf_counter()
@@ -36,7 +144,10 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeError("AIWire benchmark round trip failed")
 
     result = {
-        "messages": args.messages,
+        "messages": message_count,
+        "benchmark_profile": args.profile,
+        "benchmark_profile_description": profile["description"],
+        "corpus": args.corpus,
         "dictionary_sha256": AI_WIRE_DICTIONARY_SHA256,
         "corpus_summary": summarize_ai_wire_corpus(messages),
         "encode_seconds": encoded_at - started,

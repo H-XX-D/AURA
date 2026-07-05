@@ -152,6 +152,10 @@ The generated corpus currently includes OpenAI-style responses, MCP tool calls,
 A2A messages, local agent deltas, traces, handoffs, reviews, memory writes, and
 stable-session delta traffic.
 
+The package benchmark CLI exposes `--profile small|medium|bursty` and
+`--corpus structured|delta` so local runs can compare quick smoke, default, and
+bursty message-size mixes with the same corpus summary schema.
+
 `ai_wire_fixtures.py` builds saved session corpora that wrap those message
 shapes in the AIWire side-channel lifecycle: forced handshake, initial session
 templates, template update, authenticated append-only dictionary diff, ACK, and

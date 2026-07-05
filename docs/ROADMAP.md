@@ -116,6 +116,9 @@ native token paths on each machine before cluster runs.
   Actions now build the C++ native backend and run the native check utility.
 - Keep the package benchmark CLI wired to `--backend python|native|auto` so
   Python/native comparisons use the same corpus and output schema.
+- Use `tools/compare_aiwire_backends.py` to produce one repeatable
+  Python-vs-native artifact across the sustained-session benchmark and
+  fixture-backed saturation model before running LAN or n-ary cluster tests.
 - Keep the live TCP and n-ary stress harness wired to
   `--backend python|native|auto` so cross-machine cluster tests report both the
   requested backend and the actual encode/decode backend.

@@ -446,6 +446,26 @@ identity, native AIWire round trips, Python/native frame interop, and native
 AIToken plus AIToken+AIWire support. GitHub Actions runs the native check on
 Linux and macOS.
 
+After native readiness passes, create a repeatable Python-vs-native comparison
+artifact from the same sustained-session corpus and fixture-backed network
+model:
+
+```bash
+PYTHONPATH=src python tools/compare_aiwire_backends.py \
+  --backends python,native \
+  --messages 128 \
+  --fixture-profiles lan_10m \
+  --codecs raw,zlib,aiwire,aitoken_aiwire \
+  --agent-counts 1,64 \
+  --output /tmp/aura_aiwire_backend_compare.json \
+  --markdown-output /tmp/aura_aiwire_backend_compare.md
+```
+
+The JSON keeps full sustained-session and fixture-saturation results for audit;
+the Markdown summarizes backend deltas, byte movement, codec CPU, and whether
+the native path actually handled encode/decode. Use `--allow-missing-native`
+only for portable smoke tests where skipping native is acceptable.
+
 The LAN benchmark harness can run a server on one machine and a client on
 another. The live harness also accepts `--backend python|native|auto` on both
 server and client paths; keep both sides on the same requested backend when

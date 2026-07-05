@@ -31,6 +31,7 @@ if str(SRC) not in sys.path:
 from aura_compression.ai_wire import (
     AI_WIRE_DEFAULT_LEVEL,
     AIWireHandshake,
+    AIWireNativeError,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
     AIWireSessionTemplates,
@@ -54,7 +55,19 @@ from aura_compression.compressor_refactored import ProductionHybridCompressor
 
 U32 = struct.Struct("!I")
 AIWIRE_NEGOTIATED_CODECS = {"aiwire", "aitoken_aiwire"}
+STRESS_BACKENDS = ("python", "native", "auto")
 DEFAULT_FIXTURE_CORPUS = ROOT / "fixtures" / "aiwire_sessions" / "public_session_corpus_v1.json"
+
+
+def _use_native_for_backend(backend: str) -> bool | None:
+    if backend == "python":
+        return False
+    if backend == "native":
+        return True
+    if backend == "auto":
+        return None
+    choices = ", ".join(STRESS_BACKENDS)
+    raise ValueError(f"unsupported AIWire backend {backend!r}; choices: {choices}")
 
 
 class BandwidthLimiter:
@@ -360,15 +373,11 @@ def _cluster_variation_frame(
         return frame
 
     peer_seed = _fixture_peer_seed(peer_label)
-    role = CLUSTER_VARIATION_ROLES[
-        (peer_seed + exchange_index) % len(CLUSTER_VARIATION_ROLES)
-    ]
+    role = CLUSTER_VARIATION_ROLES[(peer_seed + exchange_index) % len(CLUSTER_VARIATION_ROLES)]
     workload = CLUSTER_VARIATION_WORKLOADS[
         (peer_seed // 3 + exchange_index * 2) % len(CLUSTER_VARIATION_WORKLOADS)
     ]
-    zone = CLUSTER_VARIATION_ZONES[
-        (peer_seed // 7 + exchange_index) % len(CLUSTER_VARIATION_ZONES)
-    ]
+    zone = CLUSTER_VARIATION_ZONES[(peer_seed // 7 + exchange_index) % len(CLUSTER_VARIATION_ZONES)]
     epoch = exchange_index // 36
     shard = (peer_seed + exchange_index * 7) % 17
     queue_depth = (peer_seed + exchange_index * 5) % 64
@@ -418,9 +427,7 @@ def _cluster_variation_frame(
     message["metadata"] = metadata
 
     if isinstance(message.get("trace_id"), str):
-        message["trace_id"] = (
-            f"{message['trace_id']}:{peer_label}:e{epoch}:x{exchange_index % 997}"
-        )
+        message["trace_id"] = f"{message['trace_id']}:{peer_label}:e{epoch}:x{exchange_index % 997}"
     if "id" in message and isinstance(message["id"], (int, str)):
         message["id"] = f"{peer_label}-{message['id']}-{exchange_index % 997}"
 
@@ -576,8 +583,10 @@ class CodecSession:
     level: int = AI_WIRE_DEFAULT_LEVEL
     cache_dir: str = "/tmp/aura-aiwire-stress-cache"
     session_templates: AIWireSessionTemplates | None = None
+    requested_backend: str = "python"
 
     def __post_init__(self) -> None:
+        use_native = _use_native_for_backend(self.requested_backend)
         self.encoder: AIWireSessionEncoder | None = None
         self.decoder: AIWireSessionDecoder | None = None
         self.token_encoder: AIWireTokenSessionEncoder | None = None
@@ -590,20 +599,26 @@ class CodecSession:
             self.encoder = AIWireSessionEncoder(
                 level=self.level,
                 session_templates=self.session_templates,
+                use_native=use_native,
             )
-            self.decoder = AIWireSessionDecoder(session_templates=self.session_templates)
+            self.decoder = AIWireSessionDecoder(
+                session_templates=self.session_templates,
+                use_native=use_native,
+            )
             self.backend = self.encoder.backend
         elif self.codec == "aitoken":
-            self.token_encoder = AIWireTokenSessionEncoder()
-            self.token_decoder = AIWireTokenSessionDecoder()
+            self.token_encoder = AIWireTokenSessionEncoder(use_native=use_native)
+            self.token_decoder = AIWireTokenSessionDecoder(use_native=use_native)
             self.backend = f"aitoken+{self.token_encoder.backend}"
         elif self.codec == "aitoken_aiwire":
             self.token_aiwire_encoder = AIWireTokenAIWireSessionEncoder(
                 level=self.level,
                 session_templates=self.session_templates,
+                use_native=use_native,
             )
             self.token_aiwire_decoder = AIWireTokenAIWireSessionDecoder(
-                session_templates=self.session_templates
+                session_templates=self.session_templates,
+                use_native=use_native,
             )
             self.backend = self.token_aiwire_encoder.backend
         elif self.codec == "aura":
@@ -698,6 +713,7 @@ def _server_negotiate(
 def server_once(
     conn: socket.socket,
     cache_dir: str = "/tmp/aura-aiwire-stress-server-cache",
+    backend: str = "python",
     link_mbps: float = 0.0,
     one_way_delay_ms: float = 0.0,
     jitter_ms: float = 0.0,
@@ -781,12 +797,32 @@ def server_once(
             )
             return
 
-        probe_session = CodecSession(
-            codec=codec,
-            level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)),
-            cache_dir=cache_dir,
-            session_templates=session_templates,
-        )
+        try:
+            probe_session = CodecSession(
+                codec=codec,
+                level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)),
+                cache_dir=cache_dir,
+                session_templates=session_templates,
+                requested_backend=backend,
+            )
+            probe_backend = probe_session.backend
+        except AIWireNativeError as exc:
+            _write_frame(
+                conn,
+                _json_bytes(
+                    {
+                        "accepted": False,
+                        "codec": requested_codec,
+                        "negotiated_codec": codec,
+                        "reason": f"backend_unavailable: {exc}",
+                        "requested_backend": backend,
+                        "client_requested_backend": hello.get("aiwire_backend", ""),
+                        "handshake_probe": True,
+                        "aiwire_negotiation": negotiation,
+                    }
+                ),
+            )
+            return
         _write_frame(
             conn,
             _json_bytes(
@@ -794,7 +830,9 @@ def server_once(
                     "accepted": True,
                     "codec": requested_codec,
                     "negotiated_codec": codec,
-                    "backend": probe_session.backend,
+                    "backend": probe_backend,
+                    "requested_backend": backend,
+                    "client_requested_backend": hello.get("aiwire_backend", ""),
                     "server_link_mbps": connection_link_mbps,
                     "server_one_way_delay_ms": one_way_delay_ms,
                     "server_jitter_ms": jitter_ms,
@@ -804,9 +842,7 @@ def server_once(
                     "session_shards": session_shards,
                     "handshake_probe": True,
                     "session_template_count": len(session_templates),
-                    "session_template_sha256": aiwire_session_templates_sha256(
-                        session_templates
-                    ),
+                    "session_template_sha256": aiwire_session_templates_sha256(session_templates),
                     "fixture_replay": fixture_requested,
                     "fixture_variation_profile": fixture_variation_profile,
                     "fixture_peer_label": fixture_peer_label,
@@ -849,12 +885,30 @@ def server_once(
         )
         return
 
-    session = CodecSession(
-        codec=codec,
-        level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)),
-        cache_dir=cache_dir,
-        session_templates=session_templates,
-    )
+    try:
+        session = CodecSession(
+            codec=codec,
+            level=int(hello.get("aiwire_level", AI_WIRE_DEFAULT_LEVEL)),
+            cache_dir=cache_dir,
+            session_templates=session_templates,
+            requested_backend=backend,
+        )
+    except AIWireNativeError as exc:
+        _write_frame(
+            conn,
+            _json_bytes(
+                {
+                    "accepted": False,
+                    "codec": requested_codec,
+                    "negotiated_codec": codec,
+                    "reason": f"backend_unavailable: {exc}",
+                    "requested_backend": backend,
+                    "client_requested_backend": hello.get("aiwire_backend", ""),
+                    "aiwire_negotiation": negotiation,
+                }
+            ),
+        )
+        return
     _write_frame(
         conn,
         _json_bytes(
@@ -863,6 +917,8 @@ def server_once(
                 "codec": requested_codec,
                 "negotiated_codec": codec,
                 "backend": session.backend,
+                "requested_backend": backend,
+                "client_requested_backend": hello.get("aiwire_backend", ""),
                 "server_link_mbps": connection_link_mbps,
                 "server_one_way_delay_ms": one_way_delay_ms,
                 "server_jitter_ms": jitter_ms,
@@ -960,6 +1016,8 @@ def server_once(
                 "codec": requested_codec,
                 "negotiated_codec": codec,
                 "backend": session.backend,
+                "requested_backend": backend,
+                "client_requested_backend": hello.get("aiwire_backend", ""),
                 "exchanges": index,
                 "raw_request_bytes": raw_request_bytes,
                 "raw_response_bytes": raw_response_bytes,
@@ -998,6 +1056,7 @@ def _serve_server_connection(
         server_once(
             conn,
             cache_dir=args.cache_dir,
+            backend=args.backend,
             link_mbps=args.link_mbps,
             one_way_delay_ms=args.one_way_delay_ms,
             jitter_ms=args.jitter_ms,
@@ -1127,6 +1186,7 @@ def _client_stress_codec(
         "session_shard": session_shard,
         "session_shards": session_shards,
         "fixture_replay": fixture_replay is not None,
+        "aiwire_backend": args.backend,
     }
     if fixture_replay is not None:
         hello.update(
@@ -1184,6 +1244,7 @@ def _client_stress_codec(
             session_templates=(
                 session_templates if negotiated_codec in AIWIRE_NEGOTIATED_CODECS else None
             ),
+            requested_backend=args.backend,
         )
         out_writer = AsyncFrameWriter(
             sock,
@@ -1343,6 +1404,11 @@ def _client_stress_codec(
         "codec": codec,
         "negotiated_codec": negotiated_codec,
         "backend": ack.get("backend"),
+        "requested_backend": args.backend,
+        "client_backend": session.backend,
+        "server_backend": ack.get("backend"),
+        "server_requested_backend": ack.get("requested_backend", ""),
+        "client_requested_backend": ack.get("client_requested_backend", ""),
         "duration_mode": duration_mode,
         "target_seconds": args.seconds if duration_mode else 0,
         "client_link_mbps": args.link_mbps,
@@ -1557,6 +1623,7 @@ def _probe_aiwire_peer(
         "per_agent_pipeline_window": max(1, child.pipeline_window),
         "aggregate_pipeline_window": max(1, child.agent_count) * max(1, child.pipeline_window),
         "fixture_replay": fixture_replay is not None,
+        "aiwire_backend": child.backend,
         "aiwire_level": child.aiwire_level,
         "allow_aiwire_fallback": child.allow_aiwire_fallback,
         "aiwire_handshake": build_aiwire_handshake(
@@ -1602,6 +1669,9 @@ def _probe_aiwire_peer(
         "target": target.label,
         "handshake_ms": handshake_ms,
         "backend": ack.get("backend"),
+        "requested_backend": child.backend,
+        "server_requested_backend": ack.get("requested_backend", ""),
+        "client_requested_backend": ack.get("client_requested_backend", ""),
         "session_template_count": ack.get("session_template_count", 0),
         "session_template_sha256": ack.get("session_template_sha256", ""),
         "fixture_replay": ack.get("fixture_replay", False),
@@ -1667,15 +1737,12 @@ def _aggregate_nary_results(
                 "deadline_exchanges_per_second": eps,
                 "vs_raw_completed": completed / raw_completed if raw_completed else 0.0,
                 "vs_raw_exchanges_per_second": eps / raw_eps if raw_eps else 0.0,
-                "framed_bytes_per_exchange": (
-                    framed_wire_bytes / exchanges if exchanges else 0.0
-                ),
+                "framed_bytes_per_exchange": (framed_wire_bytes / exchanges if exchanges else 0.0),
                 "framed_wire_saved_percent": (
                     (1 - framed_wire_bytes / raw_bytes) * 100 if raw_bytes else 0.0
                 ),
                 "roundtrip_ms_p95_avg": (
-                    sum(float(row["roundtrip_ms_p95"]) for row in codec_rows)
-                    / session_count
+                    sum(float(row["roundtrip_ms_p95"]) for row in codec_rows) / session_count
                 ),
                 "roundtrip_ms_p95_max": max(float(row["roundtrip_ms_p95"]) for row in codec_rows),
                 "bandwidth_capacity_exchanges_per_second": bandwidth_capacity_eps,
@@ -1696,6 +1763,7 @@ def run_client(args: argparse.Namespace) -> None:
         results.append(_client_stress_codec(codec, frames, args, fixture_replay))
 
     output: dict[str, Any] = {"results": results}
+    output["requested_backend"] = args.backend
     if fixture_replay is not None:
         output["fixture_replay"] = {
             "fixture_corpus": fixture_replay.path,
@@ -1783,7 +1851,10 @@ def run_nary_client(args: argparse.Namespace) -> None:
         "remote_peer_count": len(targets),
         "session_shards_per_target": session_shards,
         "total_replay_sessions": len(targets) * session_shards,
-        "targets": [{"index": index, "label": target.label} for index, target in enumerate(targets, start=1)],
+        "requested_backend": args.backend,
+        "targets": [
+            {"index": index, "label": target.label} for index, target in enumerate(targets, start=1)
+        ],
         "nary_negotiation": nary_negotiation.to_dict(),
         "nary_peer_probes": [
             {
@@ -1838,6 +1909,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     server.add_argument("--cache-dir", default="/tmp/aura-aiwire-stress-server-cache")
     server.add_argument(
+        "--backend",
+        choices=STRESS_BACKENDS,
+        default="python",
+        help=(
+            "AIWire encode/decode backend for negotiated AIWire codecs. "
+            "python is reproducible default; native requires libaura_aiwire; "
+            "auto uses native when available."
+        ),
+    )
+    server.add_argument(
         "--link-mbps", type=float, default=0.0, help="per-direction egress rate; 0 is unlimited"
     )
     server.add_argument(
@@ -1882,6 +1963,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     client.add_argument("--seconds", type=float, default=0.0)
     client.add_argument("--seed", type=int, default=1729)
     client.add_argument("--codecs", default="raw,zlib,aura,aiwire")
+    client.add_argument(
+        "--backend",
+        choices=STRESS_BACKENDS,
+        default="python",
+        help=(
+            "AIWire encode/decode backend for negotiated AIWire codecs. "
+            "python is reproducible default; native requires libaura_aiwire; "
+            "auto uses native when available."
+        ),
+    )
     client.add_argument("--aiwire-level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     client.add_argument("--allow-aiwire-fallback", action="store_true")
     client.add_argument(
@@ -1987,6 +2078,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     nary_client.add_argument("--seconds", type=float, default=0.0)
     nary_client.add_argument("--seed", type=int, default=1729)
     nary_client.add_argument("--codecs", default="raw,zlib,aiwire")
+    nary_client.add_argument(
+        "--backend",
+        choices=STRESS_BACKENDS,
+        default="python",
+        help=(
+            "AIWire encode/decode backend for negotiated AIWire codecs. "
+            "python is reproducible default; native requires libaura_aiwire; "
+            "auto uses native when available."
+        ),
+    )
     nary_client.add_argument("--aiwire-level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     nary_client.add_argument("--allow-aiwire-fallback", action="store_true")
     nary_client.add_argument(

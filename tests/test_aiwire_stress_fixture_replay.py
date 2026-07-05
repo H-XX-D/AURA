@@ -14,7 +14,7 @@ TOOLS = Path(__file__).resolve().parents[1] / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from stress_ai_wire_roundtrip_z6 import _load_fixture_replay_corpus  # noqa: E402
+from stress_ai_wire_roundtrip_z6 import _load_fixture_replay_corpus, parse_args  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 STRESS_TOOL = ROOT / "tools" / "stress_ai_wire_roundtrip_z6.py"
@@ -36,6 +36,12 @@ def test_fixture_replay_corpus_loader_prepares_verified_stream() -> None:
     assert len(replay.request_frames) == len(replay.response_frames) == 36
     assert len(replay.session_templates) == 8
     assert len(replay.request_sha256) == len(replay.response_sha256) == 64
+
+
+def test_stress_tool_backend_args_parse_for_all_modes() -> None:
+    assert parse_args(["server", "--backend", "native"]).backend == "native"
+    assert parse_args(["client", "--host", "127.0.0.1", "--backend", "auto"]).backend == "auto"
+    assert parse_args(["nary-client", "--target", "edge=127.0.0.1:8910"]).backend == "python"
 
 
 def test_stress_tool_replays_public_fixture_over_tcp() -> None:
@@ -119,9 +125,13 @@ def test_stress_tool_replays_public_fixture_over_tcp() -> None:
     by_codec = {row["codec"]: row for row in rows}
 
     assert payload["fixture_replay"]["fixture_exchange_count"] == 36
+    assert payload["requested_backend"] == "python"
     assert set(by_codec) == {"raw", "aiwire"}
     for row in rows:
         assert row["verified"] is True
+        assert row["requested_backend"] == "python"
+        assert row["server_requested_backend"] == "python"
+        assert row["client_requested_backend"] == "python"
         assert row["fixture_replay"] is True
         assert row["fixture_exchange_count"] == 36
         assert row["response_verification"] == "fixture_sha256"
@@ -130,7 +140,11 @@ def test_stress_tool_replays_public_fixture_over_tcp() -> None:
         assert row["raw_response_bytes"] > 0
 
     assert by_codec["raw"]["session_template_count"] == 0
+    assert by_codec["raw"]["client_backend"] == "raw"
+    assert by_codec["raw"]["server_backend"] == "raw"
     assert by_codec["aiwire"]["session_template_count"] == 8
+    assert by_codec["aiwire"]["client_backend"] == "python"
+    assert by_codec["aiwire"]["server_backend"] == "python"
     assert by_codec["aiwire"]["aiwire_negotiation"]["accepted"] is True
 
 
@@ -229,6 +243,7 @@ def test_nary_client_replays_public_fixture_across_two_peers() -> None:
     aggregate = {row["codec"]: row for row in payload["aggregate"]}
 
     assert payload["mode"] == "nary_client"
+    assert payload["requested_backend"] == "python"
     assert payload["participant_count"] == 3
     assert payload["remote_peer_count"] == 2
     assert payload["nary_negotiation"]["accepted"] is True
@@ -238,11 +253,19 @@ def test_nary_client_replays_public_fixture_across_two_peers() -> None:
         "edge-a",
         "edge-b",
     }
+    for probe in payload["nary_peer_probes"]:
+        assert probe["backend"] == "python"
+        assert probe["requested_backend"] == "python"
+        assert probe["server_requested_backend"] == "python"
+        assert probe["client_requested_backend"] == "python"
     assert len(rows) == 4
     assert {row["target"] for row in rows} == {"edge-a", "edge-b"}
     assert {row["codec"] for row in rows} == {"raw", "aiwire"}
     for row in rows:
         assert row["verified"] is True
+        assert row["requested_backend"] == "python"
+        assert row["server_requested_backend"] == "python"
+        assert row["client_requested_backend"] == "python"
         assert row["fixture_replay"] is True
         assert row["fixture_exchange_count"] == 36
         assert row["fixture_variation_profile"] == "cluster"
@@ -251,6 +274,13 @@ def test_nary_client_replays_public_fixture_across_two_peers() -> None:
         assert row["exchanges"] == 4
 
     assert aggregate["raw"]["deadline_completed_exchanges"] == 8
+    for row in rows:
+        if row["codec"] == "raw":
+            assert row["client_backend"] == "raw"
+            assert row["server_backend"] == "raw"
+        else:
+            assert row["client_backend"] == "python"
+            assert row["server_backend"] == "python"
     assert aggregate["aiwire"]["deadline_completed_exchanges"] == 8
     assert aggregate["aiwire"]["verified"] is True
 
@@ -362,11 +392,17 @@ def test_nary_client_replays_public_fixture_with_session_shards() -> None:
     aggregate = payload["aggregate"][0]
 
     assert payload["mode"] == "nary_client"
+    assert payload["requested_backend"] == "python"
     assert payload["participant_count"] == 3
     assert payload["remote_peer_count"] == 2
     assert payload["session_shards_per_target"] == 2
     assert payload["total_replay_sessions"] == 4
     assert payload["nary_negotiation"]["accepted"] is True
+    for probe in payload["nary_peer_probes"]:
+        assert probe["backend"] == "python"
+        assert probe["requested_backend"] == "python"
+        assert probe["server_requested_backend"] == "python"
+        assert probe["client_requested_backend"] == "python"
     assert len(rows) == 4
     assert {row["target"] for row in rows} == {"edge-a", "edge-b"}
     assert {row["session_shard"] for row in rows} == {1, 2}
@@ -378,6 +414,11 @@ def test_nary_client_replays_public_fixture_with_session_shards() -> None:
     }
     for row in rows:
         assert row["codec"] == "aiwire"
+        assert row["client_backend"] == "python"
+        assert row["server_backend"] == "python"
+        assert row["requested_backend"] == "python"
+        assert row["server_requested_backend"] == "python"
+        assert row["client_requested_backend"] == "python"
         assert row["verified"] is True
         assert row["fixture_replay"] is True
         assert row["fixture_variation_profile"] == "cluster"

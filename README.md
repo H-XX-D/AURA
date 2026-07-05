@@ -429,7 +429,9 @@ then keep sending only steady-state deltas. `--peers N` scales the setup model
 to an n-party session before amortizing setup bytes over the delta stream.
 
 The LAN benchmark harness can run a server on one machine and a client on
-another:
+another. The live harness also accepts `--backend python|native|auto` on both
+server and client paths; keep both sides on the same requested backend when
+comparing Python and native AIWire.
 
 ```bash
 # Target machine
@@ -437,6 +439,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py server \
   --host 0.0.0.0 \
   --port 8765 \
   --runs 5 \
+  --backend python \
   --link-mbps 10
 
 # Client machine
@@ -448,6 +451,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
   --agent-count 16 \
   --pipeline-window 1 \
   --link-mbps 10 \
+  --backend python \
   --codecs raw,zlib,aitoken,aiwire,aitoken_aiwire
 ```
 
@@ -510,6 +514,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py server \
   --host 0.0.0.0 \
   --port 8765 \
   --runs 4 \
+  --backend python \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \
   --link-mbps 10
@@ -524,6 +529,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
   --pipeline-window 1 \
   --link-mbps 10 \
   --codecs raw,zlib,aiwire,aitoken_aiwire \
+  --backend python \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \
   --force-session-templates \
@@ -550,6 +556,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py server \
   --runs 4 \
   --connection-workers 1 \
   --connection-processes 0 \
+  --backend python \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \
   --link-mbps 10
@@ -566,6 +573,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py nary-client \
   --session-shards 1 \
   --link-mbps 10 \
   --codecs raw,zlib,aiwire \
+  --backend python \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \
   --fixture-variation-profile cluster \

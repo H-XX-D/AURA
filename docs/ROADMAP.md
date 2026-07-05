@@ -103,20 +103,23 @@ Definition of done:
 
 Goal: make AIWire fast on workstation and ARM64 edge targets.
 
-Status: next active performance track.
+Status: active. The package benchmark CLI and live TCP/n-ary stress harness now
+expose `--backend python|native|auto`, so Python/native comparisons can use the
+same corpus, link model, and result schema.
 
 - Make native backend builds reproducible on macOS, Linux x86_64, and Linux
   ARM64.
 - Verify Python/native interoperability in CI where possible.
 - Keep the package benchmark CLI wired to `--backend python|native|auto` so
   Python/native comparisons use the same corpus and output schema.
+- Keep the live TCP and n-ary stress harness wired to
+  `--backend python|native|auto` so cross-machine cluster tests report both the
+  requested backend and the actual encode/decode backend.
 - Profile Jetson Nano-class CPUs and remove avoidable Python overhead.
 - Keep session/connection sharding in the n-ary benchmark harness as a
   measurement tool. Corrected thread and forked-process server sharding both
   regressed throughput and tail latency, so they are diagnostics rather than
   the performance path.
-- Add a native server mode to the benchmark harness when the backend is
-  available.
 - Add an async/native coordinator loop that can keep AIWire's saved-bandwidth
   headroom occupied without adding Python worker contention.
 - Compare Python AIWire, native AIWire, stateless zlib, and raw JSON under the

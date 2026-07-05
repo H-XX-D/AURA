@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from aura_compression.ai_wire import aiwire_native_status
 from aura_compression.cli.benchmark import run_benchmark
 
 
@@ -57,3 +58,39 @@ def test_aiwire_benchmark_profiles_stay_above_regression_thresholds(
 def test_aiwire_benchmark_rejects_invalid_message_count() -> None:
     with pytest.raises(ValueError, match="messages must be positive"):
         run_benchmark(messages=0)
+
+
+def test_aiwire_benchmark_reports_python_backend_by_default() -> None:
+    result = run_benchmark(messages=8)
+
+    assert result["requested_backend"] == "python"
+    assert result["encode_backend"] == "python"
+    assert result["decode_backend"] == "python"
+    assert "available" in result["native_status"]
+    assert "library_path" not in result["native_status"]
+
+
+def test_aiwire_benchmark_rejects_invalid_backend() -> None:
+    with pytest.raises(ValueError, match="unsupported benchmark backend"):
+        run_benchmark(messages=1, backend="gpu")  # type: ignore[arg-type]
+
+
+def test_aiwire_benchmark_native_backend_when_available() -> None:
+    status = aiwire_native_status()
+    if not status.available:
+        pytest.skip(status.error or "native AIWire backend is not built")
+
+    result = run_benchmark(
+        profile="small",
+        corpus="delta",
+        messages=32,
+        seed=1729,
+        level=3,
+        backend="native",
+    )
+
+    assert result["requested_backend"] == "native"
+    assert result["encode_backend"] == "native"
+    assert result["decode_backend"] == "native"
+    assert result["native_status"]["dictionary_matches_python"] is True
+    assert result["ratio"] > 8.0

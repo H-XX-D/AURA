@@ -324,12 +324,19 @@ PYTHONPATH=src python -m aura_compression.cli.benchmark \
 PYTHONPATH=src python -m aura_compression.cli.benchmark \
   --profile bursty \
   --corpus structured
+
+PYTHONPATH=src python -m aura_compression.cli.benchmark \
+  --profile medium \
+  --corpus delta \
+  --backend native
 ```
 
 Profiles are `small`, `medium`, and `bursty`; `--messages` can override the
 profile count for focused smoke tests. Corpora are `structured` and `delta`.
 Benchmark messages include `corpus_metadata` marking them synthetic and
-public-safe.
+public-safe. Backends are `python`, `native`, and `auto`; the benchmark JSON
+reports both the requested backend and the actual encode/decode backend so
+Python-vs-native comparisons are explicit.
 
 The LAN benchmark harness can run a server on one machine and a client on
 another:

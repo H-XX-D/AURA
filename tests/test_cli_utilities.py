@@ -104,6 +104,9 @@ def test_package_cli_benchmark_smoke(capsys):
     assert output["messages"] == 8
     assert output["benchmark_profile"] == "custom"
     assert output["corpus"] == "structured"
+    assert output["requested_backend"] == "python"
+    assert output["encode_backend"] == "python"
+    assert output["decode_backend"] == "python"
     assert output["ratio"] > 0
     assert output["encode_stats"]["frames"] == 8
     assert output["encode_stats"]["bytes_in"] == output["bytes_in"]

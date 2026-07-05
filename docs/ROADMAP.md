@@ -103,6 +103,8 @@ Status: next active performance track.
 - Make native backend builds reproducible on macOS, Linux x86_64, and Linux
   ARM64.
 - Verify Python/native interoperability in CI where possible.
+- Keep the package benchmark CLI wired to `--backend python|native|auto` so
+  Python/native comparisons use the same corpus and output schema.
 - Profile Jetson Nano-class CPUs and remove avoidable Python overhead.
 - Add a native server mode to the benchmark harness when the backend is
   available.

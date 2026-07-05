@@ -250,3 +250,140 @@ def test_nary_client_replays_public_fixture_across_two_peers() -> None:
     assert aggregate["raw"]["deadline_completed_exchanges"] == 8
     assert aggregate["aiwire"]["deadline_completed_exchanges"] == 8
     assert aggregate["aiwire"]["verified"] is True
+
+
+def test_nary_client_replays_public_fixture_with_session_shards() -> None:
+    ports = [_free_port(), _free_port()]
+    server_cmds = [
+        [
+            sys.executable,
+            str(STRESS_TOOL),
+            "server",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--runs",
+            "3",
+            "--connection-workers",
+            "2",
+            "--fixture-corpus",
+            str(FIXTURE_PATH),
+            "--fixture-session-templates",
+            "updated",
+            "--link-mbps",
+            "10",
+        ]
+        for port in ports
+    ]
+    servers = [
+        subprocess.Popen(
+            cmd,
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for cmd in server_cmds
+    ]
+    client_cmd = [
+        sys.executable,
+        str(STRESS_TOOL),
+        "nary-client",
+        "--target",
+        f"edge-a=127.0.0.1:{ports[0]}",
+        "--target",
+        f"edge-b=127.0.0.1:{ports[1]}",
+        "--seconds",
+        "0",
+        "--exchanges",
+        "3",
+        "--codecs",
+        "aiwire",
+        "--fixture-corpus",
+        str(FIXTURE_PATH),
+        "--fixture-session-templates",
+        "updated",
+        "--fixture-variation-profile",
+        "cluster",
+        "--force-session-templates",
+        "--pipeline-window",
+        "2",
+        "--agent-count",
+        "2",
+        "--session-shards",
+        "2",
+        "--link-mbps",
+        "10",
+        "--target-parallelism",
+        "4",
+        "--timeout",
+        "20",
+    ]
+    time.sleep(0.35)
+    try:
+        completed = subprocess.run(
+            client_cmd,
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=50,
+        )
+        server_outputs = [server.communicate(timeout=10) for server in servers]
+    except BaseException as exc:
+        for server in servers:
+            server.terminate()
+        server_outputs = []
+        for server in servers:
+            try:
+                server_outputs.append(server.communicate(timeout=5))
+            except subprocess.TimeoutExpired:
+                server.kill()
+                server_outputs.append(server.communicate())
+        details = "\n".join(
+            f"server {index} stdout:\n{stdout}\nserver {index} stderr:\n{stderr}"
+            for index, (stdout, stderr) in enumerate(server_outputs, start=1)
+        )
+        raise AssertionError(f"n-ary sharded fixture replay failed: {exc!r}\n{details}") from exc
+
+    for server, (_stdout, stderr) in zip(servers, server_outputs):
+        assert server.returncode == 0, stderr
+
+    payload = json.loads(completed.stdout)
+    rows = payload["results"]
+    aggregate = payload["aggregate"][0]
+
+    assert payload["mode"] == "nary_client"
+    assert payload["participant_count"] == 3
+    assert payload["remote_peer_count"] == 2
+    assert payload["session_shards_per_target"] == 2
+    assert payload["total_replay_sessions"] == 4
+    assert payload["nary_negotiation"]["accepted"] is True
+    assert len(rows) == 4
+    assert {row["target"] for row in rows} == {"edge-a", "edge-b"}
+    assert {row["session_shard"] for row in rows} == {1, 2}
+    assert {row["fixture_peer_label"] for row in rows} == {
+        "edge-a-shard-1",
+        "edge-a-shard-2",
+        "edge-b-shard-1",
+        "edge-b-shard-2",
+    }
+    for row in rows:
+        assert row["codec"] == "aiwire"
+        assert row["verified"] is True
+        assert row["fixture_replay"] is True
+        assert row["fixture_variation_profile"] == "cluster"
+        assert row["response_verification"] == "fixture_sha256"
+        assert row["session_shards"] == 2
+        assert row["server_session_shards"] == 2
+        assert row["client_link_mbps"] == 5
+        assert row["server_link_mbps"] == 5
+        assert row["exchanges"] == 3
+
+    assert aggregate["codec"] == "aiwire"
+    assert aggregate["target_count"] == 2
+    assert aggregate["session_count"] == 4
+    assert aggregate["session_shards_per_target"] == 2
+    assert aggregate["deadline_completed_exchanges"] == 12
+    assert aggregate["verified"] is True

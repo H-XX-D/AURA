@@ -192,9 +192,23 @@ on the same n-ary cluster workload:
 | 8 | 512 | 237,916 | 3,965.3 | 0.85x | 368.1 | 739.82 | 14.8% |
 
 That sweep narrows the next engineering target. More queue depth on one Python
-stream does not fill the saved bandwidth; it mostly increases tail latency. The
-next useful benchmark path is multiple sessions/connections per target or a
-native/concurrent coordinator and server path.
+stream does not fill the saved bandwidth; it mostly increases tail latency.
+
+The next experiment added real session sharding: each target server used
+concurrent connection workers, and each target's modeled 10 Mbps budget was
+split evenly across its replay sessions.
+
+| Session shards/target | Total sessions | Completed 60s group | Ex/s group | vs window 1 | Framed B/ex | p95 avg | Util |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 4 | 279,904 | 4,665.1 | 1.00x | 368.1 | 62.68 | 17.4% |
+| 2 | 8 | 225,284 | 3,754.7 | 0.80x | 370.3 | 156.09 | 14.1% |
+| 4 | 16 | 186,690 | 3,111.5 | 0.67x | 370.2 | 391.54 | 11.6% |
+| 8 | 32 | 145,821 | 2,430.4 | 0.52x | 370.3 | 1,065.96 | 9.1% |
+
+That result rules out Python thread sharding as the fix. AIWire still saves the
+bytes, but the current Python coordinator/server hot path loses throughput and
+tail latency as session count rises. The next useful performance path is native,
+async, or multiprocess coordinator/server execution.
 
 Read the n-ary relay report:
 [AIWire N-ary Z6-to-Nano Benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
@@ -202,8 +216,7 @@ Read the n-ary relay report:
 The key interpretation is bandwidth proportionality. Smaller frames create room
 for more messages, but the runtime must keep enough exchanges in flight to fill
 that room. Raw JSON fills the modeled link quickly; AIWire and AIToken+AIWire
-need true concurrent sessions, connections, or native parallelism before
-bandwidth becomes the bottleneck again.
+need true runtime parallelism before bandwidth becomes the bottleneck again.
 
 Current local benchmark-profile smoke on 2026-07-05 uses the Python AIWire path,
 level 3, seed 1729, and synthetic public-safe `corpus_metadata` on every
@@ -507,14 +520,18 @@ SHA-256.
 
 To coordinate multiple peers under one fail-closed AIWire n-ary contract, start
 each target server with one extra run for the handshake probe, then use
-`nary-client` from the coordinator:
+`nary-client` from the coordinator. If `--session-shards` is greater than 1,
+each target opens multiple independent replay sessions and each session receives
+an equal share of that target's modeled `--link-mbps` budget.
 
 ```bash
-# Each target. For raw,zlib,aiwire, runs = 1 probe + 3 codec runs.
+# Each target. runs = 1 probe + codec_count * session_shards.
+# For sharded runs, set connection-workers >= session_shards.
 PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py server \
   --host 0.0.0.0 \
   --port 8910 \
   --runs 4 \
+  --connection-workers 1 \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \
   --link-mbps 10
@@ -528,6 +545,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py nary-client \
   --seconds 60 \
   --agent-count 64 \
   --pipeline-window 1 \
+  --session-shards 1 \
   --link-mbps 10 \
   --codecs raw,zlib,aiwire \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \

@@ -709,6 +709,9 @@ def server_once(
     requested_codec = hello["codec"]
     exchanges = int(hello["exchanges"])
     duration_mode = bool(hello.get("duration_mode", False))
+    session_shards = max(1, int(hello.get("session_shards", 1) or 1))
+    session_shard = max(1, int(hello.get("session_shard", 1) or 1))
+    connection_link_mbps = link_mbps / session_shards if link_mbps > 0 else 0.0
     fixture_requested = bool(hello.get("fixture_replay", False))
     fixture_variation_profile = str(hello.get("fixture_variation_profile", "none") or "none")
     fixture_peer_label = str(hello.get("fixture_peer_label", "peer") or "peer")
@@ -765,7 +768,7 @@ def server_once(
                         "accepted": False,
                         "codec": requested_codec,
                         "negotiated_codec": "",
-                        "server_link_mbps": link_mbps,
+                        "server_link_mbps": connection_link_mbps,
                         "server_one_way_delay_ms": one_way_delay_ms,
                         "server_jitter_ms": jitter_ms,
                         "server_tail_pause_probability": tail_pause_probability,
@@ -791,11 +794,13 @@ def server_once(
                     "codec": requested_codec,
                     "negotiated_codec": codec,
                     "backend": probe_session.backend,
-                    "server_link_mbps": link_mbps,
+                    "server_link_mbps": connection_link_mbps,
                     "server_one_way_delay_ms": one_way_delay_ms,
                     "server_jitter_ms": jitter_ms,
                     "server_tail_pause_probability": tail_pause_probability,
                     "server_tail_pause_ms": tail_pause_ms,
+                    "session_shard": session_shard,
+                    "session_shards": session_shards,
                     "handshake_probe": True,
                     "session_template_count": len(session_templates),
                     "session_template_sha256": aiwire_session_templates_sha256(
@@ -832,7 +837,7 @@ def server_once(
                     "accepted": False,
                     "codec": requested_codec,
                     "negotiated_codec": "",
-                    "server_link_mbps": link_mbps,
+                    "server_link_mbps": connection_link_mbps,
                     "server_one_way_delay_ms": one_way_delay_ms,
                     "server_jitter_ms": jitter_ms,
                     "server_tail_pause_probability": tail_pause_probability,
@@ -857,11 +862,13 @@ def server_once(
                 "codec": requested_codec,
                 "negotiated_codec": codec,
                 "backend": session.backend,
-                "server_link_mbps": link_mbps,
+                "server_link_mbps": connection_link_mbps,
                 "server_one_way_delay_ms": one_way_delay_ms,
                 "server_jitter_ms": jitter_ms,
                 "server_tail_pause_probability": tail_pause_probability,
                 "server_tail_pause_ms": tail_pause_ms,
+                "session_shard": session_shard,
+                "session_shards": session_shards,
                 "session_template_count": len(session_templates),
                 "session_template_sha256": aiwire_session_templates_sha256(session_templates),
                 "fixture_replay": fixture_requested,
@@ -881,7 +888,7 @@ def server_once(
     )
     out_writer = AsyncFrameWriter(
         conn,
-        link_mbps,
+        connection_link_mbps,
         one_way_delay_ms,
         jitter_ms,
         tail_pause_probability,
@@ -959,7 +966,9 @@ def server_once(
                 "response_wire_bytes": response_wire_bytes,
                 "framed_request_wire_bytes": request_wire_bytes + index * U32.size,
                 "framed_response_wire_bytes": response_wire_bytes + index * U32.size,
-                "link_mbps": link_mbps,
+                "link_mbps": connection_link_mbps,
+                "session_shard": session_shard,
+                "session_shards": session_shards,
                 "one_way_delay_ms": one_way_delay_ms,
                 "jitter_ms": jitter_ms,
                 "tail_pause_probability": tail_pause_probability,
@@ -978,6 +987,26 @@ def server_once(
     )
 
 
+def _serve_server_connection(
+    conn: socket.socket,
+    args: argparse.Namespace,
+    fixture_replay: FixtureReplayCorpus | None,
+) -> None:
+    with conn:
+        _configure_low_latency(conn)
+        server_once(
+            conn,
+            cache_dir=args.cache_dir,
+            link_mbps=args.link_mbps,
+            one_way_delay_ms=args.one_way_delay_ms,
+            jitter_ms=args.jitter_ms,
+            tail_pause_probability=args.tail_pause_probability,
+            tail_pause_ms=args.tail_pause_ms,
+            impairment_seed=args.impairment_seed,
+            fixture_replay=fixture_replay,
+        )
+
+
 def run_server(args: argparse.Namespace) -> None:
     fixture_replay = (
         _load_fixture_replay_corpus(
@@ -990,22 +1019,23 @@ def run_server(args: argparse.Namespace) -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((args.host, args.port))
-        server.listen(8)
-        for _ in range(args.runs):
-            conn, _addr = server.accept()
-            with conn:
-                _configure_low_latency(conn)
-                server_once(
-                    conn,
-                    cache_dir=args.cache_dir,
-                    link_mbps=args.link_mbps,
-                    one_way_delay_ms=args.one_way_delay_ms,
-                    jitter_ms=args.jitter_ms,
-                    tail_pause_probability=args.tail_pause_probability,
-                    tail_pause_ms=args.tail_pause_ms,
-                    impairment_seed=args.impairment_seed,
-                    fixture_replay=fixture_replay,
+        connection_workers = max(1, int(args.connection_workers))
+        server.listen(max(8, connection_workers))
+        if connection_workers == 1:
+            for _ in range(args.runs):
+                conn, _addr = server.accept()
+                _serve_server_connection(conn, args, fixture_replay)
+            return
+
+        with ThreadPoolExecutor(max_workers=connection_workers) as executor:
+            futures = []
+            for _ in range(args.runs):
+                conn, _addr = server.accept()
+                futures.append(
+                    executor.submit(_serve_server_connection, conn, args, fixture_replay)
                 )
+            for future in as_completed(futures):
+                future.result()
 
 
 def _client_stress_codec(
@@ -1018,6 +1048,8 @@ def _client_stress_codec(
     agent_count = max(1, args.agent_count)
     per_agent_pipeline_window = max(1, args.pipeline_window)
     aggregate_pipeline_window = agent_count * per_agent_pipeline_window
+    session_shards = max(1, int(getattr(args, "session_shards", 1) or 1))
+    session_shard = max(1, int(getattr(args, "session_shard", 1) or 1))
     fixture_variation_profile = _args_fixture_variation_profile(args)
     fixture_peer_label = _args_fixture_peer_label(args)
     session_templates: tuple[tuple[int, str], ...] = ()
@@ -1040,6 +1072,8 @@ def _client_stress_codec(
         "agent_count": agent_count,
         "per_agent_pipeline_window": per_agent_pipeline_window,
         "aggregate_pipeline_window": aggregate_pipeline_window,
+        "session_shard": session_shard,
+        "session_shards": session_shards,
         "fixture_replay": fixture_replay is not None,
     }
     if fixture_replay is not None:
@@ -1269,6 +1303,10 @@ def _client_stress_codec(
         "server_tail_pause_probability": ack.get("server_tail_pause_probability"),
         "client_tail_pause_ms": args.tail_pause_ms,
         "server_tail_pause_ms": ack.get("server_tail_pause_ms"),
+        "session_shard": session_shard,
+        "session_shards": session_shards,
+        "server_session_shard": ack.get("session_shard", 1),
+        "server_session_shards": ack.get("session_shards", 1),
         "session_template_count": (
             len(session_templates) if codec in AIWIRE_NEGOTIATED_CODECS else 0
         ),
@@ -1373,13 +1411,23 @@ def _safe_label(value: str) -> str:
     return cleaned.strip("-") or "target"
 
 
-def _client_args_for_target(args: argparse.Namespace, target: RelayTarget) -> argparse.Namespace:
+def _client_args_for_target(
+    args: argparse.Namespace,
+    target: RelayTarget,
+    *,
+    session_shard: int = 1,
+) -> argparse.Namespace:
     child = argparse.Namespace(**vars(args))
     child.host = target.host
     child.port = target.port
     child.output = None
-    child.cache_dir = f"{args.cache_dir}-{_safe_label(target.label)}"
-    child.fixture_peer_label = target.label
+    session_shards = max(1, int(getattr(args, "session_shards", 1) or 1))
+    child.session_shard = max(1, session_shard)
+    child.session_shards = session_shards
+    child.link_mbps = args.link_mbps / session_shards if args.link_mbps > 0 else 0.0
+    shard_suffix = f"-shard-{child.session_shard}" if session_shards > 1 else ""
+    child.cache_dir = f"{args.cache_dir}-{_safe_label(target.label + shard_suffix)}"
+    child.fixture_peer_label = f"{target.label}{shard_suffix}"
     return child
 
 
@@ -1520,11 +1568,13 @@ def _run_target_codec(
     args: argparse.Namespace,
     frames: list[bytes],
     fixture_replay: FixtureReplayCorpus | None,
+    session_shard: int = 1,
 ) -> dict[str, Any]:
-    child = _client_args_for_target(args, target)
+    child = _client_args_for_target(args, target, session_shard=session_shard)
     row = _client_stress_codec(codec, frames, child, fixture_replay)
     row["target"] = target.label
     row["target_index"] = target_index
+    row["session_shard"] = session_shard
     return row
 
 
@@ -1542,7 +1592,11 @@ def _aggregate_nary_results(
         codec_rows = by_codec.get(codec, [])
         if not codec_rows:
             continue
-        target_count = len(codec_rows)
+        target_count = len({str(row["target"]) for row in codec_rows})
+        session_count = len(codec_rows)
+        session_shards_per_target = max(
+            int(row.get("session_shards", 1) or 1) for row in codec_rows
+        )
         completed = sum(float(row["deadline_completed_exchanges"]) for row in codec_rows)
         eps = sum(float(row["deadline_exchanges_per_second"]) for row in codec_rows)
         exchanges = sum(float(row["exchanges"]) for row in codec_rows)
@@ -1555,6 +1609,8 @@ def _aggregate_nary_results(
             {
                 "codec": codec,
                 "target_count": target_count,
+                "session_count": session_count,
+                "session_shards_per_target": session_shards_per_target,
                 "deadline_completed_exchanges": completed,
                 "deadline_exchanges_per_second": eps,
                 "vs_raw_completed": completed / raw_completed if raw_completed else 0.0,
@@ -1566,7 +1622,8 @@ def _aggregate_nary_results(
                     (1 - framed_wire_bytes / raw_bytes) * 100 if raw_bytes else 0.0
                 ),
                 "roundtrip_ms_p95_avg": (
-                    sum(float(row["roundtrip_ms_p95"]) for row in codec_rows) / target_count
+                    sum(float(row["roundtrip_ms_p95"]) for row in codec_rows)
+                    / session_count
                 ),
                 "roundtrip_ms_p95_max": max(float(row["roundtrip_ms_p95"]) for row in codec_rows),
                 "bandwidth_capacity_exchanges_per_second": bandwidth_capacity_eps,
@@ -1609,14 +1666,16 @@ def run_nary_client(args: argparse.Namespace) -> None:
     frames, fixture_replay = _load_client_frames(args)
     targets = _collect_relay_targets(args)
     codec_order = [codec.strip() for codec in args.codecs.split(",") if codec.strip()]
+    session_shards = max(1, int(getattr(args, "session_shards", 1) or 1))
     session_templates = _client_session_templates(
         args,
         frames,
         fixture_replay=fixture_replay,
     )
 
-    max_workers = min(max(1, args.target_parallelism), len(targets))
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    probe_workers = min(max(1, args.target_parallelism), len(targets))
+    replay_workers = min(max(1, args.target_parallelism), len(targets) * session_shards)
+    with ThreadPoolExecutor(max_workers=probe_workers) as executor:
         probe_futures = {
             executor.submit(_probe_aiwire_peer, target, args, frames, fixture_replay): target
             for target in targets
@@ -1639,7 +1698,7 @@ def run_nary_client(args: argparse.Namespace) -> None:
         raise RuntimeError(f"n-ary AIWire negotiation failed: {nary_negotiation.reason}")
 
     results: list[dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=replay_workers) as executor:
         for codec in codec_order:
             futures = {
                 executor.submit(
@@ -1650,18 +1709,28 @@ def run_nary_client(args: argparse.Namespace) -> None:
                     args,
                     frames,
                     fixture_replay,
+                    shard,
                 ): target
                 for index, target in enumerate(targets, start=1)
+                for shard in range(1, session_shards + 1)
             }
             for future in as_completed(futures):
                 results.append(future.result())
 
     order = {codec: index for index, codec in enumerate(codec_order)}
-    results.sort(key=lambda row: (order.get(str(row["codec"]), len(order)), row["target_index"]))
+    results.sort(
+        key=lambda row: (
+            order.get(str(row["codec"]), len(order)),
+            row["target_index"],
+            row.get("session_shard", 1),
+        )
+    )
     output: dict[str, Any] = {
         "mode": "nary_client",
         "participant_count": len(targets) + 1,
         "remote_peer_count": len(targets),
+        "session_shards_per_target": session_shards,
+        "total_replay_sessions": len(targets) * session_shards,
         "targets": [{"index": index, "label": target.label} for index, target in enumerate(targets, start=1)],
         "nary_negotiation": nary_negotiation.to_dict(),
         "nary_peer_probes": [
@@ -1700,6 +1769,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     server.add_argument("--host", default="0.0.0.0")
     server.add_argument("--port", type=int, default=8910)
     server.add_argument("--runs", type=int, default=1)
+    server.add_argument(
+        "--connection-workers",
+        type=int,
+        default=1,
+        help="maximum accepted connections to serve concurrently",
+    )
     server.add_argument("--cache-dir", default="/tmp/aura-aiwire-stress-server-cache")
     server.add_argument(
         "--link-mbps", type=float, default=0.0, help="per-direction egress rate; 0 is unlimited"
@@ -1911,7 +1986,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--target-parallelism",
         type=int,
         default=64,
-        help="maximum target peers to probe or benchmark at once",
+        help="maximum target peers or replay sessions to benchmark at once",
+    )
+    nary_client.add_argument(
+        "--session-shards",
+        type=int,
+        default=1,
+        help=(
+            "independent replay sessions per target; each shard receives an "
+            "equal share of the modeled per-target link"
+        ),
     )
     nary_client.add_argument(
         "--fixture-corpus",

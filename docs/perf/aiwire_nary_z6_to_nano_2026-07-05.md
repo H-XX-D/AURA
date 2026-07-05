@@ -128,9 +128,63 @@ The extra queue depth did not increase sustained throughput. Window 4 stayed
 near the baseline exchange rate but quadrupled p95 latency, and window 8 reduced
 throughput while pushing p95 into the high hundreds of milliseconds. That means
 the current limiter is not only the number of outstanding frames; it is the
-single Python stream/server execution path. To consume AIWire's bandwidth
-headroom, the next benchmark should add multiple sessions or connections per
-target, or move the coordinator/server hot path to native/concurrent execution.
+single Python stream/server execution path.
+
+## AIWire Concurrent Session-Shard Sweep
+
+The next run added explicit session sharding. Each target server accepted replay
+connections with a worker pool, and each connection received an equal share of
+that target's modeled 10 Mbps link. This keeps the target bandwidth model fixed
+while testing whether independent AIWire sessions can consume the unused
+headroom.
+
+Server command shape:
+
+```bash
+# Runs = 1 probe + one AIWire replay per session shard for each sweep entry.
+PYTHONPATH=src python3 tools/stress_ai_wire_roundtrip_z6.py server \
+  --host 0.0.0.0 \
+  --port 8910 \
+  --runs 17 \
+  --connection-workers 8 \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --link-mbps 10
+```
+
+Coordinator command shape:
+
+```bash
+PYTHONPATH=src python3 tools/stress_ai_wire_roundtrip_z6.py nary-client \
+  --target edge-1=<edge-target-1>:8910 \
+  --target edge-2=<edge-target-2>:8910 \
+  --target edge-3=<edge-target-3>:8910 \
+  --target edge-4=<edge-target-4>:8910 \
+  --seconds 60 \
+  --agent-count 64 \
+  --pipeline-window 1 \
+  --session-shards <2|4|8> \
+  --link-mbps 10 \
+  --codecs aiwire \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-session-templates updated \
+  --fixture-variation-profile cluster \
+  --force-session-templates \
+  --target-parallelism 64
+```
+
+| Session shards/target | Total sessions | Completed 60s group | Ex/s group | vs window 1 | Framed B/ex | Saved | p95 avg | p95 max | BW cap ex/s | Util |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 4 | 279,904 | 4,665.1 | 1.00x | 368.1 | 84.0% | 62.68 | 64.00 | 26,734.6 | 17.4% |
+| 2 | 8 | 225,284 | 3,754.7 | 0.80x | 370.3 | 84.3% | 156.09 | 159.31 | 26,722.0 | 14.1% |
+| 4 | 16 | 186,690 | 3,111.5 | 0.67x | 370.2 | 84.3% | 391.54 | 414.30 | 26,732.5 | 11.6% |
+| 8 | 32 | 145,821 | 2,430.4 | 0.52x | 370.3 | 84.3% | 1,065.96 | 1,246.22 | 26,699.7 | 9.1% |
+
+The corrected concurrent sharding result is negative. Independent sessions did
+not unlock AIWire's bandwidth headroom in the current Python implementation.
+They increased contention, reduced completed exchanges, and raised tail latency.
+That narrows the next useful performance work to native, async, or multiprocess
+coordinator/server execution rather than more Python threads.
 
 ## Per-target Results
 

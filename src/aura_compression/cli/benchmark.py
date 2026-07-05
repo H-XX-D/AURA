@@ -42,9 +42,17 @@ BENCHMARK_PROFILES: dict[str, dict[str, Any]] = {
 
 def _build_base_messages(corpus: str, count: int, seed: int) -> list[dict[str, Any]]:
     if corpus == "delta":
-        return build_delta_structured_ai_messages(count, seed=seed)
+        return build_delta_structured_ai_messages(
+            count,
+            seed=seed,
+            include_corpus_metadata=True,
+        )
     if corpus == "structured":
-        return build_structured_ai_messages(count, seed=seed)
+        return build_structured_ai_messages(
+            count,
+            seed=seed,
+            include_corpus_metadata=True,
+        )
     raise ValueError(f"unsupported benchmark corpus: {corpus}")
 
 

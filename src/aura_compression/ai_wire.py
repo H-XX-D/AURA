@@ -24,6 +24,7 @@ from types import TracebackType
 from typing import Any, Iterable, Mapping
 
 from .ai_wire_messages import (
+    AI_WIRE_CORPUS_METADATA_SCHEMA,
     AIWireFrame,
     build_ai_wire_messages,
     build_delta_structured_ai_messages,

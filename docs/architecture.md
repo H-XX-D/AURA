@@ -156,6 +156,11 @@ The package benchmark CLI exposes `--profile small|medium|bursty` and
 `--corpus structured|delta` so local runs can compare quick smoke, default, and
 bursty message-size mixes with the same corpus summary schema.
 
+Benchmark corpora opt into a top-level `corpus_metadata` field with
+`synthetic=true` and `public_safe=true`. The raw builders leave that field off
+by default so committed session fixtures do not drift unless the fixture format
+is intentionally revised.
+
 `ai_wire_fixtures.py` builds saved session corpora that wrap those message
 shapes in the AIWire side-channel lifecycle: forced handshake, initial session
 templates, template update, authenticated append-only dictionary diff, ACK, and

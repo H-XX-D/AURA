@@ -69,7 +69,7 @@ Goal: benchmark against realistic protocol-shaped data.
 - Keep generated delta-shaped corpora where the task/session/template is stable
   and only status, token, argument, artifact, route, or trace values change.
 - Keep current corpus variants aligned with public protocol shapes and mark
-  synthetic fields clearly.
+  benchmark traffic with synthetic, public-safe corpus metadata.
 - Keep saved fixture corpora deterministic, public-safe, and side-channel
   complete. The first AIWire session fixture is
   [`fixtures/aiwire_sessions/public_session_corpus_v1.json`](../fixtures/aiwire_sessions/public_session_corpus_v1.json).

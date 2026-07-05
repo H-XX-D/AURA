@@ -6,6 +6,7 @@ import zlib
 import pytest
 
 from aura_compression.ai_wire import (
+    AI_WIRE_CORPUS_METADATA_SCHEMA,
     AI_WIRE_DICTIONARY_FNV1A64,
     AI_WIRE_DICTIONARY_SHA256,
     AI_WIRE_FALLBACK_CODECS,
@@ -242,6 +243,30 @@ def test_structured_ai_message_corpus_covers_protocol_families() -> None:
     }.issubset(schemas)
 
 
+def test_structured_ai_message_corpus_metadata_is_opt_in() -> None:
+    default_messages = build_structured_ai_messages(8, seed=9003)
+    marked_messages = build_structured_ai_messages(
+        8,
+        seed=9003,
+        include_corpus_metadata=True,
+    )
+
+    assert all("corpus_metadata" not in message for message in default_messages)
+    assert [message["protocol"] for message in marked_messages] == [
+        message["protocol"] for message in default_messages
+    ]
+    for sequence, message in enumerate(marked_messages, start=1):
+        metadata = message["corpus_metadata"]
+        assert metadata == {
+            "schema": AI_WIRE_CORPUS_METADATA_SCHEMA,
+            "corpus": "structured",
+            "seed": 9003,
+            "sequence": sequence,
+            "synthetic": True,
+            "public_safe": True,
+        }
+
+
 def test_delta_structured_ai_message_corpus_keeps_session_shape_stable() -> None:
     messages = build_delta_structured_ai_messages(80, seed=5150)
 
@@ -255,6 +280,22 @@ def test_delta_structured_ai_message_corpus_keeps_session_shape_stable() -> None
     assert {message["protocol"] for message in messages}.issuperset(
         {"a2a", "agent.trace", "local.agent", "mcp", "openai.responses"}
     )
+
+
+def test_delta_structured_ai_message_corpus_metadata_is_opt_in() -> None:
+    default_messages = build_delta_structured_ai_messages(12, seed=5151)
+    marked_messages = build_delta_structured_ai_messages(
+        12,
+        seed=5151,
+        include_corpus_metadata=True,
+    )
+
+    assert all("corpus_metadata" not in message for message in default_messages)
+    assert all(message["corpus_metadata"]["corpus"] == "delta" for message in marked_messages)
+    assert all(message["corpus_metadata"]["public_safe"] is True for message in marked_messages)
+    assert [message["delta_profile"] for message in marked_messages] == [
+        message["delta_profile"] for message in default_messages
+    ]
 
 
 def test_delta_structured_ai_message_corpus_round_trips_and_discovers_templates() -> None:

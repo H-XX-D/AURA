@@ -41,6 +41,8 @@ def test_aiwire_benchmark_profiles_stay_above_regression_thresholds(
     assert summary["json_message_count"] == result["messages"]
     assert summary["non_json_message_count"] == 0
     assert summary["protocol_mix"][required_protocol] > 0
+    assert summary["top_level_key_counts"]["corpus_metadata"] == result["messages"]
+    assert summary["nested_key_counts"]["public_safe"] == result["messages"]
     assert len(summary["corpus_sha256"]) == 64
 
     if profile == "bursty":

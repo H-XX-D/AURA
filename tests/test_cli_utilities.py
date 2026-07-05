@@ -114,6 +114,7 @@ def test_package_cli_benchmark_smoke(capsys):
     assert output["corpus_summary"]["message_count"] == 8
     assert output["corpus_summary"]["total_bytes"] == output["bytes_in"]
     assert output["corpus_summary"]["protocol_mix"]
+    assert output["corpus_summary"]["top_level_key_counts"]["corpus_metadata"] == 8
     assert len(output["corpus_summary"]["corpus_sha256"]) == 64
 
 

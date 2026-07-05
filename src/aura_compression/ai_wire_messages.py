@@ -10,6 +10,24 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 AIWireFrame = bytes | bytearray | memoryview | str | Mapping[str, Any]
+AI_WIRE_CORPUS_METADATA_SCHEMA = "aura.aiwire.corpus_metadata.v1"
+
+
+def _add_corpus_metadata(
+    messages: list[dict[str, Any]],
+    *,
+    corpus: str,
+    seed: int,
+) -> None:
+    for sequence, message in enumerate(messages, start=1):
+        message["corpus_metadata"] = {
+            "schema": AI_WIRE_CORPUS_METADATA_SCHEMA,
+            "corpus": corpus,
+            "seed": seed,
+            "sequence": sequence,
+            "synthetic": True,
+            "public_safe": True,
+        }
 
 
 def encode_ai_wire_message(message: AIWireFrame) -> bytes:
@@ -230,6 +248,7 @@ def build_delta_structured_ai_messages(
     seed: int = 1729,
     *,
     session_id: str | None = None,
+    include_corpus_metadata: bool = False,
 ) -> list[dict[str, Any]]:
     """Build stable-session messages where mostly values change.
 
@@ -481,10 +500,18 @@ def build_delta_structured_ai_messages(
 
         messages.append(payload)
 
+    if include_corpus_metadata:
+        _add_corpus_metadata(messages, corpus="delta", seed=seed)
+
     return messages
 
 
-def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str, Any]]:
+def build_structured_ai_messages(
+    count: int,
+    seed: int = 1729,
+    *,
+    include_corpus_metadata: bool = False,
+) -> list[dict[str, Any]]:
     """Build realistic structured AI-to-AI protocol messages.
 
     The corpus is synthetic and public-safe, but intentionally mirrors the
@@ -1172,4 +1199,6 @@ def build_structured_ai_messages(count: int, seed: int = 1729) -> list[dict[str,
         messages.append(payload)
 
     rng.shuffle(messages)
+    if include_corpus_metadata:
+        _add_corpus_metadata(messages, corpus="structured", seed=seed)
     return messages

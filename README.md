@@ -311,6 +311,8 @@ PYTHONPATH=src python -m aura_compression.cli.benchmark \
 
 Profiles are `small`, `medium`, and `bursty`; `--messages` can override the
 profile count for focused smoke tests. Corpora are `structured` and `delta`.
+Benchmark messages include `corpus_metadata` marking them synthetic and
+public-safe.
 
 The LAN benchmark harness can run a server on one machine and a client on
 another:

@@ -11,6 +11,7 @@ __license__ = "Apache 2.0"
 
 from .acceleration import ConversationAccelerator, ConversationSession, PlatformWideAccelerator
 from .ai_wire import (
+    AI_WIRE_CORPUS_METADATA_SCHEMA,
     AI_WIRE_DEFAULT_LEVEL,
     AI_WIRE_DICTIONARY_FNV1A64,
     AI_WIRE_DICTIONARY_SHA256,
@@ -204,6 +205,7 @@ __all__ = [
     "cpu_rolling_hash3",
     "cpu_shannon_entropy",
     # AI-to-AI wire codec
+    "AI_WIRE_CORPUS_METADATA_SCHEMA",
     "AI_WIRE_DEFAULT_LEVEL",
     "AI_WIRE_DICTIONARY_FNV1A64",
     "AI_WIRE_DICTIONARY_SHA256",

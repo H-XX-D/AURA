@@ -73,6 +73,7 @@ Those concerns belong at the transport or application layer.
 | Default compression level | `3` |
 | Flush mode | `z_sync_flush` |
 | Sync-flush frame suffix | `00 00 ff ff` |
+| Fallback codecs | `zlib`, `raw` |
 | Max session templates | `4096` |
 | Max template bytes | `4096` |
 | Max session dictionary bytes | `262144` |
@@ -478,6 +479,21 @@ and `raw`. Fallback acceptance sets `accepted=true`, `codec=<fallback>`,
 
 If fallback is not allowed or no fallback matches, the receiver MUST return
 `accepted=false`, `codec=""`, `version=null`, and the reason.
+
+## Fallback Codec Frames
+
+Fallback frames do not use the live AIWire compression stream and do not use the
+AIWire static or session dictionaries. They are one-frame-at-a-time recovery
+paths after negotiation accepts a non-AIWire codec:
+
+- `raw`: canonical AIWire message bytes.
+- `zlib`: a standalone zlib frame over canonical AIWire message bytes.
+
+Receivers MUST NOT feed fallback frames into the AIWire session decoder.
+Receivers SHOULD reject unsupported fallback codec labels and zlib fallback
+frames with trailing unused compressed data. Structured fallback messages are
+decoded from the restored canonical bytes with the same JSON rules as normal
+AIWire messages.
 
 ## Session Template Update Signal
 

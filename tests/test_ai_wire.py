@@ -7,9 +7,11 @@ import pytest
 
 from aura_compression.ai_wire import (
     AI_WIRE_DICTIONARY_FNV1A64,
+    AI_WIRE_FALLBACK_CODECS,
     AI_WIRE_SYNC_FLUSH_SUFFIX,
     AI_WIRE_STATIC_DICTIONARY,
     AIWireControlLUTEntry,
+    AIWireFallbackError,
     AIWireFrameError,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
@@ -28,11 +30,13 @@ from aura_compression.ai_wire import (
     build_aiwire_system_control_message,
     build_structured_ai_messages,
     compress_ai_wire_frames,
+    decode_aiwire_fallback_frame,
     decode_aiwire_control_lut_frame,
     decode_ai_wire_message,
     decompress_ai_wire_frames,
     discover_ai_wire_session_templates,
     encode_aiwire_control_lut_frame,
+    encode_aiwire_fallback_frame,
     encode_ai_wire_message,
     negotiate_aiwire_handshake,
     negotiate_aiwire_session_resume,
@@ -667,6 +671,55 @@ def test_ai_wire_handshake_can_negotiate_fallback() -> None:
     assert negotiation.codec == "zlib"
     assert negotiation.version is None
     assert negotiation.reason == "no_common_aiwire_version"
+
+
+def test_ai_wire_handshake_can_negotiate_raw_fallback_when_zlib_is_not_common() -> None:
+    peer = build_aiwire_handshake(level=3, fallback_codecs=("raw",)).to_dict()
+    peer["dictionary_sha256"] = "0" * 64
+
+    negotiation = negotiate_aiwire_handshake(
+        peer,
+        level=3,
+        fallback_codecs=("zlib", "raw"),
+        allow_fallback=True,
+    )
+
+    assert negotiation.accepted is True
+    assert negotiation.codec == "raw"
+    assert negotiation.version is None
+    assert negotiation.reason == "dictionary_sha256_mismatch"
+
+
+def test_ai_wire_fallback_frames_round_trip_raw_and_zlib() -> None:
+    message = build_structured_ai_messages(1, seed=123)[0]
+    canonical = encode_ai_wire_message(message)
+
+    for codec in AI_WIRE_FALLBACK_CODECS:
+        frame = encode_aiwire_fallback_frame(codec, message, level=3)
+        restored = decode_aiwire_fallback_frame(codec, frame)
+
+        assert restored == canonical
+        assert decode_ai_wire_message(restored) == message
+        if codec == "raw":
+            assert frame == canonical
+        else:
+            assert frame != canonical
+
+
+def test_ai_wire_zlib_fallback_rejects_corrupt_and_trailing_data() -> None:
+    frame = encode_aiwire_fallback_frame("zlib", {"protocol": "mcp", "id": 1})
+
+    with pytest.raises(AIWireFallbackError, match="decompression failed"):
+        decode_aiwire_fallback_frame("zlib", b"not-a-zlib-frame")
+
+    with pytest.raises(AIWireFallbackError, match="unused compressed data"):
+        decode_aiwire_fallback_frame("zlib", frame + b"trailing")
+
+    with pytest.raises(AIWireFallbackError, match="unsupported"):
+        encode_aiwire_fallback_frame("brotli", {"protocol": "mcp"})
+
+    with pytest.raises(AIWireFallbackError, match="unsupported"):
+        build_aiwire_handshake(fallback_codecs=("brotli",))
 
 
 def test_native_ai_wire_round_trips_and_interops_when_available() -> None:

@@ -50,7 +50,7 @@ Goal: freeze the minimum protocol contract.
 - Add cross-version dictionary compatibility tests.
 - Keep corrupted-frame and truncated-frame tests in the fast AIWire gate.
 - Add streaming tests with partial reads/writes and interrupted delta state.
-- Add negotiated fallback tests for `raw` and `zlib`.
+- Keep negotiated fallback tests for `raw` and `zlib` in the fast AIWire gate.
 - Make stats stable enough for benchmark comparison over time.
 
 Definition of done:

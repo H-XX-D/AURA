@@ -50,6 +50,7 @@ AI_WIRE_MEM_LEVEL = 8
 AI_WIRE_DEFAULT_LEVEL = 3
 AI_WIRE_FLUSH_MODE = "z_sync_flush"
 AI_WIRE_SYNC_FLUSH_SUFFIX = b"\x00\x00\xff\xff"
+AI_WIRE_FALLBACK_CODECS = ("zlib", "raw")
 AI_WIRE_DELTA_VERSION = 1
 AI_WIRE_MAX_SESSION_TEMPLATES = 4096
 AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS = 128
@@ -1650,6 +1651,10 @@ class AIWireFrameError(ValueError):
     """Raised when an AIWire data frame cannot be safely decoded."""
 
 
+class AIWireFallbackError(ValueError):
+    """Raised when an AIWire negotiated fallback frame is invalid."""
+
+
 class AIWireHandshakeError(ValueError):
     """Raised when an AIWire protocol handshake cannot be negotiated."""
 
@@ -2131,7 +2136,7 @@ def build_aiwire_handshake(
     level: int = AI_WIRE_DEFAULT_LEVEL,
     use_static_dictionary: bool = True,
     use_native: bool | None = None,
-    fallback_codecs: Iterable[str] = ("zlib", "raw"),
+    fallback_codecs: Iterable[str] = AI_WIRE_FALLBACK_CODECS,
     session_templates: AIWireSessionTemplates | None = None,
     session_template_epoch: int = 0,
     require_session_templates: bool = False,
@@ -2144,6 +2149,9 @@ def build_aiwire_handshake(
 
     normalized_templates = normalize_aiwire_session_templates(session_templates)
     normalized_control_lut = normalize_aiwire_control_lut(control_lut)
+    normalized_fallback_codecs = tuple(
+        _normalize_aiwire_fallback_codec(codec) for codec in fallback_codecs
+    )
     native_status = aiwire_native_status()
     backend = (
         "native"
@@ -2165,7 +2173,7 @@ def build_aiwire_handshake(
         use_static_dictionary=use_static_dictionary,
         backend=backend,
         native_version=native_status.version if backend == "native" else None,
-        fallback_codecs=tuple(fallback_codecs),
+        fallback_codecs=normalized_fallback_codecs,
         session_templates=normalized_templates,
         session_template_sha256=aiwire_session_templates_sha256(normalized_templates),
         session_template_count=len(normalized_templates),
@@ -2185,7 +2193,7 @@ def negotiate_aiwire_handshake(
     level: int = AI_WIRE_DEFAULT_LEVEL,
     use_static_dictionary: bool = True,
     use_native: bool | None = None,
-    fallback_codecs: Iterable[str] = ("zlib", "raw"),
+    fallback_codecs: Iterable[str] = AI_WIRE_FALLBACK_CODECS,
     allow_fallback: bool = True,
     session_templates: AIWireSessionTemplates | None = None,
     session_template_epoch: int = 0,
@@ -2266,8 +2274,8 @@ def negotiate_aiwire_handshake(
 
     fallback = None
     if allow_fallback:
-        local_fallbacks = tuple(fallback_codecs)
-        peer_fallbacks = set(peer.fallback_codecs)
+        local_fallbacks = local.fallback_codecs
+        peer_fallbacks = {str(codec).lower() for codec in peer.fallback_codecs}
         for codec in local_fallbacks:
             if codec in peer_fallbacks:
                 fallback = codec
@@ -2289,6 +2297,52 @@ def negotiate_aiwire_handshake(
         reason=reason,
         server_handshake=local,
     )
+
+
+def _normalize_aiwire_fallback_codec(codec: str) -> str:
+    normalized = str(codec).lower()
+    if normalized not in AI_WIRE_FALLBACK_CODECS:
+        raise AIWireFallbackError(f"unsupported AIWire fallback codec: {codec}")
+    return normalized
+
+
+def encode_aiwire_fallback_frame(
+    codec: str,
+    payload: AIWireFrame,
+    *,
+    level: int = AI_WIRE_DEFAULT_LEVEL,
+) -> bytes:
+    """Encode one stateless fallback frame after AIWire negotiation.
+
+    Fallback frames intentionally do not use the live AIWire compression stream.
+    ``raw`` is canonical AIWire message bytes. ``zlib`` is a standalone zlib
+    frame over those canonical bytes.
+    """
+
+    normalized = _normalize_aiwire_fallback_codec(codec)
+    raw = encode_ai_wire_message(payload)
+    if normalized == "raw":
+        return raw
+    if not 0 <= level <= 9:
+        raise AIWireFallbackError(f"zlib fallback level must be in [0, 9], got {level}")
+    return zlib.compress(raw, level)
+
+
+def decode_aiwire_fallback_frame(codec: str, payload: bytes | bytearray | memoryview) -> bytes:
+    """Decode one stateless fallback frame after AIWire negotiation."""
+
+    normalized = _normalize_aiwire_fallback_codec(codec)
+    frame = bytes(payload)
+    if normalized == "raw":
+        return frame
+    try:
+        decompressor = zlib.decompressobj()
+        restored = decompressor.decompress(frame) + decompressor.flush()
+    except zlib.error as exc:
+        raise AIWireFallbackError(f"AIWire zlib fallback frame decompression failed: {exc}") from exc
+    if decompressor.unused_data:
+        raise AIWireFallbackError("AIWire zlib fallback frame contains unused compressed data")
+    return restored
 
 
 def _native_enabled(use_native: bool | None) -> bool:

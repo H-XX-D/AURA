@@ -1,6 +1,7 @@
-.PHONY: all clean install
+.PHONY: all clean install check
 
 CXX ?= c++
+PYTHON ?= python
 BUILD_DIR ?= build
 OUT_DIR ?= ../../src/aura_compression/native
 
@@ -32,6 +33,9 @@ $(TARGET): $(SRC) | $(BUILD_DIR)
 install: $(TARGET)
 	mkdir -p $(OUT_DIR)
 	cp $(TARGET) $(INSTALL_TARGET)
+
+check: install
+	cd ../.. && $(PYTHON) tools/check_aiwire_native_backend.py --require-native
 
 clean:
 	rm -rf $(BUILD_DIR)

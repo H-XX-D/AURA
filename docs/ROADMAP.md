@@ -105,11 +105,15 @@ Goal: make AIWire fast on workstation and ARM64 edge targets.
 
 Status: active. The package benchmark CLI and live TCP/n-ary stress harness now
 expose `--backend python|native|auto`, so Python/native comparisons can use the
-same corpus, link model, and result schema.
+same corpus, link model, and result schema. A native AIWire build/check utility
+now verifies `libaura_aiwire` dictionary identity, Python/native interop, and
+native token paths on each machine before cluster runs.
 
 - Make native backend builds reproducible on macOS, Linux x86_64, and Linux
-  ARM64.
-- Verify Python/native interoperability in CI where possible.
+  ARM64. `tools/check_aiwire_native_backend.py --build --require-native` is the
+  shared gate for workstations and edge targets.
+- Verify Python/native interoperability in CI where possible. Linux and macOS
+  Actions now build the C++ native backend and run the native check utility.
 - Keep the package benchmark CLI wired to `--backend python|native|auto` so
   Python/native comparisons use the same corpus and output schema.
 - Keep the live TCP and n-ary stress harness wired to

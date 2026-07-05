@@ -428,6 +428,24 @@ the main AIWire case: peers handshake once, update shared session templates,
 then keep sending only steady-state deltas. `--peers N` scales the setup model
 to an n-party session before amortizing setup bytes over the delta stream.
 
+Before running native Python-vs-native comparisons on a workstation or edge
+target, build and verify the optional C++ backend on that machine:
+
+```bash
+python tools/check_aiwire_native_backend.py --build --require-native --messages 32
+```
+
+The same check also has a Make target:
+
+```bash
+make -C native/aiwire check
+```
+
+The report confirms the loaded `libaura_aiwire` path/version, dictionary
+identity, native AIWire round trips, Python/native frame interop, and native
+AIToken plus AIToken+AIWire support. GitHub Actions runs the native check on
+Linux and macOS.
+
 The LAN benchmark harness can run a server on one machine and a client on
 another. The live harness also accepts `--backend python|native|auto` on both
 server and client paths; keep both sides on the same requested backend when

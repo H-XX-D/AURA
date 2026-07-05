@@ -2613,6 +2613,7 @@ class AIWireSessionDecoder:
         self._frames = 0
         self._bytes_in = 0
         self._bytes_out = 0
+        self._failed_reason: str | None = None
 
         dictionary = _build_session_dictionary(
             use_static_dictionary=use_static_dictionary,
@@ -2644,6 +2645,18 @@ class AIWireSessionDecoder:
             bytes_out=self._bytes_out,
         )
 
+    @property
+    def interrupted(self) -> bool:
+        """Whether this live decoder stream has hit a non-recoverable frame error."""
+
+        return self._failed_reason is not None
+
+    @property
+    def failed_reason(self) -> str | None:
+        """Return the first frame error that interrupted this decoder stream."""
+
+        return self._failed_reason
+
     def __enter__(self) -> "AIWireSessionDecoder":
         return self
 
@@ -2655,24 +2668,38 @@ class AIWireSessionDecoder:
     ) -> None:
         self.close()
 
+    def _raise_frame_error(self, message: str, exc: BaseException | None = None) -> None:
+        if self._failed_reason is None:
+            self._failed_reason = message
+            if self._native is not None:
+                self._native.close()
+        if exc is not None:
+            raise AIWireFrameError(message) from exc
+        raise AIWireFrameError(message)
+
     def decompress_frame(self, payload: bytes) -> bytes:
+        if self._failed_reason is not None:
+            raise AIWireFrameError(
+                "AIWire decoder stream is interrupted; fresh handshake required: "
+                f"{self._failed_reason}"
+            )
         frame = bytes(payload)
         if not frame.endswith(AI_WIRE_SYNC_FLUSH_SUFFIX):
-            raise AIWireFrameError("AIWire frame is truncated or missing Z_SYNC_FLUSH marker")
+            self._raise_frame_error("AIWire frame is truncated or missing Z_SYNC_FLUSH marker")
 
         if self._native is not None:
             try:
                 restored = self._native.decompress_frame(frame)
             except AIWireNativeError as exc:
-                raise AIWireFrameError(f"AIWire frame decompression failed: {exc}") from exc
+                self._raise_frame_error(f"AIWire frame decompression failed: {exc}", exc)
         else:
             assert self._decompressor is not None
             try:
                 restored = self._decompressor.decompress(frame)
             except zlib.error as exc:
-                raise AIWireFrameError(f"AIWire frame decompression failed: {exc}") from exc
+                self._raise_frame_error(f"AIWire frame decompression failed: {exc}", exc)
         if self._decompressor is not None and self._decompressor.unused_data:
-            raise AIWireFrameError("AIWire frame contains unused compressed data")
+            self._raise_frame_error("AIWire frame contains unused compressed data")
         self._frames += 1
         self._bytes_in += len(frame)
         self._bytes_out += len(restored)

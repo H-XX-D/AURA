@@ -49,7 +49,8 @@ Goal: freeze the minimum protocol contract.
   resync behavior, and failure modes.
 - Add cross-version dictionary compatibility tests.
 - Keep corrupted-frame and truncated-frame tests in the fast AIWire gate.
-- Add streaming tests with partial reads/writes and interrupted delta state.
+- Add streaming tests with partial reads/writes; keep interrupted delta-state
+  tests in the fast AIWire gate.
 - Keep negotiated fallback tests for `raw` and `zlib` in the fast AIWire gate.
 - Make stats stable enough for benchmark comparison over time.
 

@@ -79,6 +79,8 @@ def test_ai_wire_decoder_rejects_truncated_frame_without_advancing_stats() -> No
     with pytest.raises(AIWireFrameError, match="truncated"):
         decoder.decompress_frame(frame[:-1])
 
+    assert decoder.interrupted is True
+    assert decoder.failed_reason == "AIWire frame is truncated or missing Z_SYNC_FLUSH marker"
     assert decoder.stats.frames == 0
     assert decoder.stats.bytes_in == 0
     assert decoder.stats.bytes_out == 0
@@ -93,9 +95,40 @@ def test_ai_wire_decoder_rejects_corrupt_frame_without_advancing_stats() -> None
     with pytest.raises(AIWireFrameError, match="decompression failed"):
         decoder.decompress_frame(corrupt)
 
+    assert decoder.interrupted is True
+    assert decoder.failed_reason is not None
     assert decoder.stats.frames == 0
     assert decoder.stats.bytes_in == 0
     assert decoder.stats.bytes_out == 0
+
+
+def test_ai_wire_decoder_requires_fresh_stream_after_frame_error() -> None:
+    messages = [
+        {"protocol": "mcp", "jsonrpc": "2.0", "id": 1},
+        {"protocol": "mcp", "jsonrpc": "2.0", "id": 2},
+        {"protocol": "mcp", "jsonrpc": "2.0", "id": 3},
+    ]
+    encoder = AIWireSessionEncoder(level=3, use_native=False)
+    decoder = AIWireSessionDecoder(use_native=False)
+    frames = [encoder.compress_message(message) for message in messages]
+    corrupt = (b"\xff" * (len(frames[1]) - len(AI_WIRE_SYNC_FLUSH_SUFFIX))) + (
+        AI_WIRE_SYNC_FLUSH_SUFFIX
+    )
+
+    assert decoder.decompress_message(frames[0]) == messages[0]
+    with pytest.raises(AIWireFrameError, match="decompression failed"):
+        decoder.decompress_frame(corrupt)
+    with pytest.raises(AIWireFrameError, match="fresh handshake required"):
+        decoder.decompress_frame(frames[2])
+
+    assert decoder.interrupted is True
+    assert decoder.stats.frames == 1
+    assert decoder.stats.bytes_out == len(encode_ai_wire_message(messages[0]))
+
+    fresh_encoder = AIWireSessionEncoder(level=3, use_native=False)
+    fresh_decoder = AIWireSessionDecoder(use_native=False)
+    fresh_frame = fresh_encoder.compress_message(messages[2])
+    assert fresh_decoder.decompress_message(fresh_frame) == messages[2]
 
 
 def test_ai_wire_helpers_round_trip_string_frames() -> None:

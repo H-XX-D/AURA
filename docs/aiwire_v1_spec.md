@@ -366,6 +366,9 @@ Because the stream is stateful, data frames are not independently decodable.
 Peers MUST NOT reorder, drop, duplicate, or replay data frames inside a live
 AIWire stream. A transport that can lose or reorder messages must add its own
 ordering and recovery layer or must reset and rehandshake after disruption.
+Reference decoders SHOULD mark a stream as interrupted after the first
+data-frame error and reject later frames on that decoder until a fresh handshake
+creates new encoder/decoder state.
 
 For bidirectional agent communication, each direction SHOULD use its own encoder
 and decoder state.
@@ -703,6 +706,9 @@ The recovery behavior is one of:
 3. Abort the application session.
 
 Peers MUST NOT continue sending compact deltas against uncertain structure.
+After a data-frame error, receivers MUST treat the current decoder state as
+interrupted even if a later frame appears syntactically valid, because the
+raw-deflate history may no longer match the sender.
 
 ## Reference Implementation
 

@@ -26,6 +26,8 @@ clean resync when peers lose structural state
 
 Goal: make the repo understandable and reproducible from a fresh clone.
 
+Status: complete and maintained.
+
 - Keep `README.md`, `docs/architecture.md`, and this roadmap aligned around
   the AI-to-AI use case.
 - Keep benchmark reports public-safe and free of host-specific private details.
@@ -42,6 +44,8 @@ Definition of done:
 ## Phase 2: AIWire v1 Hardening
 
 Goal: freeze the minimum protocol contract.
+
+Status: complete and maintained by the fast AIWire gate.
 
 - Keep the AIWire v1 handshake, side-channel, and delta-frame spec aligned with
   implementation and tests.
@@ -63,6 +67,9 @@ Definition of done:
 ## Phase 3: Better Message Corpora
 
 Goal: benchmark against realistic protocol-shaped data.
+
+Status: complete and maintained with deterministic corpora, local benchmark
+profiles, corpus summaries, public-safe metadata, and CI smoke thresholds.
 
 - Expand the generated corpus for MCP requests, MCP responses, A2A tasks,
   OpenAI tool calls, structured outputs, traces, reviews, and memory writes.
@@ -91,6 +98,8 @@ Definition of done:
 
 Goal: make AIWire fast on workstation and ARM64 edge targets.
 
+Status: next active performance track.
+
 - Make native backend builds reproducible on macOS, Linux x86_64, and Linux
   ARM64.
 - Verify Python/native interoperability in CI where possible.
@@ -109,6 +118,9 @@ Definition of done:
 
 Goal: show how AIWire fits into normal network stacks.
 
+Status: transport examples exist for TCP, WebSocket, HTTP streaming, and local
+broker use; replay-log polish remains.
+
 - Raw TCP example with length-prefixed frames.
 - WebSocket example for browser/service use.
 - HTTP streaming or SSE example for server-pushed agent updates.
@@ -123,6 +135,8 @@ Definition of done:
 ## Phase 6: Dictionary Evolution
 
 Goal: improve compression without breaking deployed peers.
+
+Status: planned.
 
 - Version static dictionaries and session-template catalogs explicitly.
 - Add corpus-driven dictionary generation tooling.
@@ -140,6 +154,8 @@ Definition of done:
 ## Phase 7: General AURA Cleanup
 
 Goal: make the broader compression toolkit easier to trust.
+
+Status: planned.
 
 - Separate production-facing AIWire modules from research modules in docs.
 - Reduce duplicate compressor entry points where possible.

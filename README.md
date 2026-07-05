@@ -149,6 +149,23 @@ that room. Raw JSON fills the modeled link quickly; AIWire and AIToken+AIWire
 need more concurrent logical agents or larger per-agent windows before bandwidth
 becomes the bottleneck again.
 
+Current local benchmark-profile smoke on 2026-07-05 uses the Python AIWire path,
+level 3, seed 1729, and synthetic public-safe `corpus_metadata` on every
+message. This is a reproducible codec/corpus check, not a LAN throughput claim:
+
+| Profile | Corpus | Messages | Raw bytes | AIWire bytes | Ratio | Saved | Avg raw frame |
+|---|---|---:|---:|---:|---:|---:|---:|
+| small | structured | 128 | 75,937 | 10,560 | 7.19x | 86.1% | 593.3 B |
+| small | delta | 128 | 87,741 | 6,462 | 13.58x | 92.6% | 685.5 B |
+| medium | structured | 1,024 | 605,634 | 79,146 | 7.65x | 86.9% | 591.4 B |
+| medium | delta | 1,024 | 703,911 | 44,427 | 15.84x | 93.7% | 687.4 B |
+| bursty | structured | 256 | 203,163 | 25,021 | 8.12x | 87.7% | 793.6 B |
+| bursty | delta | 256 | 225,531 | 15,022 | 15.01x | 93.3% | 881.0 B |
+
+The delta corpus is where the idea is most visible: once session/task/template
+shape is stable, repeated structure collapses and mostly changed values cross
+the wire.
+
 The generic `ProductionHybridCompressor` path is not the right fit for this
 small-message workload yet. AIWire is the intended AURA path for high-volume
 structured AI message streams.
@@ -497,19 +514,18 @@ uvx isort --check-only src/aura_compression tests tools
 
 ## Roadmap Summary
 
-The near-term roadmap is to harden AIWire first:
+Current phase state:
 
-- Stabilize the AIWire v1 frame and handshake contract
-- Keep the AIWire v1 side-channel and delta-frame spec aligned with tests
-- Define the session-template update signal and delta/resync behavior
-- Keep benchmark reports reproducible and public-safe
-- Keep improving realistic MCP, A2A, OpenAI, local agent, and delta-shaped
-  message corpora
-- Keep public session fixture corpora deterministic and side-channel complete
-- Improve ARM64/native backend performance for edge targets
-- Expand transport examples beyond the current TCP, WebSocket, HTTP streaming,
-  and local broker samples
-- Define dictionary versioning and fallback behavior
+- Phase 1 Public Baseline: complete and maintained.
+- Phase 2 AIWire v1 Hardening: complete and maintained by the fast AIWire gate.
+- Phase 3 Better Message Corpora: complete and maintained with deterministic
+  corpora, local benchmark profiles, corpus summaries, public-safe metadata, and
+  CI smoke thresholds.
+- Phase 4 Native and Edge Performance: next active performance track.
+- Phase 5 Transport Examples: implemented for TCP, WebSocket, HTTP streaming,
+  and local broker; replay-log polish remains.
+- Phase 6 Dictionary Evolution: planned.
+- Phase 7 General AURA Cleanup: planned.
 
 Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).
 

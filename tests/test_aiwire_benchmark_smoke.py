@@ -60,6 +60,46 @@ def test_aiwire_benchmark_rejects_invalid_message_count() -> None:
         run_benchmark(messages=0)
 
 
+def test_aiwire_benchmark_sustained_session_reports_delta_steady_state() -> None:
+    result = run_benchmark(
+        profile="small",
+        corpus="delta",
+        messages=64,
+        seed=1729,
+        level=3,
+        sustained_session=True,
+        peers=4,
+    )
+    session_model = result["session_model"]
+
+    assert result["benchmark_mode"] == "sustained_session"
+    assert session_model["mode"] == "sustained_delta_after_handshake"
+    assert session_model["participant_count"] == 4
+    assert session_model["remote_peer_count"] == 3
+    assert session_model["setup_frame_count"] == 5
+    assert session_model["template_count"] > 0
+    assert len(session_model["session_template_sha256"]) == 64
+    assert session_model["steady_state_messages"] == 64
+    assert session_model["steady_state_raw_delta_bytes"] == result["bytes_in"]
+    assert session_model["steady_state_wire_delta_bytes"] == result["bytes_out"]
+    assert session_model["total_wire_bytes_with_setup"] > result["bytes_out"]
+    assert session_model["steady_state_ratio"] == result["ratio"]
+    assert session_model["amortized_wire_bytes_per_message"] > (
+        session_model["steady_state_wire_bytes_per_message"]
+    )
+    assert session_model["setup_share_percent"] > 0
+
+
+def test_aiwire_benchmark_sustained_session_requires_delta_corpus() -> None:
+    with pytest.raises(ValueError, match="requires corpus='delta'"):
+        run_benchmark(corpus="structured", sustained_session=True)
+
+
+def test_aiwire_benchmark_rejects_invalid_peer_count() -> None:
+    with pytest.raises(ValueError, match="peers must be at least 2"):
+        run_benchmark(corpus="delta", sustained_session=True, peers=1)
+
+
 def test_aiwire_benchmark_reports_python_backend_by_default() -> None:
     result = run_benchmark(messages=8)
 

@@ -14,15 +14,21 @@ from aura_compression.ai_wire import (
     AIWireNativeError,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    aiwire_session_templates_sha256,
     aiwire_native_status,
+    build_aiwire_handshake,
+    build_aiwire_session_template_update,
     build_delta_structured_ai_messages,
     build_structured_ai_messages,
+    discover_ai_wire_session_templates,
     encode_ai_wire_message,
+    negotiate_aiwire_nary_handshake,
     summarize_ai_wire_corpus,
 )
 
 
 DEFAULT_MESSAGE_COUNT = 1024
+LENGTH_PREFIX_BYTES = 4
 BENCHMARK_PROFILES: dict[str, dict[str, Any]] = {
     "custom": {
         "messages": DEFAULT_MESSAGE_COUNT,
@@ -153,6 +159,99 @@ def _benchmark_native_status() -> dict[str, object]:
     }
 
 
+def _frame_bytes(message: dict[str, Any]) -> int:
+    return len(encode_ai_wire_message(message))
+
+
+def _build_sustained_session_model(
+    *,
+    messages: list[dict[str, Any]],
+    session_templates: dict[int, str],
+    use_native: bool | None,
+    level: int,
+    encode_stats: Any,
+    peer_count: int,
+) -> dict[str, object]:
+    remote_peer_count = max(1, peer_count - 1)
+    peer_handshakes = [
+        build_aiwire_handshake(
+            level=level,
+            use_native=use_native,
+            require_session_templates=False,
+        )
+        for _ in range(remote_peer_count)
+    ]
+    nary_negotiation = negotiate_aiwire_nary_handshake(
+        [handshake.to_dict() for handshake in peer_handshakes],
+        level=level,
+        use_native=use_native,
+        allow_fallback=False,
+    )
+    if not nary_negotiation.accepted:
+        raise RuntimeError(
+            f"AIWire sustained-session n-ary handshake failed: {nary_negotiation.reason}"
+        )
+
+    template_update = build_aiwire_session_template_update(
+        {},
+        session_templates,
+        epoch=1,
+    )
+    setup_messages = [handshake.to_dict() for handshake in peer_handshakes]
+    setup_messages.extend([nary_negotiation.to_dict(), template_update.to_dict()])
+    setup_raw_bytes = sum(_frame_bytes(message) for message in setup_messages)
+    setup_framed_bytes = setup_raw_bytes + len(setup_messages) * LENGTH_PREFIX_BYTES
+    steady_state_wire_bytes = encode_stats.bytes_out
+    steady_state_raw_delta_bytes = encode_stats.bytes_in
+    total_wire_with_setup = steady_state_wire_bytes + setup_framed_bytes
+    message_count = max(1, len(messages))
+
+    return {
+        "mode": "sustained_delta_after_handshake",
+        "description": (
+            "Handshake and session-template setup are counted once; steady-state "
+            "measurements are the delta message stream after peers share shape."
+        ),
+        "setup_frame_count": len(setup_messages),
+        "participant_count": peer_count,
+        "remote_peer_count": remote_peer_count,
+        "setup_raw_bytes": setup_raw_bytes,
+        "setup_framed_bytes": setup_framed_bytes,
+        "template_count": len(session_templates),
+        "session_template_sha256": aiwire_session_templates_sha256(session_templates),
+        "steady_state_messages": len(messages),
+        "steady_state_raw_delta_bytes": steady_state_raw_delta_bytes,
+        "steady_state_wire_delta_bytes": steady_state_wire_bytes,
+        "steady_state_wire_bytes_per_message": steady_state_wire_bytes / message_count,
+        "steady_state_raw_delta_bytes_per_message": steady_state_raw_delta_bytes
+        / message_count,
+        "amortized_setup_bytes_per_message": setup_framed_bytes / message_count,
+        "amortized_wire_bytes_per_message": total_wire_with_setup / message_count,
+        "total_wire_bytes_with_setup": total_wire_with_setup,
+        "setup_share_percent": (
+            setup_framed_bytes / total_wire_with_setup * 100.0
+            if total_wire_with_setup
+            else 0.0
+        ),
+        "steady_state_ratio": encode_stats.ratio,
+        "amortized_ratio_with_setup": (
+            steady_state_raw_delta_bytes / total_wire_with_setup
+            if total_wire_with_setup
+            else 0.0
+        ),
+        "steady_state_saved_percent": (
+            (1 - steady_state_wire_bytes / steady_state_raw_delta_bytes) * 100.0
+            if steady_state_raw_delta_bytes
+            else 0.0
+        ),
+        "amortized_saved_percent": (
+            (1 - total_wire_with_setup / steady_state_raw_delta_bytes) * 100.0
+            if steady_state_raw_delta_bytes
+            else 0.0
+        ),
+    }
+
+
 def run_benchmark(
     *,
     profile: str = "custom",
@@ -161,6 +260,8 @@ def run_benchmark(
     seed: int = 1729,
     level: int = 3,
     backend: str = "python",
+    sustained_session: bool = False,
+    peers: int = 2,
 ) -> dict[str, Any]:
     """Run the local AIWire benchmark and return stable JSON-compatible results."""
 
@@ -169,6 +270,10 @@ def run_benchmark(
         raise ValueError(f"unsupported benchmark profile {profile!r}; choices: {choices}")
     if corpus not in {"structured", "delta"}:
         raise ValueError("unsupported benchmark corpus; choices: structured, delta")
+    if sustained_session and corpus != "delta":
+        raise ValueError("sustained session benchmark requires corpus='delta'")
+    if peers < 2:
+        raise ValueError("peers must be at least 2")
     use_native = _use_native_for_backend(backend)
 
     profile_info = BENCHMARK_PROFILES[profile]
@@ -182,8 +287,22 @@ def run_benchmark(
         count=message_count,
         seed=seed,
     )
+    session_templates = (
+        discover_ai_wire_session_templates(
+            benchmark_messages,
+            max_templates=8,
+            min_frequency=2,
+            starting_template_id=128,
+        )
+        if sustained_session
+        else None
+    )
     started = time.perf_counter()
-    encoder = AIWireSessionEncoder(level=level, use_native=use_native)
+    encoder = AIWireSessionEncoder(
+        level=level,
+        session_templates=session_templates,
+        use_native=use_native,
+    )
     try:
         frames = encoder.compress_messages(benchmark_messages)
         encode_stats = encoder.stats
@@ -191,7 +310,10 @@ def run_benchmark(
     finally:
         encoder.close()
     encoded_at = time.perf_counter()
-    decoder = AIWireSessionDecoder(use_native=use_native)
+    decoder = AIWireSessionDecoder(
+        session_templates=session_templates,
+        use_native=use_native,
+    )
     try:
         restored = decoder.decompress_frames(frames)
         decode_stats = decoder.stats
@@ -205,10 +327,11 @@ def run_benchmark(
     ]:
         raise RuntimeError("AIWire benchmark round trip failed")
 
-    return {
+    result: dict[str, Any] = {
         "messages": message_count,
         "benchmark_profile": profile,
         "benchmark_profile_description": profile_info["description"],
+        "benchmark_mode": "sustained_session" if sustained_session else "frame_stream",
         "corpus": corpus,
         "dictionary_sha256": AI_WIRE_DICTIONARY_SHA256,
         "requested_backend": backend,
@@ -225,6 +348,17 @@ def run_benchmark(
         "ratio": encode_stats.ratio,
         "decode_bytes_out": decode_stats.bytes_out,
     }
+    if sustained_session:
+        assert session_templates is not None
+        result["session_model"] = _build_sustained_session_model(
+            messages=benchmark_messages,
+            session_templates=session_templates,
+            use_native=use_native,
+            level=level,
+            encode_stats=encode_stats,
+            peer_count=peers,
+        )
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -253,6 +387,20 @@ def main(argv: list[str] | None = None) -> int:
             "libaura_aiwire; auto uses native when available and falls back to Python."
         ),
     )
+    parser.add_argument(
+        "--sustained-session",
+        action="store_true",
+        help=(
+            "Model the main AIWire benefit: one handshake/template setup followed "
+            "by steady-state delta traffic. Requires --corpus delta."
+        ),
+    )
+    parser.add_argument(
+        "--peers",
+        type=int,
+        default=2,
+        help="Total participants for sustained-session n-ary handshake modeling.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -263,6 +411,8 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
             level=args.level,
             backend=args.backend,
+            sustained_session=args.sustained_session,
+            peers=args.peers,
         )
     except (AIWireNativeError, ValueError) as exc:
         parser.error(str(exc))

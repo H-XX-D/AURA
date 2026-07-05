@@ -132,6 +132,31 @@ def test_package_cli_benchmark_supports_delta_profile(capsys):
     assert output["corpus_summary"]["delta_changed_value_mix"]["status"] > 0
 
 
+def test_package_cli_benchmark_supports_sustained_session_mode(capsys):
+    assert (
+        benchmark_main(
+            [
+                "--profile",
+                "small",
+                "--corpus",
+                "delta",
+                "--messages",
+                "16",
+                "--sustained-session",
+                "--peers",
+                "3",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["benchmark_mode"] == "sustained_session"
+    assert output["session_model"]["participant_count"] == 3
+    assert output["session_model"]["setup_frame_count"] == 4
+    assert output["session_model"]["steady_state_messages"] == 16
+
+
 def test_package_cli_benchmark_supports_bursty_profile(capsys):
     assert benchmark_main(["--profile", "bursty", "--messages", "32"]) == 0
     output = json.loads(capsys.readouterr().out)

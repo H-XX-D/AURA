@@ -43,6 +43,7 @@ from aura_compression.ai_wire import (
     encode_aiwire_fallback_frame,
     encode_ai_wire_message,
     negotiate_aiwire_handshake,
+    negotiate_aiwire_nary_handshake,
     negotiate_aiwire_session_resume,
     normalize_aiwire_control_lut,
     summarize_ai_wire_corpus,
@@ -905,6 +906,53 @@ def test_ai_wire_handshake_can_negotiate_raw_fallback_when_zlib_is_not_common() 
     assert negotiation.codec == "raw"
     assert negotiation.version is None
     assert negotiation.reason == "dictionary_sha256_mismatch"
+
+
+def test_ai_wire_nary_handshake_accepts_matching_peers() -> None:
+    session_templates = {128: '{"protocol":"local.agent","schema":"{0}"'}
+    peers = [
+        build_aiwire_handshake(
+            level=3,
+            session_templates=session_templates,
+            require_session_templates=True,
+        )
+        for _ in range(3)
+    ]
+
+    negotiation = negotiate_aiwire_nary_handshake(
+        [peer.to_dict() for peer in peers],
+        level=3,
+        session_templates=session_templates,
+        require_session_templates=True,
+        allow_fallback=False,
+    )
+    payload = negotiation.to_dict()
+
+    assert negotiation.accepted is True
+    assert negotiation.codec == "aiwire"
+    assert negotiation.version == 1
+    assert negotiation.peer_count == 3
+    assert payload["schema"] == "aura.aiwire.nary_negotiation.v1"
+    assert payload["peer_count"] == 3
+    assert len(payload["peers"]) == 3
+
+
+def test_ai_wire_nary_handshake_rejects_mismatched_peer_without_fallback() -> None:
+    peers = [
+        build_aiwire_handshake(level=3).to_dict(),
+        build_aiwire_handshake(level=3).to_dict(),
+    ]
+    peers[1]["dictionary_sha256"] = "0" * 64
+
+    negotiation = negotiate_aiwire_nary_handshake(
+        peers,
+        level=3,
+        allow_fallback=False,
+    )
+
+    assert negotiation.accepted is False
+    assert negotiation.codec == ""
+    assert negotiation.reason == "peer_2_dictionary_sha256_mismatch"
 
 
 def test_ai_wire_legacy_dictionary_identity_can_only_use_fallback() -> None:

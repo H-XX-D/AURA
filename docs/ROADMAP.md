@@ -58,6 +58,8 @@ Status: complete and maintained by the fast AIWire gate.
 - Keep negotiated fallback tests for `raw` and `zlib` in the fast AIWire gate.
 - Keep stable stats serialization in the fast AIWire gate for benchmark
   comparison over time.
+- Keep n-ary handshake negotiation fail-closed so multi-agent sessions share
+  one codec, dictionary, template, and control-LUT contract.
 
 Definition of done:
 
@@ -85,6 +87,9 @@ profiles, corpus summaries, public-safe metadata, and CI smoke thresholds.
 - Keep local benchmark profiles for small, medium, and bursty message sizes.
 - Keep CI-friendly benchmark smoke tests that detect major regressions without
   requiring a full LAN lab.
+- Keep sustained-session benchmark mode separate from one-shot frame tests:
+  setup and template handshakes are counted once, while steady-state delta bytes
+  are measured over time.
 - Keep the fixture-backed saturation benchmark current so bandwidth, latency,
   CPU ceiling, and concurrent-agent requirements are measured on the same
   public corpus.

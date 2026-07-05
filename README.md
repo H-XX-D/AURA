@@ -328,7 +328,9 @@ PYTHONPATH=src python -m aura_compression.cli.benchmark \
 PYTHONPATH=src python -m aura_compression.cli.benchmark \
   --profile medium \
   --corpus delta \
-  --backend native
+  --backend native \
+  --sustained-session \
+  --peers 4
 ```
 
 Profiles are `small`, `medium`, and `bursty`; `--messages` can override the
@@ -336,7 +338,10 @@ profile count for focused smoke tests. Corpora are `structured` and `delta`.
 Benchmark messages include `corpus_metadata` marking them synthetic and
 public-safe. Backends are `python`, `native`, and `auto`; the benchmark JSON
 reports both the requested backend and the actual encode/decode backend so
-Python-vs-native comparisons are explicit.
+Python-vs-native comparisons are explicit. Use `--sustained-session` to model
+the main AIWire case: peers handshake once, update shared session templates,
+then keep sending only steady-state deltas. `--peers N` scales the setup model
+to an n-party session before amortizing setup bytes over the delta stream.
 
 The LAN benchmark harness can run a server on one machine and a client on
 another:

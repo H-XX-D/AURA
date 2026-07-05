@@ -59,6 +59,7 @@ Those concerns belong at the transport or application layer.
 | Delta version | `1` |
 | Handshake schema | `aura.aiwire.handshake.v1` |
 | Negotiation schema | `aura.aiwire.negotiation.v1` |
+| N-ary negotiation schema | `aura.aiwire.nary_negotiation.v1` |
 | Control LUT schema | `aura.aiwire.control_lut.v1` |
 | System control schema | `aura.aiwire.system_control.v1` |
 | Blob descriptor schema | `aura.aiwire.blob_descriptor.v1` |
@@ -482,6 +483,34 @@ The receiver responds with an `AIWireNegotiation` object:
 
 When negotiation succeeds with `codec="aiwire"`, peers MUST create fresh encoder
 and decoder state using the negotiated parameters before sending data frames.
+
+## N-Ary Handshake
+
+Multi-agent sessions MAY use a coordinator to negotiate one shared AIWire
+contract across more than two peers. The coordinator evaluates each peer's
+`AIWireHandshake` against the same local dictionary, session-template,
+control-LUT, fallback, and zlib settings, then emits an
+`AIWireNaryNegotiation` object:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `aura.aiwire.nary_negotiation.v1` |
+| `accepted` | Whether every peer can join the shared session |
+| `codec` | Shared codec, or empty on reject |
+| `version` | Shared AIWire version, or null for fallback/reject |
+| `reason` | Null on success, otherwise a group failure reason |
+| `peer_count` | Number of peer handshakes evaluated by the coordinator |
+| `coordinator` | The coordinator's `AIWireHandshake` |
+| `peers` | Per-peer negotiation summaries in deterministic order |
+
+N-ary negotiation MUST fail closed if any peer rejects, or if accepted peers
+would require mixed codecs, versions, dictionary state, template state, or
+control-LUT state. On peer-specific rejection, the reason SHOULD identify the
+failing peer index and the pairwise reason, for example
+`peer_2_dictionary_sha256_mismatch`. A successful n-ary negotiation means all
+participants can use the same sustained session structure; it does not replace
+transport authentication, membership authorization, or application-level group
+policy.
 
 ## Handshake Failure And Fallback
 

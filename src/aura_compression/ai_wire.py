@@ -40,6 +40,7 @@ AI_WIRE_SUPPORTED_VERSIONS = (AI_WIRE_VERSION,)
 AI_WIRE_PROTOCOL = "aura.aiwire"
 AI_WIRE_HANDSHAKE_SCHEMA = "aura.aiwire.handshake.v1"
 AI_WIRE_NEGOTIATION_SCHEMA = "aura.aiwire.negotiation.v1"
+AI_WIRE_NARY_NEGOTIATION_SCHEMA = "aura.aiwire.nary_negotiation.v1"
 AI_WIRE_CONTROL_LUT_SCHEMA = "aura.aiwire.control_lut.v1"
 AI_WIRE_SYSTEM_CONTROL_SCHEMA = "aura.aiwire.system_control.v1"
 AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA = "aura.aiwire.session_templates.update.v1"
@@ -2134,6 +2135,41 @@ class AIWireNegotiation:
         }
 
 
+@dataclass(frozen=True)
+class AIWireNaryNegotiation:
+    """Coordinator response for a shared AIWire session across N peers."""
+
+    accepted: bool
+    codec: str
+    version: int | None
+    reason: str | None
+    peer_count: int
+    coordinator_handshake: AIWireHandshake
+    peer_negotiations: tuple[AIWireNegotiation, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_NARY_NEGOTIATION_SCHEMA,
+            "accepted": self.accepted,
+            "codec": self.codec,
+            "version": self.version,
+            "reason": self.reason,
+            "peer_count": self.peer_count,
+            "coordinator": self.coordinator_handshake.to_dict(),
+            "peers": [
+                {
+                    "index": index,
+                    "accepted": negotiation.accepted,
+                    "codec": negotiation.codec,
+                    "version": negotiation.version,
+                    "reason": negotiation.reason,
+                    "server": negotiation.server_handshake.to_dict(),
+                }
+                for index, negotiation in enumerate(self.peer_negotiations, start=1)
+            ],
+        }
+
+
 def build_aiwire_handshake(
     *,
     level: int = AI_WIRE_DEFAULT_LEVEL,
@@ -2187,6 +2223,101 @@ def build_aiwire_handshake(
         control_lut_count=len(normalized_control_lut),
         control_lut_epoch=control_lut_epoch,
         require_control_lut=require_control_lut,
+    )
+
+
+def negotiate_aiwire_nary_handshake(
+    peer_handshakes: Iterable[dict[str, object] | AIWireHandshake],
+    *,
+    level: int = AI_WIRE_DEFAULT_LEVEL,
+    use_static_dictionary: bool = True,
+    use_native: bool | None = None,
+    fallback_codecs: Iterable[str] = AI_WIRE_FALLBACK_CODECS,
+    allow_fallback: bool = True,
+    session_templates: AIWireSessionTemplates | None = None,
+    session_template_epoch: int = 0,
+    require_session_templates: bool = False,
+    control_lut: AIWireControlLUTEntries | None = None,
+    control_lut_epoch: int = 0,
+    require_control_lut: bool = False,
+) -> AIWireNaryNegotiation:
+    """Negotiate one shared AIWire session contract across multiple peers.
+
+    This is a coordinator-side safety helper for mesh or group sessions.  It
+    fails closed unless every peer can use the same codec and version under the
+    same dictionary, template, control-LUT, and zlib settings.
+    """
+
+    peers = tuple(peer_handshakes)
+    if not peers:
+        raise AIWireHandshakeError("n-ary AIWire negotiation requires at least one peer")
+
+    fallback_codecs = tuple(fallback_codecs)
+    coordinator = build_aiwire_handshake(
+        level=level,
+        use_static_dictionary=use_static_dictionary,
+        use_native=use_native,
+        fallback_codecs=fallback_codecs,
+        session_templates=session_templates,
+        session_template_epoch=session_template_epoch,
+        require_session_templates=require_session_templates,
+        control_lut=control_lut,
+        control_lut_epoch=control_lut_epoch,
+        require_control_lut=require_control_lut,
+    )
+    negotiations = tuple(
+        negotiate_aiwire_handshake(
+            peer,
+            level=level,
+            use_static_dictionary=use_static_dictionary,
+            use_native=use_native,
+            fallback_codecs=fallback_codecs,
+            allow_fallback=allow_fallback,
+            session_templates=session_templates,
+            session_template_epoch=session_template_epoch,
+            require_session_templates=require_session_templates,
+            control_lut=control_lut,
+            control_lut_epoch=control_lut_epoch,
+            require_control_lut=require_control_lut,
+        )
+        for peer in peers
+    )
+
+    for index, negotiation in enumerate(negotiations, start=1):
+        if not negotiation.accepted:
+            return AIWireNaryNegotiation(
+                accepted=False,
+                codec="",
+                version=None,
+                reason=f"peer_{index}_{negotiation.reason or 'rejected'}",
+                peer_count=len(peers),
+                coordinator_handshake=coordinator,
+                peer_negotiations=negotiations,
+            )
+
+    codecs = {negotiation.codec for negotiation in negotiations}
+    versions = {negotiation.version for negotiation in negotiations}
+    if len(codecs) != 1 or len(versions) != 1:
+        return AIWireNaryNegotiation(
+            accepted=False,
+            codec="",
+            version=None,
+            reason="mixed_peer_codecs",
+            peer_count=len(peers),
+            coordinator_handshake=coordinator,
+            peer_negotiations=negotiations,
+        )
+
+    codec = next(iter(codecs))
+    version = next(iter(versions))
+    return AIWireNaryNegotiation(
+        accepted=True,
+        codec=codec,
+        version=version,
+        reason=None,
+        peer_count=len(peers),
+        coordinator_handshake=coordinator,
+        peer_negotiations=negotiations,
     )
 
 

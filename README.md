@@ -96,6 +96,7 @@ Relevant public protocol context:
 | Session templates | Discovery, forced handshake, SHA verification, bounded session dictionaries |
 | Structured message helpers | Working canonical JSON encode/decode helpers |
 | AI-to-AI benchmark harness | Working LAN, realistic-profile, and concurrent-agent tooling |
+| Explicit sidecar proxy | Working TCP ingress/egress sidecar for raw length-prefixed agent frames over an AIWire tunnel |
 | General AURA compressor | Alpha research path |
 | Large-file CLI | Experimental but usable for local tests |
 | Production readiness | Not production-ready; use for prototyping and measurement |
@@ -419,6 +420,52 @@ const descriptor = createBlobDescriptor({
 
 console.log(descriptor.digest);
 ```
+
+## Explicit Sidecar Proxy
+
+`aura-proxy` is the first runnable service shape for AIWire. It is an explicit
+TCP sidecar pair, not transparent OS interception:
+
+```text
+local agent -> ingress sidecar -> AIWire tunnel -> egress sidecar -> upstream agent
+```
+
+Local client and upstream sockets keep using uint32 length-prefixed raw payload
+bytes. The sidecar-to-sidecar hop performs a fail-closed AIWire handshake,
+keeps control frames separately inspectable, and moves semantic frames through
+the AIWire session stream.
+
+Egress side, next to the upstream service:
+
+```bash
+aura-proxy egress \
+  --listen-host 0.0.0.0 \
+  --listen-port 9102 \
+  --upstream-host 127.0.0.1 \
+  --upstream-port 8765 \
+  --backend native \
+  --metrics-output /tmp/aura-egress.metrics.json
+```
+
+Ingress side, next to the client:
+
+```bash
+aura-proxy ingress \
+  --listen-host 127.0.0.1 \
+  --listen-port 9101 \
+  --egress-host <egress-host-or-z6> \
+  --egress-port 9102 \
+  --backend native \
+  --metrics-output /tmp/aura-ingress.metrics.json \
+  --replay-log-output /tmp/aura-ingress.replay.jsonl
+```
+
+Use `--backend python` for portable tests, `--backend native` after
+`tools/check_aiwire_native_backend.py --build --require-native` passes on both
+machines, and `--once` for single-connection smoke runs.
+
+Details:
+[AIWire Explicit Sidecar Proxy](docs/aiwire_proxy.md)
 
 ## Benchmarking AIWire
 

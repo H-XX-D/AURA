@@ -158,13 +158,16 @@ Definition of done:
 Goal: show how AIWire fits into normal network stacks.
 
 Status: complete and maintained. Transport examples exist for TCP, WebSocket,
-HTTP streaming, local broker use, and deterministic replay-log audit capture.
+HTTP streaming, local broker use, deterministic replay-log audit capture, and
+an explicit TCP sidecar proxy for raw length-prefixed agent frames over an
+AIWire tunnel.
 
 - Raw TCP example with length-prefixed frames.
 - WebSocket example for browser/service use.
 - HTTP streaming or SSE example for server-pushed agent updates.
 - Local broker adapter example.
 - Replay log format for offline benchmark capture.
+- Explicit `aura-proxy` ingress/egress sidecar for controlled TCP links.
 
 Definition of done:
 

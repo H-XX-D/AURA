@@ -117,6 +117,24 @@ from .ai_wire_token import (
     encode_ai_wire_token_aiwire_frames,
     encode_ai_wire_token_frames,
 )
+from .aiwire_proxy import (
+    AIWIRE_PROXY_CONTROL_LANE,
+    AIWIRE_PROXY_SCHEMA,
+    AIWIRE_PROXY_SEMANTIC_LANE,
+    AIWireProxyError,
+    AIWireProxyHandshakeError,
+    AIWireProxyMetrics,
+    AIWireProxyProtocolError,
+    decode_tunnel_frame,
+    encode_tunnel_frame,
+    read_length_prefixed,
+    read_tunnel_frame,
+    read_tunnel_frame_with_size,
+    run_egress_proxy,
+    run_ingress_proxy,
+    write_length_prefixed,
+    write_tunnel_frame,
+)
 from .audit import AuditLogger, AuditLogType, get_audit_logger, reset_audit_logger
 from .background_workers import (
     TemplateDiscoveryWorker,
@@ -311,4 +329,21 @@ __all__ = [
     "decode_ai_wire_token_frames",
     "encode_ai_wire_token_aiwire_frames",
     "encode_ai_wire_token_frames",
+    # Explicit AIWire sidecar proxy
+    "AIWIRE_PROXY_CONTROL_LANE",
+    "AIWIRE_PROXY_SCHEMA",
+    "AIWIRE_PROXY_SEMANTIC_LANE",
+    "AIWireProxyError",
+    "AIWireProxyHandshakeError",
+    "AIWireProxyMetrics",
+    "AIWireProxyProtocolError",
+    "decode_tunnel_frame",
+    "encode_tunnel_frame",
+    "read_length_prefixed",
+    "read_tunnel_frame",
+    "read_tunnel_frame_with_size",
+    "run_egress_proxy",
+    "run_ingress_proxy",
+    "write_length_prefixed",
+    "write_tunnel_frame",
 ]

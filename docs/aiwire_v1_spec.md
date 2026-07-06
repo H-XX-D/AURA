@@ -350,6 +350,12 @@ touches the payload:
 - Mission-critical system control messages SHOULD be sent on the control lane
   with priority ahead of semantic frames and routine LUT frames.
 
+The reference `aura-proxy` sidecar uses a simple TCP binding for controlled
+links: `uint32_be length`, one lane byte, then payload bytes. Lane `0x01` is
+inspectable canonical JSON control, and lane `0x02` is an AIWire semantic data
+frame. This binding is explicit sidecar traffic, not OS-level transparent
+interception.
+
 ## Ordered Data Frames
 
 An AIWire data frame is the compressed byte output from one call to the session

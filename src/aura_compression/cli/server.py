@@ -5,9 +5,11 @@ from __future__ import annotations
 
 def main(argv: list[str] | None = None) -> int:
     print(
-        "AURA does not bundle a production server. Use the transport examples in "
-        "the GitHub repo for TCP, WebSocket, HTTP streaming, and local broker "
-        "AIWire sessions: https://github.com/H-XX-D/AURA/tree/main/examples"
+        "AURA bundles an explicit AIWire sidecar as `aura-proxy`. Use "
+        "`aura-proxy ingress --help` and `aura-proxy egress --help` for the "
+        "raw-frame-to-AIWire tunnel. The transport examples for TCP, WebSocket, "
+        "HTTP streaming, and local broker sessions remain in "
+        "https://github.com/H-XX-D/AURA/tree/main/examples"
     )
     return 0
 

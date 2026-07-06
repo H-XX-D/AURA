@@ -107,7 +107,9 @@ def test_proxy_cluster_ssh_bootstrap_outputs_dry_run_commands(
     assert rendered["mode"] == "ssh_bootstrap"
     assert bootstrap["public_key_path"] == str(public_key)
     assert bootstrap["public_key_sha256"]
-    assert target["ssh_copy_id_command"] == f"ssh-copy-id -i {public_key} -p 2222 agent@192.0.2.10"
+    assert target["ssh_copy_id_command"] == proxy_cluster._shell_command(
+        ["ssh-copy-id", "-i", str(public_key), "-p", "2222", "agent@192.0.2.10"]
+    )
     assert "authorized_keys" in target["console_authorized_keys_command"]
     assert "ssh -o BatchMode=yes -o ConnectTimeout=5 -p 2222" in target["post_check_command"]
     assert "## SSH Bootstrap" in summary_text

@@ -137,10 +137,15 @@ from .aiwire_proxy import (
 )
 from .aiwire_proxy_benchmark import (
     AIWIRE_PROXY_BENCHMARK_SCHEMA,
+    AIWIRE_PROXY_FIXTURE_SERVER_SCHEMA,
     DEFAULT_PROXY_FIXTURE_PATH,
+    FIXTURE_VARIATION_PROFILES,
     ProxyFixturePair,
+    ProxyFixtureServerMetrics,
     build_proxy_fixture_pairs,
     run_proxy_benchmark,
+    run_proxy_fixture_server,
+    run_proxy_ingress_benchmark,
 )
 from .audit import AuditLogger, AuditLogType, get_audit_logger, reset_audit_logger
 from .background_workers import (
@@ -355,8 +360,13 @@ __all__ = [
     "write_tunnel_frame",
     # Explicit AIWire proxy benchmark
     "AIWIRE_PROXY_BENCHMARK_SCHEMA",
+    "AIWIRE_PROXY_FIXTURE_SERVER_SCHEMA",
     "DEFAULT_PROXY_FIXTURE_PATH",
+    "FIXTURE_VARIATION_PROFILES",
     "ProxyFixturePair",
+    "ProxyFixtureServerMetrics",
     "build_proxy_fixture_pairs",
     "run_proxy_benchmark",
+    "run_proxy_fixture_server",
+    "run_proxy_ingress_benchmark",
 ]

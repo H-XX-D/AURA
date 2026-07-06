@@ -161,6 +161,7 @@ Status: complete and maintained. Transport examples exist for TCP, WebSocket,
 HTTP streaming, local broker use, deterministic replay-log audit capture, and
 an explicit TCP sidecar proxy for raw length-prefixed agent frames over an
 AIWire tunnel. The sidecar path now has an end-to-end local benchmark harness
+and an SSH-managed cross-machine benchmark runner, cluster-varied fixture replay,
 and editable systemd/launchd templates.
 
 - Raw TCP example with length-prefixed frames.
@@ -170,6 +171,9 @@ and editable systemd/launchd templates.
 - Replay log format for offline benchmark capture.
 - Explicit `aura-proxy` ingress/egress sidecar for controlled TCP links.
 - `aura-proxy-benchmark` for sustained local sidecar byte-movement checks.
+- `tools/run_aiwire_proxy_cluster.py` for 60-second coordinator-to-edge proxy
+  runs with remote fixture servers, remote egress sidecars, local ingress
+  clients, per-target JSON artifacts, and markdown summaries.
 - Service-manager templates for systemd and launchd.
 
 Definition of done:

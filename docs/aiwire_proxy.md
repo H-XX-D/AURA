@@ -120,6 +120,83 @@ bytes, control overhead, p50/p95/p99 local round-trip latency, and modeled
 sidecar shape preserves the bandwidth-proportional benefit before moving the
 same commands to the Z6 or Nano-class targets.
 
+## Cross-Machine Benchmark
+
+The cross-machine shape keeps the proxy path explicit:
+
+```text
+coordinator client -> coordinator ingress -> LAN -> edge egress -> edge fixture upstream
+```
+
+On an edge target, the upstream fixture responder speaks the same raw
+uint32-length-prefixed frames as a local agent service:
+
+```bash
+aura-proxy-fixture-server \
+  --listen-host 127.0.0.1 \
+  --listen-port 9300 \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --fixture-variation-profile cluster \
+  --fixture-peer-label edge-1 \
+  --connections 1 \
+  --metrics-output /tmp/aura-fixture.metrics.json
+```
+
+The egress sidecar runs beside it:
+
+```bash
+aura-proxy egress \
+  --listen-host 0.0.0.0 \
+  --listen-port 9200 \
+  --upstream-host 127.0.0.1 \
+  --upstream-port 9300 \
+  --backend native \
+  --connections 1 \
+  --metrics-output /tmp/aura-egress.metrics.json
+```
+
+The coordinator can then run only the ingress/client half of the benchmark:
+
+```bash
+aura-proxy-benchmark \
+  --egress-host <edge-host> \
+  --egress-port 9200 \
+  --seconds 60 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --fixture-peer-label edge-1 \
+  --output /tmp/aura-proxy-edge-1.json
+```
+
+For repeatable Z6-to-edge runs, use the SSH orchestrator. It defaults to a
+dry-run plan; add `--run` only after checking the generated commands.
+
+```bash
+python tools/run_aiwire_proxy_cluster.py \
+  --target edge-1=<edge-ssh-host> \
+  --target edge-2=<edge-ssh-host> \
+  --target edge-3=<edge-ssh-host> \
+  --target edge-4=<edge-ssh-host> \
+  --seconds 60 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --target-parallelism 4 \
+  --output /tmp/aura-proxy-cluster.json \
+  --summary-output /tmp/aura-proxy-cluster.md
+```
+
+Target lines may include public labels and deployment-specific overrides:
+
+```text
+edge-1=<ssh-host>,proxy_host=<lan-host>,egress_port=9200,upstream_port=9300
+```
+
+The cluster variation profile deterministically changes role, workload, route,
+epoch, queue depth, token window, telemetry, and trace identifiers per peer.
+Both sides derive the same changed request/response bytes from the public
+fixture corpus, so the run still verifies the actual bytes that crossed the
+proxy path.
+
 ## Service Templates
 
 The repo includes editable service-manager templates:

@@ -54,6 +54,10 @@ backend, and bandwidth-capacity gain.
 local end-to-end sidecar benchmark runs against the public AIWire fixture
 corpus.
 
+`tools/run_aiwire_proxy_cluster.py --run` writes one ingress replay log per
+target under that target's artifact directory, while remote fixture and egress
+metrics are fetched as JSON.
+
 Replay logs may contain hostnames, target labels, or private deployment paths
 if the source artifact contains them. Keep public reports scrubbed before
 committing logs.

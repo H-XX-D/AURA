@@ -475,6 +475,31 @@ aura-proxy-benchmark \
   --replay-log-output /tmp/aura-proxy-benchmark.jsonl
 ```
 
+For real network runs, start the fixture responder and egress sidecar on each
+edge host, then drive the ingress/client side from the coordinator. The helper
+below builds that SSH plan and writes per-target artifacts without storing
+private host details in the repo:
+
+```bash
+python tools/run_aiwire_proxy_cluster.py \
+  --target edge-1=<edge-ssh-host> \
+  --target edge-2=<edge-ssh-host> \
+  --seconds 60 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --output /tmp/aura-proxy-cluster.json \
+  --summary-output /tmp/aura-proxy-cluster.md
+
+# Execute the same plan after checking the commands.
+python tools/run_aiwire_proxy_cluster.py \
+  --target edge-1=<edge-ssh-host> \
+  --target edge-2=<edge-ssh-host> \
+  --seconds 60 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --run
+```
+
 Editable service templates live under `deploy/aura-proxy/` for systemd and
 launchd.
 

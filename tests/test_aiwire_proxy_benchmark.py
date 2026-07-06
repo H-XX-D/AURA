@@ -2,19 +2,59 @@ from __future__ import annotations
 
 import json
 import plistlib
+import queue
+import socket
+import threading
 from pathlib import Path
+from typing import TypeVar
 
 from aura_compression.ai_wire_fixtures import load_aiwire_session_fixture_corpus
+from aura_compression.aiwire_proxy import run_egress_proxy
 from aura_compression.aiwire_proxy_benchmark import (
     AIWIRE_PROXY_BENCHMARK_SCHEMA,
+    AIWIRE_PROXY_FIXTURE_SERVER_SCHEMA,
     DEFAULT_PROXY_FIXTURE_PATH,
     build_proxy_fixture_pairs,
     run_proxy_benchmark,
+    run_proxy_fixture_server,
+    run_proxy_ingress_benchmark,
 )
 from aura_compression.aiwire_replay_log import loads_replay_log
 from aura_compression.cli.proxy_benchmark import main as proxy_benchmark_main
+from aura_compression.cli.proxy_fixture_server import build_parser as build_fixture_server_parser
 
 ROOT = Path(__file__).resolve().parents[1]
+HOST = "127.0.0.1"
+T = TypeVar("T")
+
+
+def _free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((HOST, 0))
+        return int(sock.getsockname()[1])
+
+
+def _run_background(fn):
+    results: "queue.Queue[T | BaseException]" = queue.Queue()
+
+    def target() -> None:
+        try:
+            results.put(fn())
+        except BaseException as exc:  # pragma: no cover - surfaced by caller.
+            results.put(exc)
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    return thread, results
+
+
+def _get_background_result(thread: threading.Thread, results: "queue.Queue[T | BaseException]"):
+    thread.join(timeout=10)
+    assert not thread.is_alive(), "background worker did not finish"
+    result = results.get_nowait()
+    if isinstance(result, BaseException):
+        raise result
+    return result
 
 
 def test_proxy_fixture_pairs_are_extracted_from_public_corpus() -> None:
@@ -25,6 +65,21 @@ def test_proxy_fixture_pairs_are_extracted_from_public_corpus() -> None:
     assert pairs[0].request
     assert pairs[0].response
     assert pairs[0].session_id.startswith("fixture-session-")
+
+
+def test_proxy_fixture_pairs_support_cluster_variation() -> None:
+    corpus = load_aiwire_session_fixture_corpus(DEFAULT_PROXY_FIXTURE_PATH)
+    plain = build_proxy_fixture_pairs(corpus)
+    varied = build_proxy_fixture_pairs(
+        corpus,
+        fixture_variation_profile="cluster",
+        fixture_peer_label="edge-1",
+    )
+
+    assert len(varied) == len(plain)
+    assert varied[0].request != plain[0].request
+    assert b'"cluster_context"' in varied[0].request
+    assert b'"cluster_peer":"edge-1"' in varied[0].request
 
 
 def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
@@ -55,6 +110,67 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     assert records[1]["payload"]["row"]["exchanges"] == 6
 
 
+def test_proxy_ingress_benchmark_round_trips_remote_egress_shape(tmp_path: Path) -> None:
+    upstream_port = _free_port()
+    egress_port = _free_port()
+    fixture_metrics = tmp_path / "fixture.metrics.json"
+    egress_metrics = tmp_path / "egress.metrics.json"
+    ingress_metrics = tmp_path / "ingress.metrics.json"
+
+    fixture_ready = threading.Event()
+    fixture_thread, fixture_results = _run_background(
+        lambda: run_proxy_fixture_server(
+            listen_host=HOST,
+            listen_port=upstream_port,
+            fixture_variation_profile="cluster",
+            fixture_peer_label="edge-1",
+            max_connections=1,
+            metrics_output=fixture_metrics,
+            ready_callback=lambda _port: fixture_ready.set(),
+        )
+    )
+    assert fixture_ready.wait(timeout=5)
+
+    egress_ready = threading.Event()
+    egress_thread, egress_results = _run_background(
+        lambda: run_egress_proxy(
+            listen_host=HOST,
+            listen_port=egress_port,
+            upstream_host=HOST,
+            upstream_port=upstream_port,
+            backend="python",
+            max_connections=1,
+            metrics_output=egress_metrics,
+            ready_callback=lambda _port: egress_ready.set(),
+        )
+    )
+    assert egress_ready.wait(timeout=5)
+
+    result = run_proxy_ingress_benchmark(
+        egress_host=HOST,
+        egress_port=egress_port,
+        seconds=0,
+        max_exchanges=5,
+        backend="python",
+        fixture_variation_profile="cluster",
+        fixture_peer_label="edge-1",
+        ingress_metrics_output=ingress_metrics,
+    )
+
+    egress = _get_background_result(egress_thread, egress_results)
+    fixture = _get_background_result(fixture_thread, fixture_results)
+
+    assert result["mode"] == "ingress_client"
+    assert result["verified"] is True
+    assert result["exchanges"] == 5
+    assert result["fixture_variation_profile"] == "cluster"
+    assert result["fixture_peer_label"] == "edge-1"
+    assert egress.exchanges == 5
+    assert fixture.exchanges == 5
+    assert json.loads(fixture_metrics.read_text())["schema"] == AIWIRE_PROXY_FIXTURE_SERVER_SCHEMA
+    assert json.loads(ingress_metrics.read_text())["exchanges"] == 5
+
+
 def test_proxy_benchmark_cli_outputs_json(capsys) -> None:
     assert proxy_benchmark_main(["--seconds", "0", "--max-exchanges", "3"]) == 0
     result = json.loads(capsys.readouterr().out)
@@ -62,6 +178,20 @@ def test_proxy_benchmark_cli_outputs_json(capsys) -> None:
     assert result["schema"] == AIWIRE_PROXY_BENCHMARK_SCHEMA
     assert result["exchanges"] == 3
     assert result["verified"] is True
+
+
+def test_proxy_fixture_server_cli_parser_accepts_cluster_variation() -> None:
+    args = build_fixture_server_parser().parse_args(
+        [
+            "--fixture-variation-profile",
+            "cluster",
+            "--fixture-peer-label",
+            "edge-1",
+        ]
+    )
+
+    assert args.fixture_variation_profile == "cluster"
+    assert args.fixture_peer_label == "edge-1"
 
 
 def test_proxy_service_templates_reference_explicit_sidecar() -> None:

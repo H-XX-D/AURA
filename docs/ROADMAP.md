@@ -138,6 +138,9 @@ native token paths on each machine before cluster runs.
   for threaded-vs-asyncio n-ary fixture replay on the same link model.
 - Use the asyncio coordinator with the native backend on Z6/Jetson runs before
   committing to a deeper native coordinator/server rewrite.
+- Keep `tools/run_aiwire_network_suite.py` wired to `--backend` and
+  `--coordinator` so realistic-profile sweeps can exercise native AIWire and
+  the asyncio coordinator without hand-written stress commands.
 - Compare Python AIWire, native AIWire, stateless zlib, and raw JSON under the
   same link model.
 

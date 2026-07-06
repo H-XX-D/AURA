@@ -48,6 +48,10 @@ PYTHONPATH=src python tools/run_aiwire_network_suite.py \
   --output /tmp/aura_aiwire_network_suite.json
 ```
 
+After `tools/check_aiwire_native_backend.py --build --require-native` passes on
+the test machine, add `--backend native --coordinator asyncio` to run the same
+network profiles through the native AIWire path and the event-loop coordinator.
+
 Generate the report:
 
 ```bash
@@ -125,8 +129,11 @@ PYTHONPATH=src python tools/run_aiwire_network_suite.py \
   --exchanges 36 \
   --agent-count 64 \
   --codecs raw,zlib,aiwire,aitoken_aiwire \
+  --backend native \
+  --coordinator asyncio \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \
+  --fixture-variation-profile cluster \
   --force-session-templates \
   --output /tmp/aura_aiwire_fixture_tcp_suite.json
 ```

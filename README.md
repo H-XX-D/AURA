@@ -572,6 +572,11 @@ The extrapolator reports both bandwidth capacity and latency-capped effective
 capacity. It also projects how many concurrent logical agents are needed to
 fill the link from the measured p95 latency and per-agent in-flight window.
 High-RTT profiles need enough aggregate in-flight exchanges to fill the link.
+For native/asyncio measurement after the native readiness gate passes, add
+`--backend native --coordinator asyncio`. With fixture replay, add
+`--fixture-variation-profile cluster` to vary the public corpus by profile while
+preserving SHA-256 response verification.
+
 In the stress tool, `--pipeline-window` is per logical agent, so aggregate
 in-flight work is `agent_count * pipeline_window`.
 

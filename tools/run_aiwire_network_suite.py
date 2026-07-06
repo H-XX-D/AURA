@@ -35,6 +35,8 @@ def _run_profile(profile, args: argparse.Namespace, port: int) -> list[dict[str,
         str(port),
         "--runs",
         str(_codec_count(args.codecs)),
+        "--backend",
+        args.backend,
         "--link-mbps",
         str(profile.server_link_mbps),
         "--one-way-delay-ms",
@@ -62,6 +64,10 @@ def _run_profile(profile, args: argparse.Namespace, port: int) -> list[dict[str,
         str(args.exchanges),
         "--codecs",
         args.codecs,
+        "--backend",
+        args.backend,
+        "--coordinator",
+        args.coordinator,
         "--pipeline-window",
         str(profile.pipeline_window),
         "--agent-count",
@@ -96,6 +102,14 @@ def _run_profile(profile, args: argparse.Namespace, port: int) -> list[dict[str,
         ]
         server_cmd.extend(fixture_args)
         client_cmd.extend(fixture_args)
+        client_cmd.extend(
+            [
+                "--fixture-variation-profile",
+                args.fixture_variation_profile,
+            ]
+        )
+        if args.fixture_variation_profile != "none":
+            client_cmd.extend(["--fixture-peer-label", profile.name])
 
     server = subprocess.Popen(
         server_cmd,
@@ -164,9 +178,14 @@ def run_suite(args: argparse.Namespace) -> dict[str, Any]:
         "exchanges": args.exchanges,
         "agent_count": args.agent_count,
         "codecs": [codec.strip() for codec in args.codecs.split(",") if codec.strip()],
+        "requested_backend": args.backend,
+        "coordinator": args.coordinator,
         "fixture_corpus": str(args.fixture_corpus) if args.fixture_corpus else "",
         "fixture_session_templates": (
             args.fixture_session_templates if args.fixture_corpus else ""
+        ),
+        "fixture_variation_profile": (
+            args.fixture_variation_profile if args.fixture_corpus else ""
         ),
         "profiles": profiles_as_dicts(profiles),
         "results": all_results,
@@ -185,6 +204,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seconds", type=float, default=5.0)
     parser.add_argument("--exchanges", type=int, default=20000)
     parser.add_argument("--codecs", default="raw,zlib,aiwire,aitoken_aiwire")
+    parser.add_argument(
+        "--backend",
+        choices=("python", "native", "auto"),
+        default="python",
+        help=(
+            "AIWire encode/decode backend for negotiated AIWire codecs. "
+            "python is the reproducible default; native requires libaura_aiwire; "
+            "auto uses native when available."
+        ),
+    )
+    parser.add_argument(
+        "--coordinator",
+        choices=("threaded", "asyncio"),
+        default="threaded",
+        help=(
+            "client-side stress coordinator. threaded preserves the historical "
+            "path; asyncio uses one event loop for peer/frame fan-out."
+        ),
+    )
     parser.add_argument(
         "--agent-count",
         type=int,
@@ -207,6 +245,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=("none", "initial", "updated"),
         default="updated",
         help="fixture session-template set to advertise during AIWire handshakes",
+    )
+    parser.add_argument(
+        "--fixture-variation-profile",
+        choices=("none", "cluster"),
+        default="none",
+        help=(
+            "deterministically vary fixture frames per profile to mimic working " "cluster traffic"
+        ),
     )
     parser.add_argument("--output", type=Path)
     return parser.parse_args(argv)

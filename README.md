@@ -706,11 +706,21 @@ stays inspectable without decompressing the semantic stream:
 - [WebSocket binary messages](examples/aiwire_websocket_transport.py)
 - [HTTP POST with Server-Sent Events](examples/aiwire_http_streaming_transport.py)
 - [Local broker/topic queue](examples/aiwire_local_broker.py)
+- [Replay-log JSONL audit format](docs/aiwire_replay_log.md)
 
 Run them from the repo root with `PYTHONPATH=src`. The WebSocket example uses
 the optional `websocket` extra. TCP uses an explicit length prefix; WebSocket,
 SSE, and broker examples rely on their native message/event boundaries. All
 examples keep mission-critical control out of the compact LUT path.
+
+Convert any stress or network-suite JSON artifact into a deterministic replay
+log with payload hashes:
+
+```bash
+PYTHONPATH=src python tools/write_aiwire_replay_log.py \
+  /tmp/aura_nary_fixture_replay.json \
+  --output /tmp/aura_nary_fixture_replay.jsonl
+```
 
 ## General Compression API
 

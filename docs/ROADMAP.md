@@ -157,8 +157,8 @@ Definition of done:
 
 Goal: show how AIWire fits into normal network stacks.
 
-Status: transport examples exist for TCP, WebSocket, HTTP streaming, and local
-broker use; replay-log polish remains.
+Status: complete and maintained. Transport examples exist for TCP, WebSocket,
+HTTP streaming, local broker use, and deterministic replay-log audit capture.
 
 - Raw TCP example with length-prefixed frames.
 - WebSocket example for browser/service use.

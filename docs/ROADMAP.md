@@ -134,6 +134,8 @@ native token paths on each machine before cluster runs.
 - Keep the opt-in asyncio coordinator loop in the live TCP/n-ary stress harness
   (`--coordinator asyncio`) as the next measurement path for occupying AIWire's
   saved-bandwidth headroom without client thread-pool contention.
+  `tools/compare_aiwire_coordinators.py` now produces JSON/Markdown artifacts
+  for threaded-vs-asyncio n-ary fixture replay on the same link model.
 - Use the asyncio coordinator with the native backend on Z6/Jetson runs before
   committing to a deeper native coordinator/server rewrite.
 - Compare Python AIWire, native AIWire, stateless zlib, and raw JSON under the

@@ -486,6 +486,28 @@ machine. The report records platform details, native availability, payload
 byte/cpu summaries, and the top cumulative/self-time functions for the
 sustained-session setup path and fixture codec path.
 
+To compare the coordinator path itself before running the Z6/Nano lab, run the
+same local n-ary fixture replay through both coordinator modes:
+
+```bash
+PYTHONPATH=src python tools/compare_aiwire_coordinators.py \
+  --coordinators threaded,asyncio \
+  --target-count 2 \
+  --exchanges 12 \
+  --codecs raw,aiwire \
+  --backend python \
+  --agent-count 4 \
+  --pipeline-window 2 \
+  --link-mbps 10 \
+  --output /tmp/aura_aiwire_coordinator_compare.json \
+  --markdown-output /tmp/aura_aiwire_coordinator_compare.md
+```
+
+The report keeps the full `nary-client` payload for each coordinator and
+summarizes completed exchanges, exchange rate, framed bytes per exchange, p95
+latency, and utilization deltas by codec. Use `--backend native` after the
+native readiness gate passes.
+
 The LAN benchmark harness can run a server on one machine and a client on
 another. The live harness also accepts `--backend python|native|auto` on both
 server and client paths; keep both sides on the same requested backend when
@@ -714,6 +736,7 @@ PYTHONPATH=src pytest tests/test_ai_wire.py tests/test_ai_wire_token.py \
   tests/test_aiwire_bandwidth_extrapolation.py \
   tests/test_aiwire_fixture_saturation.py tests/test_aiwire_backend_comparison.py \
   tests/test_aiwire_hot_path_profile.py tests/test_aiwire_stress_fixture_replay.py \
+  tests/test_aiwire_coordinator_comparison.py \
   tests/test_aiwire_network_profiles.py -q
 pytest -q
 ```

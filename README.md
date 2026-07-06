@@ -271,6 +271,19 @@ request/response loop rather than modeled 10 Mbps link capacity.
 Read the proxy edge report:
 [AIWire Explicit Proxy Nano Edge Run](docs/perf/aiwire_proxy_nano_engineer_2026-07-06.md).
 
+The same sidecar path was then extended to two reachable Jetson Orin Nano-class
+edge targets. Both targets used the native backend, both passed SSH-managed
+preflight, and the runner used per-target `remote_root` settings for mixed edge
+checkout paths. A 60-second parallel run verified 2,709 exchanges as a group:
+45.1 exchanges/second, 2,322.4 raw framed bytes per exchange, 364.2 AIWire
+semantic bytes per exchange, and 84.3% semantic-byte savings with a 47.98 ms max
+p95 round trip. The result scaled the current single-connection sidecar path
+almost linearly from one to two edge targets, while preserving the same
+sustained-handshake byte reduction.
+
+Read the two-edge proxy report:
+[AIWire Explicit Proxy Two-Edge Run](docs/perf/aiwire_proxy_two_nano_2026-07-06.md).
+
 Current local benchmark-profile smoke on 2026-07-05 uses the Python AIWire path,
 level 3, seed 1729, and synthetic public-safe `corpus_metadata` on every
 message. This is a reproducible codec/corpus check, not a LAN throughput claim:
@@ -496,7 +509,7 @@ private host details in the repo:
 ```bash
 python tools/run_aiwire_proxy_cluster.py \
   --target edge-1=<edge-ssh-host> \
-  --target edge-2=<edge-ssh-host> \
+  --target edge-2=<edge-ssh-host>,remote_root=/home/<user>/AURA \
   --ssh-bootstrap \
   --ssh-public-key ~/.ssh/id_ed25519.pub \
   --output /tmp/aura-proxy-bootstrap.json \
@@ -504,7 +517,7 @@ python tools/run_aiwire_proxy_cluster.py \
 
 python tools/run_aiwire_proxy_cluster.py \
   --target edge-1=<edge-ssh-host> \
-  --target edge-2=<edge-ssh-host> \
+  --target edge-2=<edge-ssh-host>,remote_root=/home/<user>/AURA \
   --preflight \
   --seconds 60 \
   --backend native \
@@ -515,7 +528,7 @@ python tools/run_aiwire_proxy_cluster.py \
 # Execute the same plan after preflight passes and the commands look right.
 python tools/run_aiwire_proxy_cluster.py \
   --target edge-1=<edge-ssh-host> \
-  --target edge-2=<edge-ssh-host> \
+  --target edge-2=<edge-ssh-host>,remote_root=/home/<user>/AURA \
   --preflight \
   --seconds 60 \
   --backend native \
@@ -526,6 +539,11 @@ python tools/run_aiwire_proxy_cluster.py \
 Use `--ssh-bootstrap` only to generate the safe key-install report when targets
 are network-reachable but batch SSH auth fails. It emits `ssh-copy-id`, target
 console, and post-check commands; it does not modify hosts.
+
+Target lines can include `proxy_host`, `egress_port`, `upstream_port`, and
+`remote_root` overrides. The global `--remote-root` still defaults to `~/AURA`;
+use per-target `remote_root=/home/<user>/AURA` when different edge machines use
+different SSH users or checkout paths.
 
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native

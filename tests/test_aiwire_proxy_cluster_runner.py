@@ -14,7 +14,10 @@ import run_aiwire_proxy_cluster as proxy_cluster  # noqa: E402
 
 def test_proxy_cluster_target_parser_supports_public_labels() -> None:
     target = proxy_cluster.parse_target(
-        "edge-1=edge-host.local,proxy_host=10.0.0.10,egress_port=9510,upstream_port=9610",
+        (
+            "edge-1=edge-host.local,proxy_host=10.0.0.10,egress_port=9510,"
+            "upstream_port=9610,remote_root=/srv/aura"
+        ),
         index=2,
         default_egress_port=9200,
         default_upstream_port=9300,
@@ -25,6 +28,7 @@ def test_proxy_cluster_target_parser_supports_public_labels() -> None:
     assert target.proxy_host == "10.0.0.10"
     assert target.egress_port == 9510
     assert target.upstream_port == 9610
+    assert target.remote_root == "/srv/aura"
 
 
 def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) -> None:
@@ -68,6 +72,41 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     assert "& echo $! >" in start_fixture
     assert "aura_compression.cli.proxy" in rendered["targets"][0]["commands"]["start_egress"]
     assert "Run again with `--run`" in summary.read_text()
+
+
+def test_proxy_cluster_target_remote_root_overrides_global_default(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    output = tmp_path / "plan.json"
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=edge-host.local,remote_root=/home/edge/AURA",
+                "--remote-root",
+                "/wrong/global/AURA",
+                "--run-id",
+                "test-run",
+                "--output-dir",
+                str(tmp_path / "artifacts"),
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    start_fixture = rendered["targets"][0]["commands"]["start_fixture"]
+    start_egress = rendered["targets"][0]["commands"]["start_egress"]
+
+    assert rendered["targets"][0]["target"]["remote_root"] == "/home/edge/AURA"
+    assert "cd /home/edge/AURA" in start_fixture
+    assert "cd /home/edge/AURA" in start_egress
+    assert "/wrong/global/AURA" not in start_fixture
+    assert "/wrong/global/AURA" not in start_egress
 
 
 def test_proxy_cluster_ssh_bootstrap_outputs_dry_run_commands(

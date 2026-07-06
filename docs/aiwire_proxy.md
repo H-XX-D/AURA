@@ -189,8 +189,11 @@ python tools/run_aiwire_proxy_cluster.py \
 Target lines may include public labels and deployment-specific overrides:
 
 ```text
-edge-1=<ssh-host>,proxy_host=<lan-host>,egress_port=9200,upstream_port=9300
+edge-1=<ssh-host>,proxy_host=<lan-host>,egress_port=9200,upstream_port=9300,remote_root=/home/<user>/AURA
 ```
+
+The global `--remote-root` defaults to `~/AURA`. Use a per-target
+`remote_root` only when a real lab has mixed SSH users or checkout paths.
 
 If the edge hosts are reachable but fail batch SSH authentication, generate a
 safe bootstrap report from the coordinator's public key:

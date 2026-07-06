@@ -50,6 +50,7 @@ class ProxyClusterTarget:
     egress_port: int
     upstream_port: int
     ssh_port: int | None = None
+    remote_root: str | None = None
 
 
 def _utc_now() -> str:
@@ -88,7 +89,7 @@ def parse_target(
     default_egress_port: int = 9200,
     default_upstream_port: int = 9300,
 ) -> ProxyClusterTarget:
-    """Parse label=ssh-host[,proxy_host=host,egress_port=N,upstream_port=N]."""
+    """Parse label=ssh-host[,proxy_host=host,egress_port=N,upstream_port=N,remote_root=PATH]."""
 
     fields = [field.strip() for field in spec.split(",") if field.strip()]
     if not fields:
@@ -124,6 +125,7 @@ def parse_target(
         egress_port=egress_port,
         upstream_port=upstream_port,
         ssh_port=ssh_port,
+        remote_root=options.get("remote_root"),
     )
 
 
@@ -203,6 +205,7 @@ def build_target_plan(
     local_replay = local_dir / "ingress.replay.jsonl"
     remote_fixture_metrics = f"{remote_run_dir}/fixture.metrics.json"
     remote_egress_metrics = f"{remote_run_dir}/egress.metrics.json"
+    remote_root = target.remote_root or args.remote_root
 
     fixture_args = [
         "--listen-host",
@@ -240,13 +243,13 @@ def build_target_plan(
         remote_egress_metrics,
     ]
     fixture_inner = _remote_module_command(
-        remote_root=args.remote_root,
+        remote_root=remote_root,
         remote_python=args.remote_python,
         module="aura_compression.cli.proxy_fixture_server",
         args=fixture_args,
     )
     egress_inner = _remote_module_command(
-        remote_root=args.remote_root,
+        remote_root=remote_root,
         remote_python=args.remote_python,
         module="aura_compression.cli.proxy",
         args=egress_args,
@@ -440,7 +443,7 @@ def _ssh_auth_probe(target: ProxyClusterTarget, args: argparse.Namespace) -> dic
     }
 
 
-def _remote_preflight_command(args: argparse.Namespace) -> str:
+def _remote_preflight_command(args: argparse.Namespace, remote_root: str) -> str:
     code = """
 import json
 import pathlib
@@ -486,15 +489,16 @@ print(json.dumps(result, sort_keys=True))
         "__AURA_BACKEND__", repr(args.backend)
     )
     command = shlex.join([args.remote_python, "-c", code])
-    return f"cd {_quote_remote_path(args.remote_root)} && PYTHONPATH=src {command}"
+    return f"cd {_quote_remote_path(remote_root)} && PYTHONPATH=src {command}"
 
 
 def _remote_environment_probe(
     target: ProxyClusterTarget, args: argparse.Namespace
 ) -> dict[str, Any]:
+    remote_root = target.remote_root or args.remote_root
     try:
         completed = _run_capture(
-            [*_ssh_command_prefix(target, args), _remote_preflight_command(args)],
+            [*_ssh_command_prefix(target, args), _remote_preflight_command(args, remote_root)],
             timeout=args.ssh_timeout,
         )
     except subprocess.TimeoutExpired as exc:
@@ -929,7 +933,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--target",
         action="append",
         help=(
-            "target as label=ssh-host[,proxy_host=host,egress_port=N,upstream_port=N]; "
+            "target as label=ssh-host[,proxy_host=host,egress_port=N,"
+            "upstream_port=N,remote_root=PATH]; "
             "repeat for each edge"
         ),
     )

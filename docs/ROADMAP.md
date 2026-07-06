@@ -160,7 +160,8 @@ Goal: show how AIWire fits into normal network stacks.
 Status: complete and maintained. Transport examples exist for TCP, WebSocket,
 HTTP streaming, local broker use, deterministic replay-log audit capture, and
 an explicit TCP sidecar proxy for raw length-prefixed agent frames over an
-AIWire tunnel.
+AIWire tunnel. The sidecar path now has an end-to-end local benchmark harness
+and editable systemd/launchd templates.
 
 - Raw TCP example with length-prefixed frames.
 - WebSocket example for browser/service use.
@@ -168,6 +169,8 @@ AIWire tunnel.
 - Local broker adapter example.
 - Replay log format for offline benchmark capture.
 - Explicit `aura-proxy` ingress/egress sidecar for controlled TCP links.
+- `aura-proxy-benchmark` for sustained local sidecar byte-movement checks.
+- Service-manager templates for systemd and launchd.
 
 Definition of done:
 

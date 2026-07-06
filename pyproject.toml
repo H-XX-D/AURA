@@ -36,6 +36,7 @@ aura-decompress = "aura_compression.cli.decompress:main"
 aura-server = "aura_compression.cli.server:main"
 aura-benchmark = "aura_compression.cli.benchmark:main"
 aura-proxy = "aura_compression.cli.proxy:main"
+aura-proxy-benchmark = "aura_compression.cli.proxy_benchmark:main"
 
 [project.optional-dependencies]
 dev = [

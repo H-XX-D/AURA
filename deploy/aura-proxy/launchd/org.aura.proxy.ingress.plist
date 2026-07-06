@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>org.aura.proxy.ingress</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>aura-proxy</string>
+    <string>ingress</string>
+    <string>--listen-host</string>
+    <string>127.0.0.1</string>
+    <string>--listen-port</string>
+    <string>9101</string>
+    <string>--egress-host</string>
+    <string>192.168.0.10</string>
+    <string>--egress-port</string>
+    <string>9102</string>
+    <string>--backend</string>
+    <string>auto</string>
+    <string>--metrics-output</string>
+    <string>/tmp/aura-proxy-ingress.metrics.json</string>
+    <string>--replay-log-output</string>
+    <string>/tmp/aura-proxy-ingress.replay.jsonl</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/aura-proxy-ingress.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/aura-proxy-ingress.err.log</string>
+</dict>
+</plist>

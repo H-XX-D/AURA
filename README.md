@@ -464,6 +464,20 @@ Use `--backend python` for portable tests, `--backend native` after
 `tools/check_aiwire_native_backend.py --build --require-native` passes on both
 machines, and `--once` for single-connection smoke runs.
 
+Benchmark the full local proxy path with the public fixture corpus:
+
+```bash
+aura-proxy-benchmark \
+  --seconds 60 \
+  --backend native \
+  --modeled-link-mbps 10 \
+  --output /tmp/aura-proxy-benchmark.json \
+  --replay-log-output /tmp/aura-proxy-benchmark.jsonl
+```
+
+Editable service templates live under `deploy/aura-proxy/` for systemd and
+launchd.
+
 Details:
 [AIWire Explicit Sidecar Proxy](docs/aiwire_proxy.md)
 

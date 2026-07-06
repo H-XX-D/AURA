@@ -1,0 +1,21 @@
+[Unit]
+Description=AURA AIWire proxy egress sidecar
+Documentation=https://github.com/H-XX-D/AURA/blob/main/docs/aiwire_proxy.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=AURA_PROXY_LISTEN_HOST=0.0.0.0
+Environment=AURA_PROXY_LISTEN_PORT=9102
+Environment=AURA_PROXY_UPSTREAM_HOST=127.0.0.1
+Environment=AURA_PROXY_UPSTREAM_PORT=8765
+Environment=AURA_PROXY_BACKEND=auto
+Environment=AURA_PROXY_METRICS=/var/log/aura/aura-proxy-egress.metrics.json
+ExecStart=/usr/bin/env aura-proxy egress --listen-host ${AURA_PROXY_LISTEN_HOST} --listen-port ${AURA_PROXY_LISTEN_PORT} --upstream-host ${AURA_PROXY_UPSTREAM_HOST} --upstream-port ${AURA_PROXY_UPSTREAM_PORT} --backend ${AURA_PROXY_BACKEND} --metrics-output ${AURA_PROXY_METRICS}
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

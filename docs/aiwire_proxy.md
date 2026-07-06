@@ -92,6 +92,69 @@ The replay-log option writes a deterministic AIWire replay-log JSONL artifact
 with the proxy result row so sidecar runs can be archived beside benchmark
 results.
 
+## Benchmark It
+
+Use `aura-proxy-benchmark` to run a local end-to-end sidecar benchmark against
+the public AIWire fixture corpus. The harness starts an upstream fixture
+responder, an egress sidecar, an ingress sidecar, and a local client, then
+replays request/response pairs through the full proxy path.
+
+```bash
+aura-proxy-benchmark \
+  --seconds 60 \
+  --backend native \
+  --modeled-link-mbps 10 \
+  --output /tmp/aura-proxy-benchmark.json \
+  --replay-log-output /tmp/aura-proxy-benchmark.jsonl
+```
+
+For a quick smoke run:
+
+```bash
+aura-proxy-benchmark --seconds 0 --max-exchanges 32 --backend python
+```
+
+The report includes measured exchanges/second, raw framed bytes, AIWire tunnel
+bytes, control overhead, p50/p95/p99 local round-trip latency, and modeled
+10 Mbps raw-vs-tunnel capacity. This is useful for checking whether the
+sidecar shape preserves the bandwidth-proportional benefit before moving the
+same commands to the Z6 or Nano-class targets.
+
+## Service Templates
+
+The repo includes editable service-manager templates:
+
+```text
+deploy/aura-proxy/systemd/aura-proxy-ingress.service
+deploy/aura-proxy/systemd/aura-proxy-egress.service
+deploy/aura-proxy/launchd/org.aura.proxy.ingress.plist
+deploy/aura-proxy/launchd/org.aura.proxy.egress.plist
+```
+
+Use the egress unit next to the upstream agent service and the ingress unit next
+to the client. Edit hostnames, ports, backend, log paths, user, and any
+transport-security wrapper before loading the units.
+
+Systemd sketch:
+
+```bash
+sudo install -d /var/log/aura
+sudo cp deploy/aura-proxy/systemd/aura-proxy-egress.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now aura-proxy-egress
+```
+
+Launchd sketch:
+
+```bash
+cp deploy/aura-proxy/launchd/org.aura.proxy.ingress.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/org.aura.proxy.ingress.plist
+```
+
+The templates intentionally do not set up TLS, WireGuard, firewall policy, or
+agent authorization. Add those at the transport or service boundary for any
+non-local trust boundary.
+
 ## Safety Boundary
 
 The proxy fails closed on:

@@ -50,6 +50,10 @@ explicit sidecar runs. The proxy record stores its byte-movement result row,
 including raw framed bytes, tunnel framed bytes, control-frame overhead, actual
 backend, and bandwidth-capacity gain.
 
+`aura-proxy-benchmark --replay-log-output <path>` writes the same format for
+local end-to-end sidecar benchmark runs against the public AIWire fixture
+corpus.
+
 Replay logs may contain hostnames, target labels, or private deployment paths
 if the source artifact contains them. Keep public reports scrubbed before
 committing logs.

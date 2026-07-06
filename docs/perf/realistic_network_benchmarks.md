@@ -181,6 +181,26 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
   --output /tmp/aura_lte_poor.json
 ```
 
+## Current Native/Asyncio Snapshot
+
+On 2026-07-06, the realistic-profile suite was rerun on local Mac loopback with
+the native backend, asyncio coordinator, public fixture replay, updated session
+templates, `cluster` fixture variation, 64 logical agents, and 5 seconds per
+codec/profile. This is a local modeled-network result, not a cross-machine
+Z6-to-Jetson proof.
+
+Native AIWire converted the byte savings into bandwidth-saturated throughput in
+all four modeled profiles: 95.7-99.9% observed bandwidth-capacity utilization,
+about 6.19-6.40x raw exchange rate, and roughly 84.1% framed-byte savings.
+AIToken+AIWire reached 95.3% framed-byte savings and 7.43-14.97x raw exchange
+rate, but still left bandwidth headroom at 64 agents because frames were only
+about 108 bytes per exchange.
+
+Committed reports:
+[AIWire Native Asyncio Network Suite](aiwire_native_asyncio_network_suite_2026-07-06.md)
+and
+[AIWire Native Asyncio Bandwidth Extrapolation](aiwire_native_asyncio_bandwidth_extrapolation_2026-07-06.md).
+
 ## Metrics That Matter
 
 - Completed verified request/response exchanges per second.

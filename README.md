@@ -236,6 +236,27 @@ for more messages, but the runtime must keep enough exchanges in flight to fill
 that room. Raw JSON fills the modeled link quickly; AIWire and AIToken+AIWire
 need true runtime parallelism before bandwidth becomes the bottleneck again.
 
+On 2026-07-06, the local realistic-profile suite was rerun with the native
+backend, asyncio coordinator, public fixture replay, 64 logical agents,
+profile-specific pipeline windows, and 5 seconds per codec/profile:
+
+| Profile | Raw ex/s | Native AIWire ex/s | AIWire util | AIToken+AIWire ex/s | AIToken+AIWire util | Best p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| lan_10m | 1,079.8 | 6,735.4 (6.24x) | 99.9% | 9,419.8 (8.72x) | 41.0% | 114.7 ms |
+| wifi_busy | 1,280.4 | 7,976.8 (6.23x) | 96.9% | 9,509.2 (7.43x) | 34.5% | 435.4 ms |
+| lte_good | 1,042.2 | 6,583.0 (6.32x) | 95.7% | 8,932.8 (8.57x) | 38.8% | 731.9 ms |
+| edge_mesh | 616.4 | 3,885.0 (6.30x) | 97.5% | 9,225.0 (14.97x) | 66.9% | 413.2 ms |
+
+Native AIWire now fills the modeled links in this local suite; AIToken+AIWire
+saves more bytes and completes more messages, but at roughly 108 framed bytes
+per exchange it still leaves bandwidth headroom, so runtime/concurrency is the
+next limit.
+
+Full reports:
+[AIWire Native Asyncio Network Suite](docs/perf/aiwire_native_asyncio_network_suite_2026-07-06.md)
+and
+[AIWire Native Asyncio Bandwidth Extrapolation](docs/perf/aiwire_native_asyncio_bandwidth_extrapolation_2026-07-06.md).
+
 Current local benchmark-profile smoke on 2026-07-05 uses the Python AIWire path,
 level 3, seed 1729, and synthetic public-safe `corpus_metadata` on every
 message. This is a reproducible codec/corpus check, not a LAN throughput claim:

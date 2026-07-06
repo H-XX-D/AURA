@@ -131,8 +131,11 @@ native token paths on each machine before cluster runs.
   measurement tool. Corrected thread and forked-process server sharding both
   regressed throughput and tail latency, so they are diagnostics rather than
   the performance path.
-- Add an async/native coordinator loop that can keep AIWire's saved-bandwidth
-  headroom occupied without adding Python worker contention.
+- Keep the opt-in asyncio coordinator loop in the live TCP/n-ary stress harness
+  (`--coordinator asyncio`) as the next measurement path for occupying AIWire's
+  saved-bandwidth headroom without client thread-pool contention.
+- Use the asyncio coordinator with the native backend on Z6/Jetson runs before
+  committing to a deeper native coordinator/server rewrite.
 - Compare Python AIWire, native AIWire, stateless zlib, and raw JSON under the
   same link model.
 

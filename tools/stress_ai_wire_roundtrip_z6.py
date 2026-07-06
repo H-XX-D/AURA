@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import multiprocessing as mp
@@ -56,6 +57,7 @@ from aura_compression.compressor_refactored import ProductionHybridCompressor
 U32 = struct.Struct("!I")
 AIWIRE_NEGOTIATED_CODECS = {"aiwire", "aitoken_aiwire"}
 STRESS_BACKENDS = ("python", "native", "auto")
+STRESS_COORDINATORS = ("threaded", "asyncio")
 DEFAULT_FIXTURE_CORPUS = ROOT / "fixtures" / "aiwire_sessions" / "public_session_corpus_v1.json"
 
 
@@ -87,6 +89,16 @@ class BandwidthLimiter:
         delay = target_elapsed - actual_elapsed
         if delay > 0:
             time.sleep(delay)
+
+    async def consume_async(self, byte_count: int) -> None:
+        if self.bytes_per_second <= 0 or byte_count <= 0:
+            return
+        self.bytes_sent += byte_count
+        target_elapsed = self.bytes_sent / self.bytes_per_second
+        actual_elapsed = (time.perf_counter_ns() - self.start_ns) / 1_000_000_000
+        delay = target_elapsed - actual_elapsed
+        if delay > 0:
+            await asyncio.sleep(delay)
 
 
 class AsyncFrameWriter:
@@ -187,6 +199,95 @@ class AsyncFrameWriter:
             raise RuntimeError("async frame writer failed") from self.error
 
 
+class AsyncStreamFrameWriter:
+    """Asyncio equivalent of AsyncFrameWriter for coordinator-side fan-out."""
+
+    def __init__(
+        self,
+        writer: asyncio.StreamWriter,
+        mbps: float,
+        one_way_delay_ms: float = 0.0,
+        jitter_ms: float = 0.0,
+        tail_pause_probability: float = 0.0,
+        tail_pause_ms: float = 0.0,
+        seed: int = 1729,
+    ) -> None:
+        self.writer = writer
+        self.bandwidth = BandwidthLimiter(mbps)
+        self.one_way_delay_ms = max(0.0, one_way_delay_ms)
+        self.jitter_ms = max(0.0, jitter_ms)
+        self.tail_pause_probability = min(1.0, max(0.0, tail_pause_probability))
+        self.tail_pause_ms = max(0.0, tail_pause_ms)
+        self.rng = random.Random(seed)
+        self.frames: asyncio.Queue[bytes | None] = asyncio.Queue()
+        self.ready_frames: asyncio.Queue[tuple[int, bytes] | None] = asyncio.Queue()
+        self.error: BaseException | None = None
+        self.serializer_task = asyncio.create_task(self._serialize())
+        self.sender_task = asyncio.create_task(self._send_ready())
+
+    def write(self, payload: bytes) -> None:
+        self._raise_error()
+        self.frames.put_nowait(payload)
+
+    async def flush(self) -> None:
+        await self.frames.join()
+        await self.ready_frames.join()
+        self._raise_error()
+
+    async def close(self) -> None:
+        self.frames.put_nowait(None)
+        await self.frames.join()
+        await self.ready_frames.join()
+        await self.serializer_task
+        await self.sender_task
+        self._raise_error()
+
+    async def _serialize(self) -> None:
+        while True:
+            payload = await self.frames.get()
+            try:
+                if payload is None:
+                    await self.ready_frames.put(None)
+                    return
+                await self.bandwidth.consume_async(U32.size + len(payload))
+                await self.ready_frames.put((self._arrival_due_ns(), payload))
+            except BaseException as exc:  # pragma: no cover - surfaced through flush/close.
+                self.error = exc
+            finally:
+                self.frames.task_done()
+
+    def _arrival_due_ns(self) -> int:
+        delay_ms = self.one_way_delay_ms
+        if self.jitter_ms > 0:
+            delay_ms += self.rng.uniform(-self.jitter_ms, self.jitter_ms)
+        if self.tail_pause_probability and self.rng.random() < self.tail_pause_probability:
+            delay_ms += self.rng.uniform(0.0, self.tail_pause_ms)
+        return time.perf_counter_ns() + int(max(0.0, delay_ms) * 1_000_000)
+
+    async def _send_ready(self) -> None:
+        while True:
+            item = await self.ready_frames.get()
+            try:
+                if item is None:
+                    return
+                due_ns, payload = item
+                delay_ns = due_ns - time.perf_counter_ns()
+                if delay_ns > 0:
+                    await asyncio.sleep(delay_ns / 1_000_000_000)
+                self.writer.write(U32.pack(len(payload)))
+                if payload:
+                    self.writer.write(payload)
+                await self.writer.drain()
+            except BaseException as exc:  # pragma: no cover - surfaced through flush/close.
+                self.error = exc
+            finally:
+                self.ready_frames.task_done()
+
+    def _raise_error(self) -> None:
+        if self.error is not None:
+            raise RuntimeError("async stream frame writer failed") from self.error
+
+
 def _json_bytes(value: Any) -> bytes:
     return encode_ai_wire_message(value)
 
@@ -195,6 +296,13 @@ def _write_frame(sock: socket.socket, payload: bytes) -> None:
     sock.sendall(U32.pack(len(payload)))
     if payload:
         sock.sendall(payload)
+
+
+async def _async_write_frame(writer: asyncio.StreamWriter, payload: bytes) -> None:
+    writer.write(U32.pack(len(payload)))
+    if payload:
+        writer.write(payload)
+    await writer.drain()
 
 
 def _read_exact(sock: socket.socket, size: int) -> bytes:
@@ -212,8 +320,26 @@ def _read_frame(sock: socket.socket) -> bytes:
     return _read_exact(sock, length) if length else b""
 
 
+async def _async_read_exact(reader: asyncio.StreamReader, size: int) -> bytes:
+    try:
+        return await reader.readexactly(size)
+    except asyncio.IncompleteReadError as exc:
+        raise EOFError("socket closed while reading frame") from exc
+
+
+async def _async_read_frame(reader: asyncio.StreamReader) -> bytes:
+    length = U32.unpack(await _async_read_exact(reader, U32.size))[0]
+    return await _async_read_exact(reader, length) if length else b""
+
+
 def _configure_low_latency(sock: socket.socket) -> None:
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+
+def _configure_async_low_latency(writer: asyncio.StreamWriter) -> None:
+    raw_sock = writer.get_extra_info("socket")
+    if raw_sock is not None:
+        raw_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
 
 def _make_aura(cache_dir: str) -> ProductionHybridCompressor:
@@ -1403,6 +1529,369 @@ def _client_stress_codec(
     return {
         "codec": codec,
         "negotiated_codec": negotiated_codec,
+        "coordinator": getattr(args, "coordinator", "threaded"),
+        "backend": ack.get("backend"),
+        "requested_backend": args.backend,
+        "client_backend": session.backend,
+        "server_backend": ack.get("backend"),
+        "server_requested_backend": ack.get("requested_backend", ""),
+        "client_requested_backend": ack.get("client_requested_backend", ""),
+        "duration_mode": duration_mode,
+        "target_seconds": args.seconds if duration_mode else 0,
+        "client_link_mbps": args.link_mbps,
+        "server_link_mbps": ack.get("server_link_mbps"),
+        "client_one_way_delay_ms": args.one_way_delay_ms,
+        "server_one_way_delay_ms": ack.get("server_one_way_delay_ms"),
+        "client_jitter_ms": args.jitter_ms,
+        "server_jitter_ms": ack.get("server_jitter_ms"),
+        "client_tail_pause_probability": args.tail_pause_probability,
+        "server_tail_pause_probability": ack.get("server_tail_pause_probability"),
+        "client_tail_pause_ms": args.tail_pause_ms,
+        "server_tail_pause_ms": ack.get("server_tail_pause_ms"),
+        "session_shard": session_shard,
+        "session_shards": session_shards,
+        "server_session_shard": ack.get("session_shard", 1),
+        "server_session_shards": ack.get("session_shards", 1),
+        "session_template_count": (
+            len(session_templates) if codec in AIWIRE_NEGOTIATED_CODECS else 0
+        ),
+        "session_template_sha256": (
+            aiwire_session_templates_sha256(session_templates)
+            if codec in AIWIRE_NEGOTIATED_CODECS
+            else ""
+        ),
+        "fixture_replay": fixture_replay is not None,
+        "fixture_corpus": ack.get("fixture_corpus", ""),
+        "fixture_schema": ack.get("fixture_schema", ""),
+        "fixture_exchange_count": ack.get("fixture_exchange_count", 0),
+        "fixture_session_template_mode": ack.get("fixture_session_template_mode", ""),
+        "fixture_variation_profile": ack.get("fixture_variation_profile", "none"),
+        "fixture_peer_label": ack.get("fixture_peer_label", ""),
+        "fixture_request_sha256": ack.get("fixture_request_sha256", ""),
+        "fixture_response_sha256": ack.get("fixture_response_sha256", ""),
+        "response_verification": (
+            "fixture_sha256" if fixture_replay is not None else "request_sha256"
+        ),
+        "agent_count": agent_count,
+        "per_agent_pipeline_window": per_agent_pipeline_window,
+        "aggregate_pipeline_window": aggregate_pipeline_window,
+        "pipeline_window": aggregate_pipeline_window,
+        "sent_exchanges": sent_exchanges,
+        "deadline_completed_exchanges": deadline_completed_exchanges,
+        "deadline_exchanges_per_second": (
+            deadline_completed_exchanges / args.seconds if duration_mode and args.seconds else 0
+        ),
+        "exchanges": len(exchange_ms),
+        "handshake_ms": handshake_ms,
+        "stress_ms": stress_ms,
+        "exchanges_per_second": len(exchange_ms) / (stress_ms / 1000) if stress_ms else 0,
+        "roundtrip_ms_avg": sum(exchange_ms) / len(exchange_ms) if exchange_ms else 0,
+        "roundtrip_ms_p50": _percentile(exchange_ms, 0.50),
+        "roundtrip_ms_p95": _percentile(exchange_ms, 0.95),
+        "roundtrip_ms_p99": _percentile(exchange_ms, 0.99),
+        "raw_bytes": total_raw,
+        "wire_bytes": total_wire,
+        "framed_wire_bytes": framed_wire,
+        "framed_bytes_per_exchange": framed_wire / completed_exchanges,
+        "request_framed_bytes_per_exchange": request_framed_bytes_per_exchange,
+        "response_framed_bytes_per_exchange": response_framed_bytes_per_exchange,
+        "bandwidth_capacity_exchanges_per_second": bandwidth_capacity_exchanges_per_second,
+        "bandwidth_capacity_completed": (
+            bandwidth_capacity_exchanges_per_second * args.seconds if duration_mode else 0.0
+        ),
+        "bandwidth_utilization_percent": (
+            deadline_completed_exchanges
+            / args.seconds
+            / bandwidth_capacity_exchanges_per_second
+            * 100
+            if duration_mode and args.seconds and bandwidth_capacity_exchanges_per_second
+            else 0.0
+        ),
+        "request_capacity_exchanges_per_second": request_capacity_exchanges_per_second,
+        "response_capacity_exchanges_per_second": response_capacity_exchanges_per_second,
+        "bandwidth_bottleneck_direction": bandwidth_bottleneck_direction,
+        "ratio": total_raw / total_wire if total_wire else 0,
+        "framed_ratio": total_raw / framed_wire if framed_wire else 0,
+        "wire_saved_percent": (1 - total_wire / total_raw) * 100 if total_raw else 0,
+        "framed_wire_saved_percent": (1 - framed_wire / total_raw) * 100 if total_raw else 0,
+        "raw_request_bytes": raw_request_bytes,
+        "raw_response_bytes": raw_response_bytes,
+        "request_wire_bytes": request_wire_bytes,
+        "response_wire_bytes": response_wire_bytes,
+        "framed_request_wire_bytes": framed_request_wire,
+        "framed_response_wire_bytes": framed_response_wire,
+        "client_compress_ms": client_compress_ns / 1_000_000,
+        "client_decompress_ms": client_decompress_ns / 1_000_000,
+        "server_compress_ms": server_summary["server_compress_ms"],
+        "server_decompress_ms": server_summary["server_decompress_ms"],
+        "verified": True,
+        "aiwire_negotiation": ack.get("aiwire_negotiation"),
+    }
+
+
+async def _client_stress_codec_async(
+    codec: str,
+    frames: list[bytes],
+    args: argparse.Namespace,
+    fixture_replay: FixtureReplayCorpus | None = None,
+) -> dict[str, Any]:
+    duration_mode = args.seconds > 0
+    agent_count = max(1, args.agent_count)
+    per_agent_pipeline_window = max(1, args.pipeline_window)
+    aggregate_pipeline_window = agent_count * per_agent_pipeline_window
+    session_shards = max(1, int(getattr(args, "session_shards", 1) or 1))
+    session_shard = max(1, int(getattr(args, "session_shard", 1) or 1))
+    fixture_variation_profile = _args_fixture_variation_profile(args)
+    fixture_peer_label = _args_fixture_peer_label(args)
+    session_templates: tuple[tuple[int, str], ...] = ()
+    if codec in AIWIRE_NEGOTIATED_CODECS:
+        session_templates = _client_session_templates(
+            args,
+            frames,
+            fixture_replay=fixture_replay,
+        )
+    hello: dict[str, Any] = {
+        "codec": codec,
+        "exchanges": 0 if duration_mode else args.exchanges,
+        "duration_mode": duration_mode,
+        "duration_seconds": args.seconds if duration_mode else 0,
+        "client_link_mbps": args.link_mbps,
+        "client_one_way_delay_ms": args.one_way_delay_ms,
+        "client_jitter_ms": args.jitter_ms,
+        "client_tail_pause_probability": args.tail_pause_probability,
+        "client_tail_pause_ms": args.tail_pause_ms,
+        "agent_count": agent_count,
+        "per_agent_pipeline_window": per_agent_pipeline_window,
+        "aggregate_pipeline_window": aggregate_pipeline_window,
+        "session_shard": session_shard,
+        "session_shards": session_shards,
+        "fixture_replay": fixture_replay is not None,
+        "aiwire_backend": args.backend,
+    }
+    if fixture_replay is not None:
+        hello.update(
+            {
+                "fixture_corpus": fixture_replay.path,
+                "fixture_schema": fixture_replay.schema,
+                "fixture_exchange_count": fixture_replay.exchange_count,
+                "fixture_session_template_mode": fixture_replay.session_template_mode,
+                "fixture_request_sha256": fixture_replay.request_sha256,
+                "fixture_response_sha256": fixture_replay.response_sha256,
+                "fixture_variation_profile": fixture_variation_profile,
+                "fixture_peer_label": fixture_peer_label,
+            }
+        )
+    if codec in AIWIRE_NEGOTIATED_CODECS:
+        hello.update(
+            {
+                "aiwire_level": args.aiwire_level,
+                "allow_aiwire_fallback": args.allow_aiwire_fallback,
+                "aiwire_handshake": build_aiwire_handshake(
+                    level=args.aiwire_level,
+                    fallback_codecs=("zlib", "raw") if args.allow_aiwire_fallback else (),
+                    session_templates=session_templates,
+                    require_session_templates=args.force_session_templates,
+                ).to_dict(),
+            }
+        )
+
+    request_digest = hashlib.sha256()
+    response_digest = hashlib.sha256()
+    raw_request_bytes = 0
+    raw_response_bytes = 0
+    request_wire_bytes = 0
+    response_wire_bytes = 0
+    client_compress_ns = 0
+    client_decompress_ns = 0
+    exchange_ms: list[float] = []
+
+    connect_start = time.perf_counter_ns()
+    reader, writer = await asyncio.wait_for(
+        asyncio.open_connection(args.host, args.port),
+        timeout=args.timeout,
+    )
+    try:
+        _configure_async_low_latency(writer)
+        await _async_write_frame(writer, _json_bytes(hello))
+        ack = json.loads(await _async_read_frame(reader))
+        handshake_ms = (time.perf_counter_ns() - connect_start) / 1_000_000
+        if not ack.get("accepted"):
+            raise RuntimeError(f"{codec} stress negotiation failed: {ack}")
+        if fixture_replay is not None and not ack.get("fixture_replay"):
+            raise RuntimeError(f"{codec} fixture replay was not accepted by server: {ack}")
+
+        negotiated_codec = ack["negotiated_codec"]
+        session = CodecSession(
+            codec=negotiated_codec,
+            level=args.aiwire_level,
+            cache_dir=args.cache_dir,
+            session_templates=(
+                session_templates if negotiated_codec in AIWIRE_NEGOTIATED_CODECS else None
+            ),
+            requested_backend=args.backend,
+        )
+        out_writer = AsyncStreamFrameWriter(
+            writer,
+            args.link_mbps,
+            args.one_way_delay_ms,
+            args.jitter_ms,
+            args.tail_pause_probability,
+            args.tail_pause_ms,
+            args.impairment_seed,
+        )
+        stress_start = time.perf_counter_ns()
+        deadline_ns = stress_start + int(args.seconds * 1_000_000_000) if duration_mode else None
+        deadline_completed_exchanges = 0
+        sent_exchanges = 0
+        outstanding: deque[InFlightRequest] = deque()
+
+        def can_send_more() -> bool:
+            if len(outstanding) >= aggregate_pipeline_window:
+                return False
+            if duration_mode:
+                assert deadline_ns is not None
+                return time.perf_counter_ns() < deadline_ns
+            return sent_exchanges < len(frames)
+
+        def send_next() -> None:
+            nonlocal client_compress_ns, raw_request_bytes, request_wire_bytes, sent_exchanges
+            if fixture_replay is not None:
+                request = _fixture_frame_for(
+                    fixture_replay,
+                    direction="client_to_server",
+                    exchange_index=sent_exchanges,
+                    profile=fixture_variation_profile,
+                    peer_label=fixture_peer_label,
+                )
+            else:
+                request = (
+                    frames[sent_exchanges % len(frames)]
+                    if duration_mode
+                    else frames[sent_exchanges]
+                )
+            request_sha = hashlib.sha256(request).hexdigest()
+            expected_response_sha256 = None
+            if fixture_replay is not None:
+                expected_response_sha256 = hashlib.sha256(
+                    _fixture_frame_for(
+                        fixture_replay,
+                        direction="server_to_client",
+                        exchange_index=sent_exchanges,
+                        profile=fixture_variation_profile,
+                        peer_label=fixture_peer_label,
+                    )
+                ).hexdigest()
+            exchange_start = time.perf_counter_ns()
+
+            raw_request_bytes += len(request)
+            _update_digest(request_digest, request)
+
+            start = time.perf_counter_ns()
+            wire_request = session.encode(request)
+            client_compress_ns += time.perf_counter_ns() - start
+            request_wire_bytes += len(wire_request)
+            out_writer.write(wire_request)
+            outstanding.append(
+                InFlightRequest(
+                    sent_exchanges,
+                    request_sha,
+                    expected_response_sha256,
+                    exchange_start,
+                )
+            )
+            sent_exchanges += 1
+
+        async def receive_next() -> None:
+            nonlocal client_decompress_ns, raw_response_bytes, response_wire_bytes
+            nonlocal deadline_completed_exchanges
+            wire_response = await _async_read_frame(reader)
+            response_wire_bytes += len(wire_response)
+            start = time.perf_counter_ns()
+            response = session.decode(wire_response)
+            client_decompress_ns += time.perf_counter_ns() - start
+            completed_ns = time.perf_counter_ns()
+
+            expected = outstanding.popleft()
+            if expected.expected_response_sha256 is not None:
+                if hashlib.sha256(response).hexdigest() != expected.expected_response_sha256:
+                    raise RuntimeError(
+                        f"{codec} fixture response verification failed "
+                        f"at exchange {expected.index}"
+                    )
+            else:
+                response_json = json.loads(response)
+                if response_json["request"]["sha256"] != expected.sha256:
+                    raise RuntimeError(
+                        f"{codec} response verification failed at exchange {expected.index}"
+                    )
+
+            raw_response_bytes += len(response)
+            _update_digest(response_digest, response)
+            exchange_ms.append((completed_ns - expected.start_ns) / 1_000_000)
+            if deadline_ns is None or completed_ns <= deadline_ns:
+                deadline_completed_exchanges += 1
+
+        while can_send_more():
+            send_next()
+
+        while outstanding or can_send_more():
+            if outstanding:
+                await receive_next()
+            while can_send_more():
+                send_next()
+
+        if duration_mode:
+            out_writer.write(b"")
+        await out_writer.close()
+        stress_ms = (time.perf_counter_ns() - stress_start) / 1_000_000
+        server_summary = json.loads(await _async_read_frame(reader))
+    finally:
+        writer.close()
+        await writer.wait_closed()
+
+    if server_summary["request_sha256"] != request_digest.hexdigest():
+        raise RuntimeError(f"{codec} server request digest mismatch")
+    if server_summary["response_sha256"] != response_digest.hexdigest():
+        raise RuntimeError(f"{codec} response digest mismatch")
+
+    total_raw = raw_request_bytes + raw_response_bytes
+    total_wire = request_wire_bytes + response_wire_bytes
+    framed_request_wire = request_wire_bytes + len(exchange_ms) * U32.size
+    framed_response_wire = response_wire_bytes + len(exchange_ms) * U32.size
+    framed_wire = framed_request_wire + framed_response_wire
+    completed_exchanges = max(1, len(exchange_ms))
+    request_framed_bytes_per_exchange = framed_request_wire / completed_exchanges
+    response_framed_bytes_per_exchange = framed_response_wire / completed_exchanges
+    client_link_bytes_per_second = args.link_mbps * 1_000_000 / 8 if args.link_mbps else 0.0
+    server_link_mbps = float(ack.get("server_link_mbps") or 0.0)
+    server_link_bytes_per_second = server_link_mbps * 1_000_000 / 8 if server_link_mbps else 0.0
+    request_capacity_exchanges_per_second = (
+        client_link_bytes_per_second / request_framed_bytes_per_exchange
+        if client_link_bytes_per_second and request_framed_bytes_per_exchange
+        else 0.0
+    )
+    response_capacity_exchanges_per_second = (
+        server_link_bytes_per_second / response_framed_bytes_per_exchange
+        if server_link_bytes_per_second and response_framed_bytes_per_exchange
+        else 0.0
+    )
+    if request_capacity_exchanges_per_second and response_capacity_exchanges_per_second:
+        bandwidth_capacity_exchanges_per_second = min(
+            request_capacity_exchanges_per_second,
+            response_capacity_exchanges_per_second,
+        )
+        bandwidth_bottleneck_direction = (
+            "request"
+            if request_capacity_exchanges_per_second <= response_capacity_exchanges_per_second
+            else "response"
+        )
+    else:
+        bandwidth_capacity_exchanges_per_second = 0.0
+        bandwidth_bottleneck_direction = ""
+    return {
+        "codec": codec,
+        "negotiated_codec": negotiated_codec,
+        "coordinator": "asyncio",
         "backend": ack.get("backend"),
         "requested_backend": args.backend,
         "client_backend": session.backend,
@@ -1683,6 +2172,103 @@ def _probe_aiwire_peer(
     }
 
 
+async def _probe_aiwire_peer_async(
+    target: RelayTarget,
+    args: argparse.Namespace,
+    frames: list[bytes],
+    fixture_replay: FixtureReplayCorpus | None,
+) -> dict[str, Any]:
+    child = _client_args_for_target(args, target)
+    fixture_variation_profile = _args_fixture_variation_profile(child)
+    fixture_peer_label = _args_fixture_peer_label(child)
+    session_templates = _client_session_templates(
+        child,
+        frames,
+        fixture_replay=fixture_replay,
+    )
+    hello: dict[str, Any] = {
+        "codec": "aiwire",
+        "exchanges": 0,
+        "duration_mode": False,
+        "duration_seconds": 0,
+        "handshake_probe": True,
+        "client_link_mbps": child.link_mbps,
+        "client_one_way_delay_ms": child.one_way_delay_ms,
+        "client_jitter_ms": child.jitter_ms,
+        "client_tail_pause_probability": child.tail_pause_probability,
+        "client_tail_pause_ms": child.tail_pause_ms,
+        "agent_count": max(1, child.agent_count),
+        "per_agent_pipeline_window": max(1, child.pipeline_window),
+        "aggregate_pipeline_window": max(1, child.agent_count) * max(1, child.pipeline_window),
+        "fixture_replay": fixture_replay is not None,
+        "aiwire_backend": child.backend,
+        "aiwire_level": child.aiwire_level,
+        "allow_aiwire_fallback": child.allow_aiwire_fallback,
+        "aiwire_handshake": build_aiwire_handshake(
+            level=child.aiwire_level,
+            fallback_codecs=("zlib", "raw") if child.allow_aiwire_fallback else (),
+            session_templates=session_templates,
+            require_session_templates=child.force_session_templates,
+        ).to_dict(),
+    }
+    if fixture_replay is not None:
+        hello.update(
+            {
+                "fixture_corpus": fixture_replay.path,
+                "fixture_schema": fixture_replay.schema,
+                "fixture_exchange_count": fixture_replay.exchange_count,
+                "fixture_session_template_mode": fixture_replay.session_template_mode,
+                "fixture_request_sha256": fixture_replay.request_sha256,
+                "fixture_response_sha256": fixture_replay.response_sha256,
+                "fixture_variation_profile": fixture_variation_profile,
+                "fixture_peer_label": fixture_peer_label,
+            }
+        )
+
+    connect_start = time.perf_counter_ns()
+    reader, writer = await asyncio.wait_for(
+        asyncio.open_connection(target.host, target.port),
+        timeout=child.timeout,
+    )
+    try:
+        _configure_async_low_latency(writer)
+        await _async_write_frame(writer, _json_bytes(hello))
+        ack = json.loads(await _async_read_frame(reader))
+    finally:
+        writer.close()
+        await writer.wait_closed()
+
+    handshake_ms = (time.perf_counter_ns() - connect_start) / 1_000_000
+    if not ack.get("accepted"):
+        raise RuntimeError(f"{target.label} AIWire handshake probe failed: {ack}")
+    if fixture_replay is not None and not ack.get("fixture_replay"):
+        raise RuntimeError(f"{target.label} fixture replay probe was not accepted: {ack}")
+
+    aiwire_negotiation = ack.get("aiwire_negotiation")
+    if not isinstance(aiwire_negotiation, dict) or not aiwire_negotiation.get("accepted"):
+        raise RuntimeError(f"{target.label} did not return an accepted AIWire negotiation")
+    peer_handshake = aiwire_negotiation.get("server")
+    if not isinstance(peer_handshake, dict):
+        raise RuntimeError(f"{target.label} did not return a server handshake")
+
+    return {
+        "target": target.label,
+        "handshake_ms": handshake_ms,
+        "backend": ack.get("backend"),
+        "requested_backend": child.backend,
+        "server_requested_backend": ack.get("requested_backend", ""),
+        "client_requested_backend": ack.get("client_requested_backend", ""),
+        "session_template_count": ack.get("session_template_count", 0),
+        "session_template_sha256": ack.get("session_template_sha256", ""),
+        "fixture_replay": ack.get("fixture_replay", False),
+        "fixture_exchange_count": ack.get("fixture_exchange_count", 0),
+        "fixture_variation_profile": ack.get("fixture_variation_profile", "none"),
+        "fixture_peer_label": ack.get("fixture_peer_label", ""),
+        "peer_handshake": peer_handshake,
+        "aiwire_negotiation": aiwire_negotiation,
+    }
+
+
 def _run_target_codec(
     target_index: int,
     target: RelayTarget,
@@ -1694,6 +2280,23 @@ def _run_target_codec(
 ) -> dict[str, Any]:
     child = _client_args_for_target(args, target, session_shard=session_shard)
     row = _client_stress_codec(codec, frames, child, fixture_replay)
+    row["target"] = target.label
+    row["target_index"] = target_index
+    row["session_shard"] = session_shard
+    return row
+
+
+async def _run_target_codec_async(
+    target_index: int,
+    target: RelayTarget,
+    codec: str,
+    args: argparse.Namespace,
+    frames: list[bytes],
+    fixture_replay: FixtureReplayCorpus | None,
+    session_shard: int = 1,
+) -> dict[str, Any]:
+    child = _client_args_for_target(args, target, session_shard=session_shard)
+    row = await _client_stress_codec_async(codec, frames, child, fixture_replay)
     row["target"] = target.label
     row["target_index"] = target_index
     row["session_shard"] = session_shard
@@ -1755,15 +2358,11 @@ def _aggregate_nary_results(
     return aggregates
 
 
-def run_client(args: argparse.Namespace) -> None:
-    frames, fixture_replay = _load_client_frames(args)
-    results = []
-    for codec in args.codecs.split(","):
-        codec = codec.strip()
-        results.append(_client_stress_codec(codec, frames, args, fixture_replay))
-
-    output: dict[str, Any] = {"results": results}
-    output["requested_backend"] = args.backend
+def _add_fixture_replay_output(
+    output: dict[str, Any],
+    args: argparse.Namespace,
+    fixture_replay: FixtureReplayCorpus | None,
+) -> None:
     if fixture_replay is not None:
         output["fixture_replay"] = {
             "fixture_corpus": fixture_replay.path,
@@ -1777,12 +2376,186 @@ def run_client(args: argparse.Namespace) -> None:
             "fixture_variation_profile": _args_fixture_variation_profile(args),
             "fixture_peer_label": _args_fixture_peer_label(args),
         }
+
+
+def _emit_json_output(output: dict[str, Any], args: argparse.Namespace) -> None:
     print(json.dumps(output, indent=2, sort_keys=True))
     if args.output:
         Path(args.output).write_text(json.dumps(output, indent=2, sort_keys=True) + "\n")
 
 
+async def _run_client_async(args: argparse.Namespace) -> None:
+    frames, fixture_replay = _load_client_frames(args)
+    results = []
+    for codec in args.codecs.split(","):
+        codec = codec.strip()
+        results.append(await _client_stress_codec_async(codec, frames, args, fixture_replay))
+
+    output: dict[str, Any] = {
+        "coordinator": "asyncio",
+        "requested_backend": args.backend,
+        "results": results,
+    }
+    _add_fixture_replay_output(output, args, fixture_replay)
+    _emit_json_output(output, args)
+
+
+def run_client(args: argparse.Namespace) -> None:
+    if args.coordinator == "asyncio":
+        asyncio.run(_run_client_async(args))
+        return
+
+    frames, fixture_replay = _load_client_frames(args)
+    results = []
+    for codec in args.codecs.split(","):
+        codec = codec.strip()
+        results.append(_client_stress_codec(codec, frames, args, fixture_replay))
+
+    output: dict[str, Any] = {
+        "coordinator": args.coordinator,
+        "requested_backend": args.backend,
+        "results": results,
+    }
+    _add_fixture_replay_output(output, args, fixture_replay)
+    _emit_json_output(output, args)
+
+
+async def _bounded_probe_aiwire_peer(
+    semaphore: asyncio.Semaphore,
+    target: RelayTarget,
+    args: argparse.Namespace,
+    frames: list[bytes],
+    fixture_replay: FixtureReplayCorpus | None,
+) -> tuple[str, dict[str, Any]]:
+    async with semaphore:
+        return target.label, await _probe_aiwire_peer_async(
+            target,
+            args,
+            frames,
+            fixture_replay,
+        )
+
+
+async def _bounded_run_target_codec(
+    semaphore: asyncio.Semaphore,
+    target_index: int,
+    target: RelayTarget,
+    codec: str,
+    args: argparse.Namespace,
+    frames: list[bytes],
+    fixture_replay: FixtureReplayCorpus | None,
+    session_shard: int,
+) -> dict[str, Any]:
+    async with semaphore:
+        return await _run_target_codec_async(
+            target_index,
+            target,
+            codec,
+            args,
+            frames,
+            fixture_replay,
+            session_shard,
+        )
+
+
+async def _run_nary_client_async(args: argparse.Namespace) -> None:
+    frames, fixture_replay = _load_client_frames(args)
+    targets = _collect_relay_targets(args)
+    codec_order = [codec.strip() for codec in args.codecs.split(",") if codec.strip()]
+    session_shards = max(1, int(getattr(args, "session_shards", 1) or 1))
+    session_templates = _client_session_templates(
+        args,
+        frames,
+        fixture_replay=fixture_replay,
+    )
+
+    probe_workers = min(max(1, args.target_parallelism), len(targets))
+    probe_semaphore = asyncio.Semaphore(probe_workers)
+    probe_tasks = [
+        _bounded_probe_aiwire_peer(
+            probe_semaphore,
+            target,
+            args,
+            frames,
+            fixture_replay,
+        )
+        for target in targets
+    ]
+    probe_results = await asyncio.gather(*probe_tasks)
+    probes_by_label = dict(probe_results)
+
+    peer_handshakes = [probes_by_label[target.label]["peer_handshake"] for target in targets]
+    nary_negotiation = negotiate_aiwire_nary_handshake(
+        peer_handshakes,
+        level=args.aiwire_level,
+        fallback_codecs=(),
+        allow_fallback=False,
+        session_templates=session_templates,
+        require_session_templates=args.force_session_templates,
+    )
+    if not nary_negotiation.accepted:
+        raise RuntimeError(f"n-ary AIWire negotiation failed: {nary_negotiation.reason}")
+
+    results: list[dict[str, Any]] = []
+    replay_workers = min(max(1, args.target_parallelism), len(targets) * session_shards)
+    replay_semaphore = asyncio.Semaphore(replay_workers)
+    for codec in codec_order:
+        replay_tasks = [
+            _bounded_run_target_codec(
+                replay_semaphore,
+                index,
+                target,
+                codec,
+                args,
+                frames,
+                fixture_replay,
+                shard,
+            )
+            for index, target in enumerate(targets, start=1)
+            for shard in range(1, session_shards + 1)
+        ]
+        results.extend(await asyncio.gather(*replay_tasks))
+
+    order = {codec: index for index, codec in enumerate(codec_order)}
+    results.sort(
+        key=lambda row: (
+            order.get(str(row["codec"]), len(order)),
+            row["target_index"],
+            row.get("session_shard", 1),
+        )
+    )
+    output: dict[str, Any] = {
+        "mode": "nary_client",
+        "coordinator": "asyncio",
+        "participant_count": len(targets) + 1,
+        "remote_peer_count": len(targets),
+        "session_shards_per_target": session_shards,
+        "total_replay_sessions": len(targets) * session_shards,
+        "requested_backend": args.backend,
+        "targets": [
+            {"index": index, "label": target.label} for index, target in enumerate(targets, start=1)
+        ],
+        "nary_negotiation": nary_negotiation.to_dict(),
+        "nary_peer_probes": [
+            {
+                key: value
+                for key, value in probes_by_label[target.label].items()
+                if key not in {"peer_handshake", "aiwire_negotiation"}
+            }
+            for target in targets
+        ],
+        "aggregate": _aggregate_nary_results(results, codec_order),
+        "results": results,
+    }
+    _add_fixture_replay_output(output, args, fixture_replay)
+    _emit_json_output(output, args)
+
+
 def run_nary_client(args: argparse.Namespace) -> None:
+    if args.coordinator == "asyncio":
+        asyncio.run(_run_nary_client_async(args))
+        return
+
     frames, fixture_replay = _load_client_frames(args)
     targets = _collect_relay_targets(args)
     codec_order = [codec.strip() for codec in args.codecs.split(",") if codec.strip()]
@@ -1847,6 +2620,7 @@ def run_nary_client(args: argparse.Namespace) -> None:
     )
     output: dict[str, Any] = {
         "mode": "nary_client",
+        "coordinator": args.coordinator,
         "participant_count": len(targets) + 1,
         "remote_peer_count": len(targets),
         "session_shards_per_target": session_shards,
@@ -1867,21 +2641,8 @@ def run_nary_client(args: argparse.Namespace) -> None:
         "aggregate": _aggregate_nary_results(results, codec_order),
         "results": results,
     }
-    if fixture_replay is not None:
-        output["fixture_replay"] = {
-            "fixture_corpus": fixture_replay.path,
-            "fixture_schema": fixture_replay.schema,
-            "fixture_session_count": fixture_replay.session_count,
-            "fixture_exchange_count": fixture_replay.exchange_count,
-            "fixture_session_template_mode": fixture_replay.session_template_mode,
-            "fixture_session_template_count": len(fixture_replay.session_templates),
-            "fixture_request_sha256": fixture_replay.request_sha256,
-            "fixture_response_sha256": fixture_replay.response_sha256,
-            "fixture_variation_profile": _args_fixture_variation_profile(args),
-        }
-    print(json.dumps(output, indent=2, sort_keys=True))
-    if args.output:
-        Path(args.output).write_text(json.dumps(output, indent=2, sort_keys=True) + "\n")
+    _add_fixture_replay_output(output, args, fixture_replay)
+    _emit_json_output(output, args)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -1971,6 +2732,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "AIWire encode/decode backend for negotiated AIWire codecs. "
             "python is reproducible default; native requires libaura_aiwire; "
             "auto uses native when available."
+        ),
+    )
+    client.add_argument(
+        "--coordinator",
+        choices=STRESS_COORDINATORS,
+        default="threaded",
+        help=(
+            "client-side network coordinator. threaded preserves the historical "
+            "path; asyncio uses one event loop to fan out frames without client "
+            "thread-pool contention."
         ),
     )
     client.add_argument("--aiwire-level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
@@ -2086,6 +2857,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "AIWire encode/decode backend for negotiated AIWire codecs. "
             "python is reproducible default; native requires libaura_aiwire; "
             "auto uses native when available."
+        ),
+    )
+    nary_client.add_argument(
+        "--coordinator",
+        choices=STRESS_COORDINATORS,
+        default="threaded",
+        help=(
+            "coordinator implementation for peer probes and replay sessions. "
+            "asyncio uses one event loop bounded by --target-parallelism."
         ),
     )
     nary_client.add_argument("--aiwire-level", type=int, default=AI_WIRE_DEFAULT_LEVEL)

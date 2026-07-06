@@ -220,11 +220,13 @@ keeping the same Z6 coordinator, four Nano-class targets, 60-second windows,
 | processes | 4 | 16 | 185,747 | 3,095.8 | 0.66x | 370.2 | 391.69 | 11.6% |
 | processes | 8 | 32 | 144,208 | 2,403.5 | 0.52x | 370.3 | 1,068.25 | 9.0% |
 
-That also missed the target. The useful conclusion is narrower: AIWire is already
-bandwidth-proportional at the byte level, but Python worker fan-out around the
-current harness does not convert that saved bandwidth into more completed
-messages. The next performance step should remove Python from the hot path or
-move the coordinator/server loop to an async/native design.
+That also missed the target. The useful conclusion is narrower: AIWire is
+already bandwidth-proportional at the byte level, but Python worker fan-out
+around the current harness does not convert that saved bandwidth into more
+completed messages. The next measurement path is the opt-in asyncio coordinator
+loop in `tools/stress_ai_wire_roundtrip_z6.py`; after that, the remaining
+ceiling belongs in a native coordinator/server loop rather than more Python
+workers.
 
 Read the n-ary relay report:
 [AIWire N-ary Z6-to-Nano Benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
@@ -487,7 +489,11 @@ sustained-session setup path and fixture codec path.
 The LAN benchmark harness can run a server on one machine and a client on
 another. The live harness also accepts `--backend python|native|auto` on both
 server and client paths; keep both sides on the same requested backend when
-comparing Python and native AIWire.
+comparing Python and native AIWire. Client and n-ary client modes also accept
+`--coordinator threaded|asyncio`. `threaded` is the historical default;
+`asyncio` uses one event loop for peer probes and replay-session fan-out so
+coordinator-side network concurrency is measured without client thread-pool
+contention.
 
 ```bash
 # Target machine
@@ -507,6 +513,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
   --agent-count 16 \
   --pipeline-window 1 \
   --link-mbps 10 \
+  --coordinator asyncio \
   --backend python \
   --codecs raw,zlib,aitoken,aiwire,aitoken_aiwire
 ```
@@ -585,6 +592,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py client \
   --pipeline-window 1 \
   --link-mbps 10 \
   --codecs raw,zlib,aiwire,aitoken_aiwire \
+  --coordinator asyncio \
   --backend python \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \
@@ -629,6 +637,7 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py nary-client \
   --session-shards 1 \
   --link-mbps 10 \
   --codecs raw,zlib,aiwire \
+  --coordinator asyncio \
   --backend python \
   --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
   --fixture-session-templates updated \

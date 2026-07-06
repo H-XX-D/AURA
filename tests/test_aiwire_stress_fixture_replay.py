@@ -42,6 +42,30 @@ def test_stress_tool_backend_args_parse_for_all_modes() -> None:
     assert parse_args(["server", "--backend", "native"]).backend == "native"
     assert parse_args(["client", "--host", "127.0.0.1", "--backend", "auto"]).backend == "auto"
     assert parse_args(["nary-client", "--target", "edge=127.0.0.1:8910"]).backend == "python"
+    assert (
+        parse_args(
+            [
+                "client",
+                "--host",
+                "127.0.0.1",
+                "--coordinator",
+                "asyncio",
+            ]
+        ).coordinator
+        == "asyncio"
+    )
+    assert (
+        parse_args(
+            [
+                "nary-client",
+                "--target",
+                "edge=127.0.0.1:8910",
+                "--coordinator",
+                "asyncio",
+            ]
+        ).coordinator
+        == "asyncio"
+    )
 
 
 def test_stress_tool_replays_public_fixture_over_tcp() -> None:
@@ -148,6 +172,99 @@ def test_stress_tool_replays_public_fixture_over_tcp() -> None:
     assert by_codec["aiwire"]["aiwire_negotiation"]["accepted"] is True
 
 
+def test_stress_tool_replays_public_fixture_with_asyncio_coordinator() -> None:
+    port = _free_port()
+    server_cmd = [
+        sys.executable,
+        str(STRESS_TOOL),
+        "server",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--runs",
+        "1",
+        "--fixture-corpus",
+        str(FIXTURE_PATH),
+        "--fixture-session-templates",
+        "updated",
+    ]
+    client_cmd = [
+        sys.executable,
+        str(STRESS_TOOL),
+        "client",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--coordinator",
+        "asyncio",
+        "--seconds",
+        "0",
+        "--exchanges",
+        "4",
+        "--codecs",
+        "aiwire",
+        "--fixture-corpus",
+        str(FIXTURE_PATH),
+        "--fixture-session-templates",
+        "updated",
+        "--fixture-variation-profile",
+        "cluster",
+        "--force-session-templates",
+        "--pipeline-window",
+        "2",
+        "--agent-count",
+        "2",
+        "--timeout",
+        "20",
+    ]
+    server = subprocess.Popen(
+        server_cmd,
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    time.sleep(0.35)
+    try:
+        completed = subprocess.run(
+            client_cmd,
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=40,
+        )
+        server_stdout, server_stderr = server.communicate(timeout=10)
+    except BaseException as exc:
+        server.terminate()
+        try:
+            server_stdout, server_stderr = server.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            server.kill()
+            server_stdout, server_stderr = server.communicate()
+        raise AssertionError(
+            f"asyncio fixture replay failed: {exc!r}\nserver stdout:\n"
+            f"{server_stdout}\nserver stderr:\n{server_stderr}"
+        ) from exc
+
+    assert server.returncode == 0, server_stderr
+    payload = json.loads(completed.stdout)
+    row = payload["results"][0]
+
+    assert payload["coordinator"] == "asyncio"
+    assert payload["requested_backend"] == "python"
+    assert row["coordinator"] == "asyncio"
+    assert row["codec"] == "aiwire"
+    assert row["client_backend"] == "python"
+    assert row["server_backend"] == "python"
+    assert row["verified"] is True
+    assert row["fixture_replay"] is True
+    assert row["response_verification"] == "fixture_sha256"
+    assert row["exchanges"] == 4
+
+
 def test_nary_client_replays_public_fixture_across_two_peers() -> None:
     ports = [_free_port(), _free_port()]
     server_cmds = [
@@ -192,6 +309,8 @@ def test_nary_client_replays_public_fixture_across_two_peers() -> None:
         "4",
         "--codecs",
         "raw,aiwire",
+        "--coordinator",
+        "asyncio",
         "--fixture-corpus",
         str(FIXTURE_PATH),
         "--fixture-session-templates",
@@ -243,6 +362,7 @@ def test_nary_client_replays_public_fixture_across_two_peers() -> None:
     aggregate = {row["codec"]: row for row in payload["aggregate"]}
 
     assert payload["mode"] == "nary_client"
+    assert payload["coordinator"] == "asyncio"
     assert payload["requested_backend"] == "python"
     assert payload["participant_count"] == 3
     assert payload["remote_peer_count"] == 2
@@ -262,6 +382,7 @@ def test_nary_client_replays_public_fixture_across_two_peers() -> None:
     assert {row["target"] for row in rows} == {"edge-a", "edge-b"}
     assert {row["codec"] for row in rows} == {"raw", "aiwire"}
     for row in rows:
+        assert row["coordinator"] == "asyncio"
         assert row["verified"] is True
         assert row["requested_backend"] == "python"
         assert row["server_requested_backend"] == "python"

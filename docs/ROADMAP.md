@@ -123,6 +123,10 @@ native token paths on each machine before cluster runs.
   `--backend python|native|auto` so cross-machine cluster tests report both the
   requested backend and the actual encode/decode backend.
 - Profile Jetson Nano-class CPUs and remove avoidable Python overhead.
+  `tools/profile_aiwire_hot_path.py` now emits JSON/Markdown cProfile artifacts
+  for the sustained-session setup path and fixture codec path so Z6/Jetson runs
+  can identify whether time is in template discovery, JSON encoding, zlib, or
+  native boundary work before async/native rewrites.
 - Keep session/connection sharding in the n-ary benchmark harness as a
   measurement tool. Corrected thread and forked-process server sharding both
   regressed throughput and tail latency, so they are diagnostics rather than

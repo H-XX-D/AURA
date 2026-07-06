@@ -466,6 +466,24 @@ the Markdown summarizes backend deltas, byte movement, codec CPU, and whether
 the native path actually handled encode/decode. Use `--allow-missing-native`
 only for portable smoke tests where skipping native is acceptable.
 
+To identify where the current Python hot path is spending CPU on a workstation
+or edge target, generate a cProfile-backed report:
+
+```bash
+PYTHONPATH=src python tools/profile_aiwire_hot_path.py \
+  --mode both \
+  --backend native \
+  --messages 128 \
+  --codecs raw,zlib,aiwire,aitoken_aiwire \
+  --output /tmp/aura_aiwire_hot_path_profile.json \
+  --markdown-output /tmp/aura_aiwire_hot_path_profile.md
+```
+
+Run the same command with `--backend python` and `--backend native` on each
+machine. The report records platform details, native availability, payload
+byte/cpu summaries, and the top cumulative/self-time functions for the
+sustained-session setup path and fixture codec path.
+
 The LAN benchmark harness can run a server on one machine and a client on
 another. The live harness also accepts `--backend python|native|auto` on both
 server and client paths; keep both sides on the same requested backend when
@@ -685,7 +703,8 @@ delta streams.
 PYTHONPATH=src pytest tests/test_ai_wire.py tests/test_ai_wire_token.py \
   tests/test_aiwire_benchmark_smoke.py tests/test_aiwire_session_fixtures.py \
   tests/test_aiwire_bandwidth_extrapolation.py \
-  tests/test_aiwire_fixture_saturation.py tests/test_aiwire_stress_fixture_replay.py \
+  tests/test_aiwire_fixture_saturation.py tests/test_aiwire_backend_comparison.py \
+  tests/test_aiwire_hot_path_profile.py tests/test_aiwire_stress_fixture_replay.py \
   tests/test_aiwire_network_profiles.py -q
 pytest -q
 ```

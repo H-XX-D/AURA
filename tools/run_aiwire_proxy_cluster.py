@@ -170,8 +170,8 @@ def _background_command(*, run_dir: str, name: str, inner: str) -> str:
     pid = f"{run_dir}/{name}.pid"
     return (
         f"mkdir -p {_quote(run_dir)} && "
-        f"nohup sh -lc {_quote(inner)} > {_quote(stdout)} 2> {_quote(stderr)} "
-        f"< /dev/null & echo $! > {_quote(pid)}"
+        f"(nohup sh -lc {_quote(inner)} > {_quote(stdout)} 2> {_quote(stderr)} "
+        f"< /dev/null & echo $! > {_quote(pid)})"
     )
 
 

@@ -258,6 +258,19 @@ Full reports:
 and
 [AIWire Native Asyncio Bandwidth Extrapolation](docs/perf/aiwire_native_asyncio_bandwidth_extrapolation_2026-07-06.md).
 
+The explicit sidecar proxy was then run over a real LAN hop to one Jetson Orin
+Nano-class edge target. The native backend was built on the edge target, the
+SSH-managed preflight passed, and a 60-second sidecar run verified 1,358
+request/response exchanges. Raw framed traffic averaged 2,345.4 bytes per
+exchange; AIWire semantic traffic averaged 367.0 bytes per exchange, saving
+84.4% of semantic bytes with a 46.29 ms p95 round trip. The result confirms the
+sidecar path preserves the sustained-handshake byte savings over a real edge
+hop; completed exchange rate is still limited by the current single-connection
+request/response loop rather than modeled 10 Mbps link capacity.
+
+Read the proxy edge report:
+[AIWire Explicit Proxy Nano Edge Run](docs/perf/aiwire_proxy_nano_engineer_2026-07-06.md).
+
 Current local benchmark-profile smoke on 2026-07-05 uses the Python AIWire path,
 level 3, seed 1729, and synthetic public-safe `corpus_metadata` on every
 message. This is a reproducible codec/corpus check, not a LAN throughput claim:

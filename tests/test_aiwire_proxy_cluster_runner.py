@@ -61,11 +61,11 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     assert rendered["dry_run"] is True
     assert rendered["fixture_variation_profile"] == "cluster"
     assert rendered["targets"][0]["target"]["label"] == "edge-1"
-    assert (
-        "aura_compression.cli.proxy_fixture_server"
-        in rendered["targets"][0]["commands"]["start_fixture"]
-    )
-    assert "cd $HOME/AURA" in rendered["targets"][0]["commands"]["start_fixture"]
+    start_fixture = rendered["targets"][0]["commands"]["start_fixture"]
+    assert "aura_compression.cli.proxy_fixture_server" in start_fixture
+    assert "cd $HOME/AURA" in start_fixture
+    assert "&& (nohup sh -lc" in start_fixture
+    assert "& echo $! >" in start_fixture
     assert "aura_compression.cli.proxy" in rendered["targets"][0]["commands"]["start_egress"]
     assert "Run again with `--run`" in summary.read_text()
 

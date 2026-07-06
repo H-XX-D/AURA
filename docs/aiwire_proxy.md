@@ -177,6 +177,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --target edge-2=<edge-ssh-host> \
   --target edge-3=<edge-ssh-host> \
   --target edge-4=<edge-ssh-host> \
+  --preflight \
   --seconds 60 \
   --backend native \
   --fixture-variation-profile cluster \
@@ -190,6 +191,18 @@ Target lines may include public labels and deployment-specific overrides:
 ```text
 edge-1=<ssh-host>,proxy_host=<lan-host>,egress_port=9200,upstream_port=9300
 ```
+
+The `--preflight` mode checks the path before launching sidecars:
+
+- local SSH config resolution, including aliases
+- TCP reachability for the target SSH endpoint
+- batch-mode SSH authentication
+- remote `AURA` checkout importability
+- fixture corpus presence
+- native backend availability when `--backend native` is selected
+
+When `--preflight --run` is used together, the runner exits before launching
+remote processes unless every target is ready.
 
 The cluster variation profile deterministically changes role, workload, route,
 epoch, queue depth, token window, telemetry, and trace identifiers per peer.

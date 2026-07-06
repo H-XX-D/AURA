@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -64,5 +65,112 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
         "aura_compression.cli.proxy_fixture_server"
         in rendered["targets"][0]["commands"]["start_fixture"]
     )
+    assert "cd $HOME/AURA" in rendered["targets"][0]["commands"]["start_fixture"]
     assert "aura_compression.cli.proxy" in rendered["targets"][0]["commands"]["start_egress"]
     assert "Run again with `--run`" in summary.read_text()
+
+
+def test_proxy_cluster_preflight_reports_ssh_auth_failure(monkeypatch, tmp_path: Path) -> None:
+    output = tmp_path / "preflight.json"
+
+    def fake_run_capture(
+        command: list[str],
+        *,
+        timeout: float,
+        check: bool = False,
+    ) -> subprocess.CompletedProcess[str]:
+        del timeout, check
+        if "-G" in command:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="hostname 192.0.2.10\nport 22\nuser agent\n",
+                stderr="",
+            )
+        if command[-1] == "printf AURA_PROXY_PREFLIGHT_OK":
+            return subprocess.CompletedProcess(
+                command,
+                255,
+                stdout="",
+                stderr="Permission denied (publickey).",
+            )
+        raise AssertionError(f"unexpected command: {command!r}")
+
+    monkeypatch.setattr(proxy_cluster, "_run_capture", fake_run_capture)
+    monkeypatch.setattr(
+        proxy_cluster,
+        "_tcp_probe",
+        lambda host, port, timeout: {
+            "ok": True,
+            "host": host,
+            "port": port,
+            "elapsed_ms": 1.0,
+        },
+    )
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=agent@192.0.2.10",
+                "--preflight",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(output.read_text())
+    target = rendered["preflight"]["targets"][0]
+
+    assert rendered["mode"] == "preflight"
+    assert rendered["preflight"]["ok"] is False
+    assert target["tcp"]["ok"] is True
+    assert target["ssh_auth"]["ok"] is False
+    assert target["remote_environment"]["skipped"] == "ssh auth did not pass"
+    assert target["errors"] == ["ssh batch authentication failed"]
+
+
+def test_proxy_cluster_preflight_blocks_run_on_failure(monkeypatch, tmp_path: Path) -> None:
+    output = tmp_path / "preflight-run.json"
+
+    monkeypatch.setattr(
+        proxy_cluster,
+        "_ssh_config_probe",
+        lambda target, args: {"ok": True, "hostname": "192.0.2.10", "port": 22},
+    )
+    monkeypatch.setattr(
+        proxy_cluster,
+        "_tcp_probe",
+        lambda host, port, timeout: {
+            "ok": False,
+            "host": host,
+            "port": port,
+            "elapsed_ms": 1.0,
+            "error": "timed out",
+        },
+    )
+    monkeypatch.setattr(
+        proxy_cluster,
+        "run_plan",
+        lambda plan, args: (_ for _ in ()).throw(AssertionError("run should be blocked")),
+    )
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=agent@192.0.2.10",
+                "--preflight",
+                "--run",
+                "--output",
+                str(output),
+            ]
+        )
+        == 2
+    )
+
+    rendered = json.loads(output.read_text())
+    assert rendered["dry_run"] is True
+    assert rendered["preflight"]["ok"] is False

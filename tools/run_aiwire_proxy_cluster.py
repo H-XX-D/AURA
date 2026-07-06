@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import json
+import math
 import shlex
+import socket
 import subprocess
 import sys
 import time
@@ -48,6 +50,16 @@ def _utc_now() -> str:
 
 def _quote(value: str | Path) -> str:
     return shlex.quote(str(value))
+
+
+def _quote_remote_path(value: str | Path) -> str:
+    text = str(value)
+    if text == "~":
+        return "$HOME"
+    if text.startswith("~/"):
+        suffix = text[2:]
+        return "$HOME" if not suffix else f"$HOME/{_quote(suffix)}"
+    return _quote(text)
 
 
 def _proxy_host_from_ssh_host(ssh_host: str) -> str:
@@ -137,7 +149,7 @@ def _remote_module_command(
     args: list[str],
 ) -> str:
     command = shlex.join([remote_python, "-m", module, *args])
-    return f"cd {_quote(remote_root)} && PYTHONPATH=src {command}"
+    return f"cd {_quote_remote_path(remote_root)} && PYTHONPATH=src {command}"
 
 
 def _background_command(*, run_dir: str, name: str, inner: str) -> str:
@@ -282,18 +294,268 @@ def build_plan(args: argparse.Namespace, targets: list[ProxyClusterTarget]) -> d
     }
 
 
+def _ssh_connect_timeout_value(args: argparse.Namespace) -> str:
+    return str(max(1, math.ceil(float(args.ssh_connect_timeout))))
+
+
 def _ssh_command_prefix(target: ProxyClusterTarget, args: argparse.Namespace) -> list[str]:
     command = [
         "ssh",
         "-o",
         "BatchMode=yes",
         "-o",
-        f"ConnectTimeout={args.ssh_connect_timeout}",
+        f"ConnectTimeout={_ssh_connect_timeout_value(args)}",
     ]
     if target.ssh_port is not None:
         command.extend(["-p", str(target.ssh_port)])
     command.append(target.ssh_host)
     return command
+
+
+def _ssh_config_command(target: ProxyClusterTarget, args: argparse.Namespace) -> list[str]:
+    command = [
+        "ssh",
+        "-G",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        f"ConnectTimeout={_ssh_connect_timeout_value(args)}",
+    ]
+    if target.ssh_port is not None:
+        command.extend(["-p", str(target.ssh_port)])
+    command.append(target.ssh_host)
+    return command
+
+
+def _run_capture(
+    command: list[str], *, timeout: float, check: bool = False
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        command,
+        check=check,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def _tail(value: str, *, limit: int = 1200) -> str:
+    return value[-limit:] if len(value) > limit else value
+
+
+def _parse_ssh_g_output(output: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for line in output.splitlines():
+        if not line.strip() or " " not in line:
+            continue
+        key, value = line.split(None, 1)
+        if key in {"hostname", "port", "user"}:
+            parsed[key] = value.strip()
+    return parsed
+
+
+def _ssh_config_probe(target: ProxyClusterTarget, args: argparse.Namespace) -> dict[str, Any]:
+    try:
+        completed = _run_capture(
+            _ssh_config_command(target, args),
+            timeout=args.ssh_connect_timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "ok": False,
+            "command": exc.cmd,
+            "error": f"ssh -G timed out after {args.ssh_connect_timeout}s",
+        }
+
+    result: dict[str, Any] = {
+        "ok": completed.returncode == 0,
+        "returncode": completed.returncode,
+    }
+    if completed.returncode == 0:
+        parsed = _parse_ssh_g_output(completed.stdout)
+        result.update(
+            {
+                "hostname": parsed.get("hostname", _proxy_host_from_ssh_host(target.ssh_host)),
+                "port": int(parsed.get("port", target.ssh_port or 22)),
+                "user": parsed.get("user"),
+            }
+        )
+    else:
+        result["stderr"] = _tail(completed.stderr)
+    return result
+
+
+def _tcp_probe(host: str, port: int, timeout: float) -> dict[str, Any]:
+    started = time.perf_counter()
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            pass
+    except OSError as exc:
+        return {
+            "ok": False,
+            "host": host,
+            "port": port,
+            "elapsed_ms": (time.perf_counter() - started) * 1000,
+            "error": str(exc),
+        }
+    return {
+        "ok": True,
+        "host": host,
+        "port": port,
+        "elapsed_ms": (time.perf_counter() - started) * 1000,
+    }
+
+
+def _ssh_auth_probe(target: ProxyClusterTarget, args: argparse.Namespace) -> dict[str, Any]:
+    try:
+        completed = _run_capture(
+            [*_ssh_command_prefix(target, args), "printf AURA_PROXY_PREFLIGHT_OK"],
+            timeout=args.ssh_timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "ok": False,
+            "command": exc.cmd,
+            "error": f"ssh auth probe timed out after {args.ssh_timeout}s",
+        }
+
+    stdout = completed.stdout.strip()
+    return {
+        "ok": completed.returncode == 0 and stdout == "AURA_PROXY_PREFLIGHT_OK",
+        "returncode": completed.returncode,
+        "stdout": stdout,
+        "stderr": _tail(completed.stderr),
+    }
+
+
+def _remote_preflight_command(args: argparse.Namespace) -> str:
+    code = """
+import json
+import pathlib
+import platform
+import sys
+
+fixture_corpus = pathlib.Path(__AURA_FIXTURE_CORPUS__)
+if not fixture_corpus.is_absolute():
+    fixture_corpus = pathlib.Path.cwd() / fixture_corpus
+
+result = {
+    "python": platform.python_version(),
+    "cwd": str(pathlib.Path.cwd()),
+    "fixture_corpus": str(fixture_corpus),
+    "fixture_exists": fixture_corpus.exists(),
+    "aura_import_ok": False,
+    "native_status": None,
+    "errors": [],
+}
+
+try:
+    import aura_compression  # noqa: F401
+    from aura_compression.ai_wire import aiwire_native_status
+
+    result["aura_import_ok"] = True
+    result["native_status"] = aiwire_native_status().as_dict()
+except Exception as exc:
+    result["errors"].append(f"aura import/native status failed: {exc}")
+
+if not result["fixture_exists"]:
+    result["errors"].append("fixture corpus not found")
+
+if __AURA_BACKEND__ == "native":
+    native_status = result.get("native_status") or {}
+    if not native_status.get("available"):
+        result["errors"].append("native AIWire backend is not available")
+    if native_status.get("dictionary_matches_python") is not True:
+        result["errors"].append("native AIWire dictionary does not match Python dictionary")
+
+result["ok"] = not result["errors"]
+print(json.dumps(result, sort_keys=True))
+""".replace("__AURA_FIXTURE_CORPUS__", repr(args.fixture_corpus)).replace(
+        "__AURA_BACKEND__", repr(args.backend)
+    )
+    command = shlex.join([args.remote_python, "-c", code])
+    return f"cd {_quote_remote_path(args.remote_root)} && PYTHONPATH=src {command}"
+
+
+def _remote_environment_probe(
+    target: ProxyClusterTarget, args: argparse.Namespace
+) -> dict[str, Any]:
+    try:
+        completed = _run_capture(
+            [*_ssh_command_prefix(target, args), _remote_preflight_command(args)],
+            timeout=args.ssh_timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "ok": False,
+            "command": exc.cmd,
+            "error": f"remote environment probe timed out after {args.ssh_timeout}s",
+        }
+
+    result: dict[str, Any] = {
+        "ok": False,
+        "returncode": completed.returncode,
+        "stderr": _tail(completed.stderr),
+    }
+    if completed.returncode != 0:
+        result["stdout"] = _tail(completed.stdout)
+        return result
+    try:
+        parsed = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        result["stdout"] = _tail(completed.stdout)
+        result["error"] = f"remote preflight returned invalid JSON: {exc}"
+        return result
+    return parsed
+
+
+def _preflight_target(target_plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    target = ProxyClusterTarget(**target_plan["target"])
+    errors: list[str] = []
+    ssh_config = _ssh_config_probe(target, args)
+    ssh_host = str(ssh_config.get("hostname") or _proxy_host_from_ssh_host(target.ssh_host))
+    ssh_port = int(ssh_config.get("port") or target.ssh_port or 22)
+    if not ssh_config.get("ok"):
+        errors.append("ssh config could not be resolved")
+
+    tcp = _tcp_probe(ssh_host, ssh_port, args.ssh_connect_timeout)
+    if not tcp.get("ok"):
+        errors.append("ssh tcp port is not reachable")
+
+    auth = {"ok": False, "skipped": "ssh tcp port is not reachable"}
+    remote = {"ok": False, "skipped": "ssh auth did not pass"}
+    if tcp.get("ok"):
+        auth = _ssh_auth_probe(target, args)
+        if not auth.get("ok"):
+            errors.append("ssh batch authentication failed")
+        else:
+            remote = _remote_environment_probe(target, args)
+            if not remote.get("ok"):
+                errors.append("remote AURA environment check failed")
+
+    return {
+        "target": asdict(target),
+        "ok": not errors,
+        "errors": errors,
+        "ssh_config": ssh_config,
+        "tcp": tcp,
+        "ssh_auth": auth,
+        "remote_environment": remote,
+    }
+
+
+def run_preflight(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.target_parallelism) as executor:
+        futures = [
+            executor.submit(_preflight_target, target_plan, args) for target_plan in plan["targets"]
+        ]
+        targets = [future.result() for future in concurrent.futures.as_completed(futures)]
+    targets.sort(key=lambda row: row["target"]["label"])
+    return {
+        "ok": all(row["ok"] for row in targets),
+        "checked_at_utc": _utc_now(),
+        "targets": targets,
+    }
 
 
 def _ssh_capture(
@@ -462,6 +724,35 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
     ]
     if report.get("dry_run"):
+        preflight = report.get("preflight")
+        if preflight:
+            lines.extend(
+                [
+                    "## Preflight",
+                    "",
+                    "| Target | SSH TCP | SSH auth | Remote env | Status |",
+                    "|---|---|---|---|---|",
+                ]
+            )
+            for item in preflight["targets"]:
+                target = item["target"]
+                lines.append(
+                    f"| {target['label']} | {item['tcp'].get('ok')} | "
+                    f"{item['ssh_auth'].get('ok')} | "
+                    f"{item['remote_environment'].get('ok')} | "
+                    f"{'ready' if item['ok'] else '; '.join(item['errors'])} |"
+                )
+            lines.extend(
+                [
+                    "",
+                    (
+                        "All targets are ready for `--run`."
+                        if preflight["ok"]
+                        else "Fix failed preflight checks before running sidecars."
+                    ),
+                    "",
+                ]
+            )
         lines.extend(
             [
                 "## Plan",
@@ -529,6 +820,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--targets-file")
     parser.add_argument("--run", action="store_true", help="execute the SSH plan")
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help=(
+            "check SSH config, TCP reachability, batch auth, remote AURA import, "
+            "fixture corpus, and native backend readiness"
+        ),
+    )
     parser.add_argument("--run-id")
     parser.add_argument("--coordinator-label", default="z6")
     parser.add_argument("--remote-root", default="~/AURA")
@@ -561,7 +860,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     targets = collect_targets(args)
     plan = build_plan(args, targets)
-    report = run_plan(plan, args) if args.run else plan
+    if args.preflight:
+        plan = {**plan, "mode": "preflight", "preflight": run_preflight(plan, args)}
+        if args.run and not plan["preflight"]["ok"]:
+            report = {**plan, "dry_run": True}
+            exit_code = 2
+        else:
+            report = run_plan(plan, args) if args.run else plan
+            exit_code = 0
+    else:
+        report = run_plan(plan, args) if args.run else plan
+        exit_code = 0
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -570,7 +879,7 @@ def main(argv: list[str] | None = None) -> int:
         args.summary_output.parent.mkdir(parents=True, exist_ok=True)
         args.summary_output.write_text(render_markdown(report), encoding="utf-8")
     print(json.dumps(report, indent=2, sort_keys=True))
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":

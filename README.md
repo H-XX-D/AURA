@@ -484,21 +484,27 @@ private host details in the repo:
 python tools/run_aiwire_proxy_cluster.py \
   --target edge-1=<edge-ssh-host> \
   --target edge-2=<edge-ssh-host> \
+  --preflight \
   --seconds 60 \
   --backend native \
   --fixture-variation-profile cluster \
   --output /tmp/aura-proxy-cluster.json \
   --summary-output /tmp/aura-proxy-cluster.md
 
-# Execute the same plan after checking the commands.
+# Execute the same plan after preflight passes and the commands look right.
 python tools/run_aiwire_proxy_cluster.py \
   --target edge-1=<edge-ssh-host> \
   --target edge-2=<edge-ssh-host> \
+  --preflight \
   --seconds 60 \
   --backend native \
   --fixture-variation-profile cluster \
   --run
 ```
+
+Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
+authentication, remote AURA importability, fixture corpus presence, and native
+backend readiness before any remote sidecars are launched.
 
 Editable service templates live under `deploy/aura-proxy/` for systemd and
 launchd.

@@ -484,6 +484,14 @@ private host details in the repo:
 python tools/run_aiwire_proxy_cluster.py \
   --target edge-1=<edge-ssh-host> \
   --target edge-2=<edge-ssh-host> \
+  --ssh-bootstrap \
+  --ssh-public-key ~/.ssh/id_ed25519.pub \
+  --output /tmp/aura-proxy-bootstrap.json \
+  --summary-output /tmp/aura-proxy-bootstrap.md
+
+python tools/run_aiwire_proxy_cluster.py \
+  --target edge-1=<edge-ssh-host> \
+  --target edge-2=<edge-ssh-host> \
   --preflight \
   --seconds 60 \
   --backend native \
@@ -501,6 +509,10 @@ python tools/run_aiwire_proxy_cluster.py \
   --fixture-variation-profile cluster \
   --run
 ```
+
+Use `--ssh-bootstrap` only to generate the safe key-install report when targets
+are network-reachable but batch SSH auth fails. It emits `ssh-copy-id`, target
+console, and post-check commands; it does not modify hosts.
 
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native

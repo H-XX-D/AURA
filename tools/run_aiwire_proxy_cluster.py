@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import hashlib
 import json
 import math
 import shlex
@@ -30,6 +31,13 @@ from aura_compression.aiwire_proxy_benchmark import (
 
 DEFAULT_FIXTURE_CORPUS = "fixtures/aiwire_sessions/public_session_corpus_v1.json"
 PROXY_CLUSTER_SCHEMA = "aura.aiwire.proxy_cluster_benchmark.v1"
+SSH_PUBLIC_KEY_PREFIXES = (
+    "ssh-ed25519",
+    "ssh-rsa",
+    "ecdsa-sha2-",
+    "sk-ecdsa-sha2-",
+    "sk-ssh-ed25519",
+)
 
 
 @dataclass(frozen=True)
@@ -50,6 +58,10 @@ def _utc_now() -> str:
 
 def _quote(value: str | Path) -> str:
     return shlex.quote(str(value))
+
+
+def _shell_command(parts: list[str]) -> str:
+    return shlex.join(parts)
 
 
 def _quote_remote_path(value: str | Path) -> str:
@@ -558,6 +570,65 @@ def run_preflight(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, A
     }
 
 
+def _read_public_key(path: str | Path) -> tuple[Path, str]:
+    public_key_path = Path(path).expanduser()
+    key = public_key_path.read_text(encoding="utf-8").strip()
+    if "\n" in key or "\r" in key:
+        raise ValueError(f"public key must be one line: {public_key_path}")
+    if "PRIVATE" in key:
+        raise ValueError(f"refusing to use a private key file: {public_key_path}")
+    if not key.startswith(SSH_PUBLIC_KEY_PREFIXES):
+        raise ValueError(f"unsupported or invalid SSH public key: {public_key_path}")
+    return public_key_path, key
+
+
+def _ssh_copy_id_command(target: ProxyClusterTarget, public_key_path: Path) -> str:
+    command = ["ssh-copy-id", "-i", str(public_key_path)]
+    if target.ssh_port is not None:
+        command.extend(["-p", str(target.ssh_port)])
+    command.append(target.ssh_host)
+    return _shell_command(command)
+
+
+def _authorized_keys_console_command(public_key: str) -> str:
+    quoted_key = _quote(public_key)
+    return (
+        'umask 077; mkdir -p "$HOME/.ssh"; touch "$HOME/.ssh/authorized_keys"; '
+        f'grep -qxF {quoted_key} "$HOME/.ssh/authorized_keys" || '
+        f"printf '%s\\n' {quoted_key} >> \"$HOME/.ssh/authorized_keys\"; "
+        'chmod 700 "$HOME/.ssh"; chmod 600 "$HOME/.ssh/authorized_keys"'
+    )
+
+
+def build_ssh_bootstrap(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    public_key_path, public_key = _read_public_key(args.ssh_public_key)
+    public_key_sha256 = hashlib.sha256(public_key.encode("utf-8")).hexdigest()
+    return {
+        "schema": "aura.aiwire.proxy_cluster_ssh_bootstrap.v1",
+        "public_key_path": str(public_key_path),
+        "public_key_sha256": public_key_sha256,
+        "created_at_utc": _utc_now(),
+        "dry_run": True,
+        "targets": [
+            {
+                "target": item["target"],
+                "ssh_copy_id_command": _ssh_copy_id_command(
+                    ProxyClusterTarget(**item["target"]),
+                    public_key_path,
+                ),
+                "console_authorized_keys_command": _authorized_keys_console_command(public_key),
+                "post_check_command": _shell_command(
+                    [
+                        *_ssh_command_prefix(ProxyClusterTarget(**item["target"]), args),
+                        "printf AURA_PROXY_PREFLIGHT_OK",
+                    ]
+                ),
+            }
+            for item in plan["targets"]
+        ],
+    }
+
+
 def _ssh_capture(
     target: ProxyClusterTarget,
     args: argparse.Namespace,
@@ -724,6 +795,50 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
     ]
     if report.get("dry_run"):
+        ssh_bootstrap = report.get("ssh_bootstrap")
+        if ssh_bootstrap:
+            lines.extend(
+                [
+                    "## SSH Bootstrap",
+                    "",
+                    f"Public key path: `{ssh_bootstrap['public_key_path']}`",
+                    f"Public key SHA256: `{ssh_bootstrap['public_key_sha256']}`",
+                    "",
+                    (
+                        "Use `ssh-copy-id` when password SSH is available. "
+                        "Use the console command from a local shell on the target "
+                        "when SSH auth is not available yet."
+                    ),
+                    "",
+                ]
+            )
+            for item in ssh_bootstrap["targets"]:
+                target = item["target"]
+                lines.extend(
+                    [
+                        f"### {target['label']}",
+                        "",
+                        "Password SSH path:",
+                        "",
+                        "```bash",
+                        item["ssh_copy_id_command"],
+                        "```",
+                        "",
+                        "Target console path:",
+                        "",
+                        "```bash",
+                        item["console_authorized_keys_command"],
+                        "```",
+                        "",
+                        "Post-check from the coordinator:",
+                        "",
+                        "```bash",
+                        item["post_check_command"],
+                        "```",
+                        "",
+                    ]
+                )
+
         preflight = report.get("preflight")
         if preflight:
             lines.extend(
@@ -821,6 +936,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--targets-file")
     parser.add_argument("--run", action="store_true", help="execute the SSH plan")
     parser.add_argument(
+        "--ssh-bootstrap",
+        action="store_true",
+        help="include dry-run SSH authorized_keys bootstrap commands in the report",
+    )
+    parser.add_argument(
+        "--ssh-public-key",
+        default="~/.ssh/id_ed25519.pub",
+        help="public key used by --ssh-bootstrap",
+    )
+    parser.add_argument(
         "--preflight",
         action="store_true",
         help=(
@@ -860,6 +985,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     targets = collect_targets(args)
     plan = build_plan(args, targets)
+    if args.ssh_bootstrap:
+        plan = {**plan, "mode": "ssh_bootstrap", "ssh_bootstrap": build_ssh_bootstrap(plan, args)}
     if args.preflight:
         plan = {**plan, "mode": "preflight", "preflight": run_preflight(plan, args)}
         if args.run and not plan["preflight"]["ok"]:

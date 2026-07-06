@@ -192,6 +192,24 @@ Target lines may include public labels and deployment-specific overrides:
 edge-1=<ssh-host>,proxy_host=<lan-host>,egress_port=9200,upstream_port=9300
 ```
 
+If the edge hosts are reachable but fail batch SSH authentication, generate a
+safe bootstrap report from the coordinator's public key:
+
+```bash
+python tools/run_aiwire_proxy_cluster.py \
+  --target edge-1=<edge-ssh-host> \
+  --target edge-2=<edge-ssh-host> \
+  --ssh-bootstrap \
+  --ssh-public-key ~/.ssh/id_ed25519.pub \
+  --output /tmp/aura-proxy-bootstrap.json \
+  --summary-output /tmp/aura-proxy-bootstrap.md
+```
+
+The bootstrap report is dry-run only. It emits one `ssh-copy-id` command for
+targets where password SSH is available, one `authorized_keys` console command
+for targets where SSH auth is not available yet, and one post-check command to
+verify batch SSH from the coordinator. It does not copy keys or start services.
+
 The `--preflight` mode checks the path before launching sidecars:
 
 - local SSH config resolution, including aliases

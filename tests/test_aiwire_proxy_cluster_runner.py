@@ -70,6 +70,50 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     assert "Run again with `--run`" in summary.read_text()
 
 
+def test_proxy_cluster_ssh_bootstrap_outputs_dry_run_commands(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    public_key = tmp_path / "id_test.pub"
+    public_key.write_text("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey aura-test\n")
+    output = tmp_path / "bootstrap.json"
+    summary = tmp_path / "bootstrap.md"
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=agent@192.0.2.10,ssh_port=2222",
+                "--ssh-bootstrap",
+                "--ssh-public-key",
+                str(public_key),
+                "--output",
+                str(output),
+                "--summary-output",
+                str(summary),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    written = json.loads(output.read_text())
+    bootstrap = rendered["ssh_bootstrap"]
+    target = bootstrap["targets"][0]
+    summary_text = summary.read_text()
+
+    assert rendered == written
+    assert rendered["dry_run"] is True
+    assert rendered["mode"] == "ssh_bootstrap"
+    assert bootstrap["public_key_path"] == str(public_key)
+    assert bootstrap["public_key_sha256"]
+    assert target["ssh_copy_id_command"] == f"ssh-copy-id -i {public_key} -p 2222 agent@192.0.2.10"
+    assert "authorized_keys" in target["console_authorized_keys_command"]
+    assert "ssh -o BatchMode=yes -o ConnectTimeout=5 -p 2222" in target["post_check_command"]
+    assert "## SSH Bootstrap" in summary_text
+    assert "Target console path" in summary_text
+
+
 def test_proxy_cluster_preflight_reports_ssh_auth_failure(monkeypatch, tmp_path: Path) -> None:
     output = tmp_path / "preflight.json"
 

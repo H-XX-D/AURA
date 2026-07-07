@@ -127,6 +127,11 @@ moving the same commands to the Z6 or Nano-class targets.
 Use `--connections N` to open N parallel client sessions through the local
 ingress, remote egress, and fixture upstream path.
 
+For benchmark isolation only, add `--inline-upstream-fixture` to have the local
+egress sidecar answer from the same fixture corpus in process instead of
+starting the raw upstream fixture TCP server. This removes the fixture service
+from the hot path without changing the normal proxy service mode.
+
 ## Cross-Machine Benchmark
 
 The cross-machine shape keeps the proxy path explicit:
@@ -239,6 +244,13 @@ accepts `--tunnel-codec-sweep raw,zlib,aiwire` to run one sequential comparison
 with a shared target list, connection count, fixture profile, and impairment
 model.
 
+Use `--inline-upstream-fixture` when you need to isolate the sidecar tunnel from
+the benchmark fixture server. The runner will start only the remote egress
+sidecar and pass `--inline-fixture-corpus`,
+`--inline-fixture-variation-profile`, and `--inline-fixture-peer-label` to that
+egress process. Omit this flag for the normal explicit path through a real raw
+upstream socket.
+
 Use the tunnel impairment flags when the benchmark should apply pressure to the
 actual sidecar hop instead of only reporting a modeled link budget:
 
@@ -300,6 +312,8 @@ The follow-up multi-connection validation report is here:
 [AIWire Proxy Multi-Connection Scaling Run](perf/aiwire_proxy_multiconnection_2026-07-07.md).
 The matching raw/zlib/AIWire tunnel payload comparison is here:
 [AIWire Proxy Codec Sweep](perf/aiwire_proxy_codec_sweep_2026-07-07.md).
+The fixture TCP-hop isolation follow-up is here:
+[AIWire Proxy Inline Fixture Isolation](perf/aiwire_proxy_inline_fixture_2026-07-07.md).
 
 The cluster variation profile deterministically changes role, workload, route,
 epoch, queue depth, token window, telemetry, and trace identifiers per peer.

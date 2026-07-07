@@ -121,3 +121,8 @@ Interpretation:
   ingress `tunnel_response_read` and egress `upstream_response_read`. That points
   the next optimization at proxy scheduling, fixture/upstream response handling,
   and concurrent socket coordination rather than the AIWire codec itself.
+
+Follow-up: the inline fixture isolation run removed the benchmark fixture TCP hop
+and raised the same 192-session impaired AIWire shape from 2,731.5 to 3,909.9
+exchanges/s while preserving 84.4% semantic-byte savings. See
+[AIWire Proxy Inline Fixture Isolation](aiwire_proxy_inline_fixture_2026-07-07.md).

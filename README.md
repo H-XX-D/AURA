@@ -645,6 +645,21 @@ sidecar run is dominated by response-path waits and fixed per-frame latency, not
 AIWire encode/decode cost. AIWire encode/decode stayed sub-millisecond per
 exchange while consuming far less tunnel bandwidth than zlib.
 
+A 60-second AIWire-only isolation run then removed the benchmark's separate
+remote raw fixture TCP server with `--inline-upstream-fixture`, keeping the same
+three edge targets, 192 sessions, cluster fixture variation, native backend, and
+6 Mbps impaired tunnel model:
+
+| Upstream mode | Exchanges | Group ex/s | Tunnel B/ex | Saved | p95 max | Raw-equivalent Mbps | Tunnel Mbps |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Remote TCP fixture | 164,416 | 2,731.5 | 367.1 | 84.4% | 86.27 ms | 51.47 | 8.05 |
+| Inline fixture | 235,705 | 3,909.9 | 366.8 | 84.4% | 71.39 ms | 73.78 | 11.53 |
+
+That pass moved 43.1% more verified exchanges per second with the same
+per-exchange byte savings. The old benchmark ceiling was therefore partly the
+local fixture TCP hop; the sustained-handshake AIWire path had more headroom
+than the raw fixture service exposed.
+
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native
 backend readiness before any remote sidecars are launched.
@@ -663,6 +678,8 @@ include the runbook details. The impaired cross-machine result is captured in
 [AIWire Proxy Edge-Mesh Impairment Run](docs/perf/aiwire_proxy_edge_mesh_impairment_2026-07-07.md).
 The raw/zlib/AIWire sidecar comparison is captured in
 [AIWire Proxy Codec Sweep](docs/perf/aiwire_proxy_codec_sweep_2026-07-07.md).
+The fixture isolation follow-up is captured in
+[AIWire Proxy Inline Fixture Isolation](docs/perf/aiwire_proxy_inline_fixture_2026-07-07.md).
 
 ## Benchmarking AIWire
 
@@ -1005,6 +1022,7 @@ delta streams.
 - [AIWire Z6-to-Nano relay benchmark](docs/perf/z6_to_nano_aiwire_2026-07-05.md)
 - [AIWire n-ary Z6-to-Nano benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
 - [AIWire proxy codec sweep](docs/perf/aiwire_proxy_codec_sweep_2026-07-07.md)
+- [AIWire proxy inline fixture isolation](docs/perf/aiwire_proxy_inline_fixture_2026-07-07.md)
 - [AIWire fixture saturation benchmark](docs/perf/aiwire_fixture_saturation_2026-07-04.md)
 - [Transport examples](examples/README.md)
 - [Large-file and API notes](docs/api/compressor.md)

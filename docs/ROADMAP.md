@@ -152,8 +152,11 @@ native token paths on each machine before cluster runs.
 - Keep sidecar stage profiling in the proxy benchmark output. The follow-up
   profile shows AIWire encode/decode staying sub-millisecond per exchange while
   response-path waits and fixed per-frame latency dominate at 64 connections per
-  target, so the next sidecar optimization target is scheduling/socket
-  coordination rather than the codec hot path.
+  target. The inline-fixture isolation run then removed the benchmark's raw
+  fixture TCP hop and raised the same impaired 192-session AIWire pass from
+  2,731.5 to 3,909.9 exchanges/s with byte savings unchanged at 84.4%, so the
+  next sidecar target is realistic upstream-agent behavior and socket scheduling
+  rather than the codec hot path.
 
 Definition of done:
 

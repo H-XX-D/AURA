@@ -195,6 +195,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --targets-file /tmp/aura-targets.txt \
   --ssh-bootstrap \
   --preflight \
+  --ready-targets-output /tmp/aura-ready-targets.txt \
   --seconds 60 \
   --backend native \
   --fixture-variation-profile cluster \

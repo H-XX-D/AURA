@@ -270,6 +270,84 @@ def test_proxy_cluster_preflight_reports_ssh_auth_failure(monkeypatch, tmp_path:
     assert target["errors"] == ["ssh batch authentication failed"]
 
 
+def test_proxy_cluster_preflight_writes_ready_targets_output(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "preflight.json"
+    summary = tmp_path / "preflight.md"
+    ready_targets = tmp_path / "ready.targets"
+
+    def fake_run_preflight(plan: dict, args) -> dict:
+        del args
+        ready = plan["targets"][0]["target"]
+        blocked = plan["targets"][1]["target"]
+        return {
+            "ok": False,
+            "checked_at_utc": "2026-07-07T00:00:00Z",
+            "targets": [
+                {
+                    "target": ready,
+                    "ok": True,
+                    "errors": [],
+                    "tcp": {"ok": True},
+                    "ssh_auth": {"ok": True},
+                    "remote_environment": {"ok": True},
+                },
+                {
+                    "target": blocked,
+                    "ok": False,
+                    "errors": ["ssh batch authentication failed"],
+                    "tcp": {"ok": True},
+                    "ssh_auth": {"ok": False},
+                    "remote_environment": {"ok": False},
+                },
+            ],
+        }
+
+    monkeypatch.setattr(proxy_cluster, "run_preflight", fake_run_preflight)
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                (
+                    "edge-ready=agent@192.0.2.10,proxy_host=10.0.0.10,"
+                    "egress_port=9510,upstream_port=9610,"
+                    "remote_root=/home/edge/AURA,ssh_public_key=/keys/edge.pub"
+                ),
+                "--target",
+                "edge-blocked=agent@192.0.2.11,proxy_host=10.0.0.11",
+                "--preflight",
+                "--ready-targets-output",
+                str(ready_targets),
+                "--output",
+                str(output),
+                "--summary-output",
+                str(summary),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(output.read_text())
+    ready_text = ready_targets.read_text()
+    summary_text = summary.read_text()
+
+    assert rendered["preflight"]["ok"] is False
+    assert rendered["ready_targets_output"]["ready_targets"] == 1
+    assert rendered["ready_targets_output"]["total_targets"] == 2
+    assert "edge-ready=agent@192.0.2.10" in ready_text
+    assert "proxy_host=10.0.0.10" in ready_text
+    assert "egress_port=9510" in ready_text
+    assert "upstream_port=9610" in ready_text
+    assert "remote_root=/home/edge/AURA" in ready_text
+    assert "ssh_public_key=/keys/edge.pub" in ready_text
+    assert "edge-blocked" not in ready_text
+    assert str(ready_targets) in summary_text
+    assert "Wrote 1 of 2 targets" in summary_text
+
+
 def test_proxy_cluster_preflight_blocks_run_on_failure(monkeypatch, tmp_path: Path) -> None:
     output = tmp_path / "preflight-run.json"
 

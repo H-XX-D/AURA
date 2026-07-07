@@ -41,6 +41,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --targets-file /tmp/aura-targets.txt \
   --ssh-bootstrap \
   --preflight \
+  --ready-targets-output /tmp/aura-ready-targets.txt \
   --seconds 60 \
   --backend native \
   --fixture-variation-profile cluster \
@@ -56,6 +57,7 @@ This command does not modify hosts or start sidecars. It writes:
 - one post-check command per target
 - a preflight table covering SSH config, SSH TCP, batch auth, remote import,
   fixture corpus presence, and native backend readiness
+- a ready-only targets file that contains only targets that passed preflight
 
 ## Interpreting Failures
 
@@ -82,11 +84,12 @@ Then rerun the readiness report.
 
 ## Smoke Then Sustained Run
 
-After all active targets are ready, run a small smoke first:
+After the readiness report, run a small smoke against the ready-only targets
+file first:
 
 ```bash
 python tools/run_aiwire_proxy_cluster.py \
-  --targets-file /tmp/aura-targets.txt \
+  --targets-file /tmp/aura-ready-targets.txt \
   --preflight \
   --run \
   --seconds 10 \
@@ -102,7 +105,7 @@ Then run the sustained window:
 
 ```bash
 python tools/run_aiwire_proxy_cluster.py \
-  --targets-file /tmp/aura-targets.txt \
+  --targets-file /tmp/aura-ready-targets.txt \
   --preflight \
   --run \
   --seconds 60 \
@@ -115,6 +118,9 @@ python tools/run_aiwire_proxy_cluster.py \
 
 When `--preflight --run` is used, the runner exits before launching sidecars if
 any active target fails readiness.
+
+If you want a strict all-target run, omit `--ready-targets-output`, fix every
+failure in `/tmp/aura-targets.txt`, and run directly from that file.
 
 ## Safety Rules
 

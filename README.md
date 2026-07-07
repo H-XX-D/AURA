@@ -565,6 +565,9 @@ copy untracked.
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native
 backend readiness before any remote sidecars are launched.
+Use `--ready-targets-output /tmp/aura-ready-targets.txt` with `--preflight`
+when you want a generated targets file containing only machines that passed
+readiness.
 
 Editable service templates live under `deploy/aura-proxy/` for systemd and
 launchd.

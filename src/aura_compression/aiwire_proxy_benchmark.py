@@ -23,9 +23,9 @@ from .ai_wire_fixtures import (
     load_aiwire_session_fixture_corpus,
 )
 from .aiwire_proxy import (
-    AIWireProxyResumeConfig,
     DEFAULT_MAX_FRAME_BYTES,
     TUNNEL_CODECS,
+    AIWireProxyResumeConfig,
     BackendName,
     EgressUpstreamResponder,
     TunnelCodec,

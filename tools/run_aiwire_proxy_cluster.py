@@ -25,7 +25,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
-from aura_compression.aiwire_proxy import AIWireProxyResumeConfig, TUNNEL_CODECS
+from aura_compression.aiwire_proxy import TUNNEL_CODECS, AIWireProxyResumeConfig
 from aura_compression.aiwire_proxy_benchmark import (
     FIXTURE_VARIATION_PROFILES,
     UPSTREAM_AGENT_PROFILES,

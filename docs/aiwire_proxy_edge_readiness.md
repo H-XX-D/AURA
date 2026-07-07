@@ -122,6 +122,19 @@ any active target fails readiness.
 If you want a strict all-target run, omit `--ready-targets-output`, fix every
 failure in `/tmp/aura-targets.txt`, and run directly from that file.
 
+## Latest Public Validation
+
+On 2026-07-07, this workflow was validated against a mixed six-target lab shape.
+Preflight wrote a ready-only file with 3 of 6 targets: three targets were ready,
+two were reachable but blocked on batch SSH authentication, and one was blocked
+on SSH TCP reachability. A 60-second sustained run against the generated
+ready-only file verified 4,076 exchanges across 3 targets at 67.9 group
+exchanges/second, 2,311.7 raw framed bytes per exchange, 363.6 AIWire semantic
+bytes per exchange, 84.3% semantic-byte savings, and 47.92 ms max p95.
+
+The result is documented in
+[AIWire Proxy Ready-Targets Run](perf/aiwire_proxy_ready_targets_2026-07-07.md).
+
 ## Safety Rules
 
 - Commit only placeholder target files.

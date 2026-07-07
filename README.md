@@ -296,6 +296,19 @@ sustained-handshake byte reduction, and remaining headroom on the modeled
 Read the three-edge proxy report:
 [AIWire Explicit Proxy Three-Edge Run](docs/perf/aiwire_proxy_three_nano_2026-07-06.md).
 
+On 2026-07-07, the proxy runner's ready-target workflow was validated against a
+mixed six-target lab shape. Preflight found three ready edge targets, two
+reachable hosts blocked on batch SSH auth, and one host blocked on SSH TCP. The
+runner wrote a generated ready-only targets file, then a 60-second run against
+that file verified 4,076 exchanges as a group: 67.9 exchanges/second, 2,311.7
+raw framed bytes per exchange, 363.6 AIWire semantic bytes per exchange,
+84.3% semantic-byte savings, 6.36x modeled bandwidth capacity gain, and a
+47.92 ms max p95 round trip. This reproduced the earlier three-edge result
+while keeping strict all-target preflight fail-closed.
+
+Read the ready-target proxy report:
+[AIWire Proxy Ready-Targets Run](docs/perf/aiwire_proxy_ready_targets_2026-07-07.md).
+
 Current local benchmark-profile smoke on 2026-07-05 uses the Python AIWire path,
 level 3, seed 1729, and synthetic public-safe `corpus_metadata` on every
 message. This is a reproducible codec/corpus check, not a LAN throughput claim:

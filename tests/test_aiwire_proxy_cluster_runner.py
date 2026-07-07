@@ -92,10 +92,12 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
         "seed": 99,
     }
     assert rendered["fixture_variation_profile"] == "cluster"
+    assert rendered["upstream_agent_profile"] == "none"
     assert rendered["targets"][0]["target"]["label"] == "edge-1"
     start_fixture = rendered["targets"][0]["commands"]["start_fixture"]
     assert "aura_compression.cli.proxy_fixture_server" in start_fixture
     assert "--connections 3" in start_fixture
+    assert "--upstream-agent-profile none" in start_fixture
     assert "cd $HOME/AURA" in start_fixture
     assert "&& (nohup sh -lc" in start_fixture
     assert "& echo $! >" in start_fixture
@@ -125,6 +127,10 @@ def test_proxy_cluster_dry_run_supports_inline_upstream_fixture(
                 "--target",
                 "edge-1=edge-host.local",
                 "--inline-upstream-fixture",
+                "--upstream-agent-profile",
+                "edge-light",
+                "--upstream-agent-seed",
+                "99",
                 "--seconds",
                 "60",
                 "--backend",
@@ -150,12 +156,16 @@ def test_proxy_cluster_dry_run_supports_inline_upstream_fixture(
     summary_text = summary.read_text()
 
     assert rendered["inline_upstream_fixture"] is True
+    assert rendered["upstream_agent_profile"] == "edge-light"
+    assert rendered["upstream_agent_seed"] == 99
     assert "start_fixture" not in commands
     assert "fetch_fixture_metrics" not in commands
     assert rendered["targets"][0]["artifacts"]["remote_fixture_metrics"] is None
     assert "--inline-fixture-corpus" in start_egress
     assert "--inline-fixture-variation-profile cluster" in start_egress
     assert "--inline-fixture-peer-label edge-1" in start_egress
+    assert "--inline-upstream-agent-profile edge-light" in start_egress
+    assert "--inline-upstream-agent-seed 99" in start_egress
     assert "--upstream-host" not in start_egress
     assert "--upstream-port" not in start_egress
     assert "Inline upstream fixture: `True`" in summary_text

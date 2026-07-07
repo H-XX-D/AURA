@@ -5,6 +5,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import queue
+import random
 import socket
 import statistics
 import tempfile
@@ -45,6 +46,7 @@ DEFAULT_PROXY_FIXTURE_PATH = (
 )
 HOST = "127.0.0.1"
 FIXTURE_VARIATION_PROFILES = ("none", "cluster")
+UPSTREAM_AGENT_PROFILES = ("none", "edge-light", "edge-mixed")
 T = TypeVar("T")
 
 
@@ -72,6 +74,9 @@ class ProxyFixtureServerMetrics:
     fixture_pair_count: int
     fixture_variation_profile: str
     fixture_peer_label: str
+    upstream_agent_profile: str
+    upstream_agent_seed: int
+    upstream_agent_delay_seconds: float
     max_connections: int | None
     accepted_connections: int
     exchanges: int
@@ -337,6 +342,37 @@ def _load_fixture_corpus(path: Path) -> tuple[dict[str, Any], str]:
     raise FileNotFoundError(path)
 
 
+def _validate_upstream_agent_profile(profile: str) -> None:
+    if profile not in UPSTREAM_AGENT_PROFILES:
+        raise ValueError(
+            "upstream_agent_profile must be one of: " + ", ".join(UPSTREAM_AGENT_PROFILES)
+        )
+
+
+def _upstream_agent_delay_ms(profile: str, rng: random.Random) -> float:
+    _validate_upstream_agent_profile(profile)
+    if profile == "none":
+        return 0.0
+    if profile == "edge-light":
+        delay_ms = 0.25 + rng.uniform(0.0, 1.25)
+        if rng.random() < 0.025:
+            delay_ms += rng.uniform(2.0, 8.0)
+        return delay_ms
+    delay_ms = 0.75 + rng.uniform(0.0, 4.0)
+    if rng.random() < 0.05:
+        delay_ms += rng.uniform(8.0, 35.0)
+    return delay_ms
+
+
+def _wait_upstream_agent(profile: str, rng: random.Random) -> int:
+    delay_ms = _upstream_agent_delay_ms(profile, rng)
+    if delay_ms <= 0:
+        return 0
+    started_ns = time.perf_counter_ns()
+    time.sleep(delay_ms / 1000.0)
+    return time.perf_counter_ns() - started_ns
+
+
 def load_proxy_fixture_pairs(
     fixture_corpus_path: str | Path = DEFAULT_PROXY_FIXTURE_PATH,
     *,
@@ -360,8 +396,22 @@ def load_proxy_fixture_pairs(
 
 def build_proxy_fixture_responder(
     pairs: Sequence[ProxyFixturePair],
+    *,
+    upstream_agent_profile: str = "none",
+    upstream_agent_seed: int = 1729,
 ) -> EgressUpstreamResponder:
     """Build a benchmark-only in-process responder for egress fixture isolation."""
+
+    _validate_upstream_agent_profile(upstream_agent_profile)
+    thread_state = threading.local()
+
+    def rng_for_thread() -> random.Random:
+        existing = getattr(thread_state, "rng", None)
+        if isinstance(existing, random.Random):
+            return existing
+        rng = random.Random(upstream_agent_seed + (threading.get_ident() % 1_000_003))
+        thread_state.rng = rng
+        return rng
 
     def responder(request: bytes, exchange_index: int) -> bytes:
         pair = pairs[exchange_index % len(pairs)]
@@ -370,6 +420,7 @@ def build_proxy_fixture_responder(
                 f"request payload mismatch at inline exchange {exchange_index}; "
                 f"fixture={pair.session_id}:{pair.exchange_index}"
             )
+        _wait_upstream_agent(upstream_agent_profile, rng_for_thread())
         return pair.response
 
     return responder
@@ -381,20 +432,27 @@ def _fixture_responder(
     pairs: Sequence[ProxyFixturePair],
     max_connections: int | None = 1,
     max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES,
+    upstream_agent_profile: str = "none",
+    upstream_agent_seed: int = 1729,
 ) -> dict[str, Any]:
+    _validate_upstream_agent_profile(upstream_agent_profile)
     accepted_connections = 0
     exchanges = 0
     raw_request_payload_bytes = 0
     raw_response_payload_bytes = 0
+    upstream_agent_delay_ns = 0
     totals_lock = threading.Lock()
     workers: list[threading.Thread] = []
     errors: list[BaseException] = []
 
     def handle_connection(conn: socket.socket, connection_index: int) -> None:
         nonlocal exchanges, raw_request_payload_bytes, raw_response_payload_bytes
+        nonlocal upstream_agent_delay_ns
         local_exchanges = 0
         local_request_bytes = 0
         local_response_bytes = 0
+        local_delay_ns = 0
+        rng = random.Random(upstream_agent_seed + connection_index * 1_000_003)
         try:
             with conn:
                 while True:
@@ -414,6 +472,7 @@ def _fixture_responder(
                         )
                     local_request_bytes += len(request)
                     local_response_bytes += len(pair.response)
+                    local_delay_ns += _wait_upstream_agent(upstream_agent_profile, rng)
                     write_length_prefixed(conn, pair.response)
                     local_exchanges += 1
         except BaseException as exc:
@@ -424,6 +483,7 @@ def _fixture_responder(
                 exchanges += local_exchanges
                 raw_request_payload_bytes += local_request_bytes
                 raw_response_payload_bytes += local_response_bytes
+                upstream_agent_delay_ns += local_delay_ns
 
     with listener:
         while max_connections is None or accepted_connections < max_connections:
@@ -446,6 +506,7 @@ def _fixture_responder(
         "exchanges": exchanges,
         "raw_request_payload_bytes": raw_request_payload_bytes,
         "raw_response_payload_bytes": raw_response_payload_bytes,
+        "upstream_agent_delay_seconds": upstream_agent_delay_ns / 1_000_000_000.0,
     }
 
 
@@ -456,6 +517,8 @@ def run_proxy_fixture_server(
     fixture_corpus_path: str | Path = DEFAULT_PROXY_FIXTURE_PATH,
     fixture_variation_profile: str = "none",
     fixture_peer_label: str = "proxy-fixture",
+    upstream_agent_profile: str = "none",
+    upstream_agent_seed: int = 1729,
     max_connections: int | None = 1,
     max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES,
     metrics_output: str | Path | None = None,
@@ -465,6 +528,7 @@ def run_proxy_fixture_server(
 
     if max_connections is not None and max_connections <= 0:
         raise ValueError("max_connections must be positive when provided")
+    _validate_upstream_agent_profile(upstream_agent_profile)
     started_at_utc = _utc_now()
     pairs, fixture_path, fixture_corpus_source = load_proxy_fixture_pairs(
         fixture_corpus_path,
@@ -479,6 +543,8 @@ def run_proxy_fixture_server(
         pairs=pairs,
         max_connections=max_connections,
         max_frame_bytes=max_frame_bytes,
+        upstream_agent_profile=upstream_agent_profile,
+        upstream_agent_seed=upstream_agent_seed,
     )
     metrics = ProxyFixtureServerMetrics(
         schema=AIWIRE_PROXY_FIXTURE_SERVER_SCHEMA,
@@ -491,6 +557,9 @@ def run_proxy_fixture_server(
         fixture_pair_count=len(pairs),
         fixture_variation_profile=fixture_variation_profile,
         fixture_peer_label=fixture_peer_label,
+        upstream_agent_profile=upstream_agent_profile,
+        upstream_agent_seed=upstream_agent_seed,
+        upstream_agent_delay_seconds=float(responder["upstream_agent_delay_seconds"]),
         max_connections=max_connections,
         accepted_connections=int(responder["accepted_connections"]),
         exchanges=int(responder["exchanges"]),
@@ -678,6 +747,8 @@ def _result_from_ingress_metrics(
     fixture_pair_count: int,
     fixture_variation_profile: str,
     fixture_peer_label: str,
+    upstream_agent_profile: str,
+    upstream_agent_seed: int,
     seconds: float,
     max_exchanges: int | None,
     backend: BackendName,
@@ -716,6 +787,8 @@ def _result_from_ingress_metrics(
         "fixture_pair_count": fixture_pair_count,
         "fixture_variation_profile": fixture_variation_profile,
         "fixture_peer_label": fixture_peer_label,
+        "upstream_agent_profile": upstream_agent_profile,
+        "upstream_agent_seed": upstream_agent_seed,
         "seconds": seconds,
         "max_exchanges": max_exchanges,
         "requested_connections": client_run.get("requested_connections", 1),
@@ -800,6 +873,8 @@ def run_proxy_ingress_benchmark(
     fixture_corpus_path: str | Path = DEFAULT_PROXY_FIXTURE_PATH,
     fixture_variation_profile: str = "none",
     fixture_peer_label: str = "proxy-fixture",
+    upstream_agent_profile: str = "none",
+    upstream_agent_seed: int = 1729,
     seconds: float = 60.0,
     max_exchanges: int | None = None,
     connections: int = 1,
@@ -825,6 +900,7 @@ def run_proxy_ingress_benchmark(
         raise ValueError("seconds must be positive unless max_exchanges is set")
     if max_exchanges is not None and max_exchanges <= 0:
         raise ValueError("max_exchanges must be positive")
+    _validate_upstream_agent_profile(upstream_agent_profile)
     connection_count = _active_connections(
         connections=connections,
         max_exchanges=max_exchanges,
@@ -893,6 +969,8 @@ def run_proxy_ingress_benchmark(
         fixture_pair_count=len(pairs),
         fixture_variation_profile=fixture_variation_profile,
         fixture_peer_label=fixture_peer_label,
+        upstream_agent_profile=upstream_agent_profile,
+        upstream_agent_seed=upstream_agent_seed,
         seconds=seconds,
         max_exchanges=max_exchanges,
         backend=backend,
@@ -911,6 +989,8 @@ def run_proxy_benchmark(
     fixture_corpus_path: str | Path = DEFAULT_PROXY_FIXTURE_PATH,
     fixture_variation_profile: str = "none",
     fixture_peer_label: str = "proxy-fixture",
+    upstream_agent_profile: str = "none",
+    upstream_agent_seed: int = 1729,
     seconds: float = 60.0,
     max_exchanges: int | None = None,
     connections: int = 1,
@@ -936,6 +1016,7 @@ def run_proxy_benchmark(
         raise ValueError("seconds must be positive unless max_exchanges is set")
     if max_exchanges is not None and max_exchanges <= 0:
         raise ValueError("max_exchanges must be positive")
+    _validate_upstream_agent_profile(upstream_agent_profile)
     connection_count = _active_connections(
         connections=connections,
         max_exchanges=max_exchanges,
@@ -960,7 +1041,11 @@ def run_proxy_benchmark(
     upstream_results: queue.Queue[dict[str, Any] | BaseException] | None = None
     upstream_responder: EgressUpstreamResponder | None = None
     if inline_upstream_fixture:
-        upstream_responder = build_proxy_fixture_responder(pairs)
+        upstream_responder = build_proxy_fixture_responder(
+            pairs,
+            upstream_agent_profile=upstream_agent_profile,
+            upstream_agent_seed=upstream_agent_seed,
+        )
     else:
         upstream_listener, upstream_port = _bound_listener()
         upstream_thread, upstream_results = _run_background(
@@ -968,6 +1053,8 @@ def run_proxy_benchmark(
                 upstream_listener,
                 pairs=pairs,
                 max_connections=connection_count,
+                upstream_agent_profile=upstream_agent_profile,
+                upstream_agent_seed=upstream_agent_seed,
             )
         )
 
@@ -1045,6 +1132,12 @@ def run_proxy_benchmark(
                 "exchanges": egress_metrics.exchanges,
                 "raw_request_payload_bytes": egress_metrics.raw_request_payload_bytes,
                 "raw_response_payload_bytes": egress_metrics.raw_response_payload_bytes,
+                "upstream_agent_profile": upstream_agent_profile,
+                "upstream_agent_seed": upstream_agent_seed,
+                "upstream_agent_delay_seconds": egress_metrics.stage_time_ns.get(
+                    "upstream_response_inline", 0
+                )
+                / 1_000_000_000.0,
             }
         else:
             if upstream_thread is None or upstream_results is None:
@@ -1055,6 +1148,8 @@ def run_proxy_benchmark(
             )
             upstream = {
                 "mode": "tcp_fixture",
+                "upstream_agent_profile": upstream_agent_profile,
+                "upstream_agent_seed": upstream_agent_seed,
                 **upstream_payload,
             }
 
@@ -1069,6 +1164,8 @@ def run_proxy_benchmark(
         fixture_pair_count=len(pairs),
         fixture_variation_profile=fixture_variation_profile,
         fixture_peer_label=fixture_peer_label,
+        upstream_agent_profile=upstream_agent_profile,
+        upstream_agent_seed=upstream_agent_seed,
         seconds=seconds,
         max_exchanges=max_exchanges,
         backend=backend,
@@ -1091,6 +1188,7 @@ __all__ = [
     "FIXTURE_VARIATION_PROFILES",
     "ProxyFixturePair",
     "ProxyFixtureServerMetrics",
+    "UPSTREAM_AGENT_PROFILES",
     "build_proxy_fixture_responder",
     "build_proxy_fixture_pairs",
     "load_proxy_fixture_pairs",

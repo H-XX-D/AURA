@@ -28,6 +28,7 @@ from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
 from aura_compression.aiwire_proxy import TUNNEL_CODECS
 from aura_compression.aiwire_proxy_benchmark import (
     FIXTURE_VARIATION_PROFILES,
+    UPSTREAM_AGENT_PROFILES,
     run_proxy_ingress_benchmark,
 )
 
@@ -326,6 +327,10 @@ def build_target_plan(
                 args.fixture_variation_profile,
                 "--inline-fixture-peer-label",
                 target.label,
+                "--inline-upstream-agent-profile",
+                args.upstream_agent_profile,
+                "--inline-upstream-agent-seed",
+                str(args.upstream_agent_seed),
             ]
         )
     else:
@@ -364,6 +369,10 @@ def build_target_plan(
             args.fixture_variation_profile,
             "--fixture-peer-label",
             target.label,
+            "--upstream-agent-profile",
+            args.upstream_agent_profile,
+            "--upstream-agent-seed",
+            str(args.upstream_agent_seed),
             "--connections",
             str(args.connections),
             "--metrics-output",
@@ -417,6 +426,8 @@ def build_plan(args: argparse.Namespace, targets: list[ProxyClusterTarget]) -> d
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
+        "upstream_agent_profile": args.upstream_agent_profile,
+        "upstream_agent_seed": args.upstream_agent_seed,
         "inline_upstream_fixture": bool(args.inline_upstream_fixture),
         "connections": args.connections,
         "target_parallelism": args.target_parallelism,
@@ -859,6 +870,8 @@ def run_target(
             fixture_corpus_path=_local_fixture_path(args.fixture_corpus),
             fixture_variation_profile=args.fixture_variation_profile,
             fixture_peer_label=target.label,
+            upstream_agent_profile=args.upstream_agent_profile,
+            upstream_agent_seed=args.upstream_agent_seed,
             seconds=args.seconds,
             max_exchanges=args.max_exchanges,
             connections=args.connections,
@@ -1050,6 +1063,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         f"Run ID: `{report['run_id']}`",
         f"Fixture variation: `{report['fixture_variation_profile']}`",
+        f"Upstream agent profile: `{report.get('upstream_agent_profile', 'none')}`",
         f"Backend: `{report['backend']}`",
         f"Tunnel codec: `{report.get('tunnel_codec', 'aiwire')}`",
         f"Seconds: `{report['seconds']}`",
@@ -1328,6 +1342,8 @@ def run_connection_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
+        "upstream_agent_profile": args.upstream_agent_profile,
+        "upstream_agent_seed": args.upstream_agent_seed,
         "inline_upstream_fixture": bool(args.inline_upstream_fixture),
         "connections_sweep": args.connections_sweep,
         "target_parallelism": args.target_parallelism,
@@ -1391,6 +1407,7 @@ def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
         "",
         f"Run ID: `{report['run_id']}`",
         f"Fixture variation: `{report['fixture_variation_profile']}`",
+        f"Upstream agent profile: `{report.get('upstream_agent_profile', 'none')}`",
         f"Backend: `{report['backend']}`",
         f"Tunnel codec: `{report.get('tunnel_codec', 'aiwire')}`",
         f"Seconds: `{report['seconds']}`",
@@ -1491,6 +1508,8 @@ def run_codec_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
+        "upstream_agent_profile": args.upstream_agent_profile,
+        "upstream_agent_seed": args.upstream_agent_seed,
         "inline_upstream_fixture": bool(args.inline_upstream_fixture),
         "connections": args.connections,
         "tunnel_codec_sweep": args.tunnel_codec_sweep,
@@ -1567,6 +1586,7 @@ def render_codec_sweep_markdown(report: dict[str, Any]) -> str:
         "",
         f"Run ID: `{report['run_id']}`",
         f"Fixture variation: `{report['fixture_variation_profile']}`",
+        f"Upstream agent profile: `{report.get('upstream_agent_profile', 'none')}`",
         f"Backend: `{report['backend']}`",
         f"Seconds: `{report['seconds']}`",
         f"Connections per target: `{report['connections']}`",
@@ -1690,6 +1710,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=FIXTURE_VARIATION_PROFILES,
         default="cluster",
     )
+    parser.add_argument(
+        "--upstream-agent-profile",
+        choices=UPSTREAM_AGENT_PROFILES,
+        default="none",
+        help="deterministic benchmark-only local-agent work profile before upstream responses",
+    )
+    parser.add_argument("--upstream-agent-seed", type=int, default=1729)
     parser.add_argument(
         "--inline-upstream-fixture",
         action="store_true",

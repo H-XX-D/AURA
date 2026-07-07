@@ -10,6 +10,7 @@ from aura_compression.aiwire_proxy import TUNNEL_CODECS
 from aura_compression.aiwire_proxy_benchmark import (
     DEFAULT_PROXY_FIXTURE_PATH,
     FIXTURE_VARIATION_PROFILES,
+    UPSTREAM_AGENT_PROFILES,
     run_proxy_benchmark,
     run_proxy_ingress_benchmark,
 )
@@ -32,6 +33,13 @@ def build_parser() -> argparse.ArgumentParser:
         default="none",
     )
     parser.add_argument("--fixture-peer-label", default="proxy-fixture")
+    parser.add_argument(
+        "--upstream-agent-profile",
+        choices=UPSTREAM_AGENT_PROFILES,
+        default="none",
+        help="deterministic benchmark-only local-agent work profile before fixture responses",
+    )
+    parser.add_argument("--upstream-agent-seed", type=int, default=1729)
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--max-exchanges", type=int)
     parser.add_argument(
@@ -118,6 +126,8 @@ def main(argv: list[str] | None = None) -> int:
         "fixture_corpus_path": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "fixture_peer_label": args.fixture_peer_label,
+        "upstream_agent_profile": args.upstream_agent_profile,
+        "upstream_agent_seed": args.upstream_agent_seed,
         "seconds": args.seconds,
         "max_exchanges": args.max_exchanges,
         "connections": args.connections,

@@ -148,6 +148,24 @@ def test_proxy_benchmark_supports_inline_fixture_upstream() -> None:
     assert "upstream_response_read" not in egress_counts
 
 
+def test_proxy_benchmark_supports_upstream_agent_profile() -> None:
+    result = run_proxy_benchmark(
+        seconds=0,
+        max_exchanges=4,
+        connections=2,
+        backend="python",
+        upstream_agent_profile="edge-light",
+        upstream_agent_seed=99,
+    )
+
+    assert result["verified"] is True
+    assert result["upstream_agent_profile"] == "edge-light"
+    assert result["upstream_agent_seed"] == 99
+    assert result["upstream"]["upstream_agent_profile"] == "edge-light"
+    assert result["upstream"]["upstream_agent_delay_seconds"] > 0.0
+    assert result["egress_metrics"]["stage_mean_ms"]["upstream_response_read"] > 0.0
+
+
 def test_proxy_benchmark_supports_raw_and_zlib_tunnel_codecs() -> None:
     for codec in ("raw", "zlib"):
         result = run_proxy_benchmark(
@@ -297,6 +315,29 @@ def test_proxy_benchmark_cli_supports_inline_upstream_fixture(capsys) -> None:
     assert result["exchanges"] == 4
 
 
+def test_proxy_benchmark_cli_supports_upstream_agent_profile(capsys) -> None:
+    assert (
+        proxy_benchmark_main(
+            [
+                "--seconds",
+                "0",
+                "--max-exchanges",
+                "2",
+                "--upstream-agent-profile",
+                "edge-light",
+                "--upstream-agent-seed",
+                "99",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert result["upstream_agent_profile"] == "edge-light"
+    assert result["upstream_agent_seed"] == 99
+    assert result["upstream"]["upstream_agent_delay_seconds"] > 0.0
+
+
 def test_proxy_fixture_server_cli_parser_accepts_cluster_variation() -> None:
     args = build_fixture_server_parser().parse_args(
         [
@@ -304,11 +345,17 @@ def test_proxy_fixture_server_cli_parser_accepts_cluster_variation() -> None:
             "cluster",
             "--fixture-peer-label",
             "edge-1",
+            "--upstream-agent-profile",
+            "edge-mixed",
+            "--upstream-agent-seed",
+            "99",
         ]
     )
 
     assert args.fixture_variation_profile == "cluster"
     assert args.fixture_peer_label == "edge-1"
+    assert args.upstream_agent_profile == "edge-mixed"
+    assert args.upstream_agent_seed == 99
 
 
 def test_proxy_service_templates_reference_explicit_sidecar() -> None:

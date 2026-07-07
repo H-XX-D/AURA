@@ -18,6 +18,7 @@ from aura_compression.aiwire_proxy import (
 from aura_compression.aiwire_proxy_benchmark import (
     DEFAULT_PROXY_FIXTURE_PATH,
     FIXTURE_VARIATION_PROFILES,
+    UPSTREAM_AGENT_PROFILES,
     build_proxy_fixture_responder,
     load_proxy_fixture_pairs,
 )
@@ -131,6 +132,13 @@ def build_parser() -> argparse.ArgumentParser:
         default="none",
     )
     egress.add_argument("--inline-fixture-peer-label", default="proxy-fixture")
+    egress.add_argument(
+        "--inline-upstream-agent-profile",
+        choices=UPSTREAM_AGENT_PROFILES,
+        default="none",
+        help="Benchmark-only: deterministic local-agent work profile for inline fixtures.",
+    )
+    egress.add_argument("--inline-upstream-agent-seed", type=int, default=1729)
 
     return parser
 
@@ -183,7 +191,11 @@ def main(argv: list[str] | None = None) -> int:
                     fixture_variation_profile=args.inline_fixture_variation_profile,
                     fixture_peer_label=args.inline_fixture_peer_label,
                 )
-                upstream_responder = build_proxy_fixture_responder(pairs)
+                upstream_responder = build_proxy_fixture_responder(
+                    pairs,
+                    upstream_agent_profile=args.inline_upstream_agent_profile,
+                    upstream_agent_seed=args.inline_upstream_agent_seed,
+                )
             elif not args.upstream_host or args.upstream_port is None:
                 parser.error(
                     "egress requires --upstream-host/--upstream-port unless "

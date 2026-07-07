@@ -155,6 +155,14 @@ from .aiwire_proxy_benchmark import (
     run_proxy_fixture_server,
     run_proxy_ingress_benchmark,
 )
+from .aiwire_resume_cache import (
+    AI_WIRE_RESUME_CACHE_ENTRY_SCHEMA,
+    AI_WIRE_RESUME_CACHE_ENV,
+    AI_WIRE_RESUME_CACHE_SCHEMA,
+    AIWireResumeCache,
+    AIWireResumeCacheEntry,
+    default_aiwire_resume_cache_path,
+)
 from .audit import AuditLogger, AuditLogType, get_audit_logger, reset_audit_logger
 from .background_workers import (
     TemplateDiscoveryWorker,
@@ -330,6 +338,13 @@ __all__ = [
     "verify_aiwire_compatibility_manifest",
     "verify_aiwire_session_resume_response",
     "verify_aiwire_system_control_message",
+    # AIWire persistent resume cache
+    "AI_WIRE_RESUME_CACHE_ENTRY_SCHEMA",
+    "AI_WIRE_RESUME_CACHE_ENV",
+    "AI_WIRE_RESUME_CACHE_SCHEMA",
+    "AIWireResumeCache",
+    "AIWireResumeCacheEntry",
+    "default_aiwire_resume_cache_path",
     # AIWire public fixture corpora
     "AIWIRE_SESSION_FIXTURE_CORPUS_SCHEMA",
     "AIWIRE_SESSION_FIXTURE_SCHEMA",

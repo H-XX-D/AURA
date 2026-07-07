@@ -102,11 +102,17 @@ the peers must perform a fresh structure handshake.
 This prevents silent reuse of stale structure while still letting recurring
 agent relationships avoid relearning the same templates every session.
 
+AURA's Python implementation provides `AIWireResumeCache` as the local
+persistence layer for this flow. It stores known peer/app state hashes and
+template shapes, but not auth keys or message payloads. See
+[AIWire Resume Cache](aiwire_resume_cache.md) for the operational API and CLI.
+
 ## Python API
 
 ```python
 from aura_compression import (
     apply_aiwire_session_dictionary_diff,
+    AIWireResumeCache,
     build_aiwire_session_dictionary_diff,
     build_aiwire_session_resume_hello,
     negotiate_aiwire_session_resume,
@@ -136,5 +142,13 @@ verify_aiwire_session_dictionary_ack(
     diff,
     ack,
     auth_key=b"shared-session-key",
+)
+
+cache = AIWireResumeCache("resume-cache.json")
+cache.put_state(
+    peer_id="nano-engineer",
+    app_namespace="aura-cluster",
+    session_templates=next_templates,
+    epoch=ack.epoch,
 )
 ```

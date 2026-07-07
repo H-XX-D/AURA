@@ -739,6 +739,11 @@ The client MUST verify response auth when configured, `hello_nonce`, static
 dictionary hash, selected delta version, and that `resume_state_hash` was one of
 the offered hashes.
 
+Implementations MAY persist known peer state hashes and session templates in a
+local resume cache, but the cache itself is not a wire artifact. A peer MUST
+still verify the resume hello/response and fail closed if the selected state hash
+does not resolve to a trusted local entry.
+
 ## Auth Tags
 
 Dictionary diffs, ACKs, resume hellos, and resume responses MAY be protected by

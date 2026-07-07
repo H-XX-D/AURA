@@ -94,6 +94,7 @@ Relevant public protocol context:
 | AIWire lane model | Semantic lane implemented; control/session structures implemented for handshake, template, dictionary, and resume flow; blob descriptor lane specified |
 | AIToken and AIToken+AIWire | Working structural-token path and combined small-frame path |
 | Session templates | Discovery, forced handshake, SHA verification, bounded session dictionaries |
+| Session resume cache | Persistent local cache for known peer dictionary states; supports resume hello/response negotiation and fail-closed verification |
 | Dictionary compatibility | Compatibility manifest and fail-closed checker for static dictionary, session dictionary, delta version, and LUT state; wired into proxy/example startup |
 | Structured message helpers | Working canonical JSON encode/decode helpers |
 | AI-to-AI benchmark harness | Working LAN, realistic-profile, and concurrent-agent tooling |
@@ -1033,6 +1034,7 @@ delta streams.
 - [Current project context](docs/AURA_SYSTEM_CONTEXT.md)
 - [AIWire v1 protocol spec](docs/aiwire_v1_spec.md)
 - [AIWire session dictionary safety](docs/aiwire_session_dictionary.md)
+- [AIWire resume cache](docs/aiwire_resume_cache.md)
 - [AIWire dictionary evolution](docs/aiwire_dictionary_evolution.md)
 - [AIWire session fixtures](docs/aiwire_session_fixtures.md)
 - [Realistic network benchmarks](docs/perf/realistic_network_benchmarks.md)

@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from aura_compression.cli.aiwire_compatibility import main as compatibility_main
+from aura_compression.cli.aiwire_resume_cache import main as resume_cache_main
 from aura_compression.cli.benchmark import main as benchmark_main
 from aura_compression.cli.compress import main as cli_compress_main
 from aura_compression.cli.decompress import main as cli_decompress_main
@@ -212,6 +213,102 @@ def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
     assert check_payload["accepted"] is True
     assert check_payload["codec"] == "aiwire"
     assert check_payload["reason"] is None
+
+
+def test_package_cli_aiwire_resume_cache_round_trip(tmp_path: Path):
+    cache = tmp_path / "resume-cache.json"
+    templates = tmp_path / "templates.json"
+    listed = tmp_path / "list.json"
+    hello = tmp_path / "hello.json"
+    response = tmp_path / "response.json"
+    verified = tmp_path / "verified.json"
+    templates.write_text(
+        json.dumps({"128": "agent {0} calls tool {1}", "129": "task {0} status {1}"}),
+        encoding="utf-8",
+    )
+
+    assert (
+        resume_cache_main(
+            [
+                "--cache",
+                str(cache),
+                "put",
+                "--peer-id",
+                "nano-engineer",
+                "--app-namespace",
+                "aura-cluster",
+                "--session-templates",
+                str(templates),
+                "--epoch",
+                "2",
+                "--label",
+                "z6-nano",
+            ]
+        )
+        == 0
+    )
+    assert (
+        resume_cache_main(
+            ["--cache", str(cache), "list", "--peer-id", "nano-engineer", "--output", str(listed)]
+        )
+        == 0
+    )
+    list_payload = json.loads(listed.read_text(encoding="utf-8"))
+    assert list_payload["entries"][0]["session_template_count"] == 2
+
+    assert (
+        resume_cache_main(
+            [
+                "--cache",
+                str(cache),
+                "hello",
+                "--peer-id",
+                "nano-engineer",
+                "--app-namespace",
+                "aura-cluster",
+                "--nonce",
+                "1" * 32,
+                "--output",
+                str(hello),
+            ]
+        )
+        == 0
+    )
+    assert (
+        resume_cache_main(
+            [
+                "--cache",
+                str(cache),
+                "negotiate",
+                "--hello",
+                str(hello),
+                "--nonce",
+                "2" * 32,
+                "--output",
+                str(response),
+            ]
+        )
+        == 0
+    )
+    assert (
+        resume_cache_main(
+            [
+                "--cache",
+                str(cache),
+                "verify",
+                "--hello",
+                str(hello),
+                "--response",
+                str(response),
+                "--output",
+                str(verified),
+            ]
+        )
+        == 0
+    )
+    verify_payload = json.loads(verified.read_text(encoding="utf-8"))
+    assert verify_payload["accepted"] is True
+    assert verify_payload["entry"]["peer_id"] == "nano-engineer"
 
 
 def test_package_cli_server_guidance(capsys):

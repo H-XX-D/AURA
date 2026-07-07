@@ -206,13 +206,18 @@ emit and compare a manifest that pins protocol version, static dictionary hash
 and size, zlib parameters, delta version, session dictionary state, routine
 control-LUT state, fallback codecs, and safety limits before a peer/release is
 trusted. The explicit proxy now uses that manifest as part of session startup
-before it accepts semantic AIWire frames.
+before it accepts semantic AIWire frames. Persistent session resume cache
+support is also implemented so repeat peer connections can offer known
+dictionary state hashes and fail closed if the selected state cannot be resolved
+locally.
 
 - Version static dictionaries and session-template catalogs explicitly.
 - Keep `aura-aiwire-compatibility` available as the release/deployment preflight
   for dictionary, template, delta-version, and LUT compatibility.
 - Keep runtime startup paths, including `aura-proxy` and transport examples,
   fail-closed on compatibility-manifest mismatch before data frames move.
+- Keep `aura-aiwire-resume-cache` available as the local peer-state store for
+  future-connection resume handshakes.
 - Add corpus-driven dictionary generation tooling.
 - Keep a compatibility matrix for dictionary hash, protocol version, and
   template hash, delta version, and fallback codec.

@@ -76,6 +76,34 @@ AIWire session encoders/decoders using `entry.session_templates` and
 `entry.epoch`. If verification fails, the caller must discard resume and run the
 normal handshake/dictionary-diff path.
 
+## Proxy Integration
+
+`aura-proxy` can use the cache directly during its sidecar control handshake.
+Pass the same peer relationship on ingress and egress:
+
+```bash
+aura-proxy ingress ... \
+  --resume-cache /var/lib/aura/aiwire-resume.json \
+  --resume-peer-id z6-to-nano \
+  --resume-app-namespace aura-cluster \
+  --resume-auth-key-file /etc/aura/aiwire-resume.key
+```
+
+```bash
+aura-proxy egress ... \
+  --resume-cache /var/lib/aura/aiwire-resume.json \
+  --resume-peer-id z6-to-nano \
+  --resume-app-namespace aura-cluster \
+  --resume-auth-key-file /etc/aura/aiwire-resume.key
+```
+
+Add `--require-resume` when the sidecar should fail closed unless the peer
+selects a cached state hash that verifies against the local cache. On accepted
+resume, both sidecars rebuild their AIWire session codec with the cached
+templates before semantic frames move. The key-file option signs and verifies
+the resume hello/response without exposing the shared key in the process command
+line.
+
 ## CLI
 
 The package installs `aura-aiwire-resume-cache`:

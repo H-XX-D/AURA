@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 
 from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
 from aura_compression.aiwire_proxy import (
     DEFAULT_MAX_FRAME_BYTES,
     TUNNEL_CODECS,
+    AIWireProxyResumeConfig,
     BackendName,
     TunnelCodec,
     TunnelImpairmentConfig,
@@ -91,6 +93,24 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--impairment-seed", type=int, default=1729)
     parser.add_argument("--metrics-output")
     parser.add_argument("--replay-log-output")
+    parser.add_argument(
+        "--resume-cache",
+        help="Optional AIWire resume-cache JSON path for future-connection session state.",
+    )
+    parser.add_argument(
+        "--resume-peer-id",
+        help="Peer/session relationship ID to offer from the resume cache.",
+    )
+    parser.add_argument("--resume-app-namespace", default="default")
+    parser.add_argument(
+        "--resume-auth-key-file",
+        help="Optional file containing the shared HMAC key for resume handshakes.",
+    )
+    parser.add_argument(
+        "--require-resume",
+        action="store_true",
+        help="Fail the proxy handshake if configured session resume is unavailable or rejected.",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -150,6 +170,41 @@ def _max_connections(args: argparse.Namespace) -> int | None:
     return int(connections) if connections is not None else None
 
 
+def _resume_config(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> AIWireProxyResumeConfig | None:
+    if args.require_resume and not args.resume_cache:
+        parser.error("--require-resume requires --resume-cache")
+    if args.require_resume and not args.resume_peer_id:
+        parser.error("--require-resume requires --resume-peer-id")
+    if args.resume_cache and not args.resume_peer_id:
+        parser.error("--resume-cache requires --resume-peer-id")
+    if args.resume_peer_id and not args.resume_cache:
+        parser.error("--resume-peer-id requires --resume-cache")
+    if args.resume_auth_key_file and not args.resume_cache:
+        parser.error("--resume-auth-key-file requires --resume-cache")
+    if not args.resume_cache:
+        return None
+    if args.tunnel_codec != "aiwire":
+        parser.error("--resume-cache requires --tunnel-codec aiwire")
+    auth_key = None
+    if args.resume_auth_key_file:
+        try:
+            auth_key = Path(args.resume_auth_key_file).read_bytes().strip()
+        except OSError as exc:
+            parser.error(f"could not read --resume-auth-key-file: {exc}")
+        if not auth_key:
+            parser.error("--resume-auth-key-file must not be empty")
+    return AIWireProxyResumeConfig(
+        cache_path=Path(args.resume_cache),
+        peer_id=args.resume_peer_id,
+        app_namespace=args.resume_app_namespace,
+        require_resume=args.require_resume,
+        auth_key=auth_key,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -163,6 +218,7 @@ def main(argv: list[str] | None = None) -> int:
         tail_pause_ms=args.tunnel_tail_pause_ms,
         seed=args.impairment_seed,
     )
+    resume_config = _resume_config(args, parser)
 
     try:
         if args.mode == "ingress":
@@ -180,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
                 tunnel_impairment_config=tunnel_impairment_config,
                 metrics_output=args.metrics_output,
                 replay_log_output=args.replay_log_output,
+                resume_config=resume_config,
             )
         else:
             upstream_responder = None
@@ -216,6 +273,7 @@ def main(argv: list[str] | None = None) -> int:
                 tunnel_impairment_config=tunnel_impairment_config,
                 metrics_output=args.metrics_output,
                 replay_log_output=args.replay_log_output,
+                resume_config=resume_config,
             )
     except KeyboardInterrupt:
         return 130

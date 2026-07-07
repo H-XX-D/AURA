@@ -207,9 +207,9 @@ and size, zlib parameters, delta version, session dictionary state, routine
 control-LUT state, fallback codecs, and safety limits before a peer/release is
 trusted. The explicit proxy now uses that manifest as part of session startup
 before it accepts semantic AIWire frames. Persistent session resume cache
-support is also implemented so repeat peer connections can offer known
-dictionary state hashes and fail closed if the selected state cannot be resolved
-locally.
+support is wired into `aura-proxy` startup so repeat peer connections can offer
+known dictionary state hashes and fail closed if the selected state cannot be
+resolved locally.
 
 - Version static dictionaries and session-template catalogs explicitly.
 - Keep `aura-aiwire-compatibility` available as the release/deployment preflight

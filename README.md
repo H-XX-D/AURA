@@ -94,11 +94,11 @@ Relevant public protocol context:
 | AIWire lane model | Semantic lane implemented; control/session structures implemented for handshake, template, dictionary, and resume flow; blob descriptor lane specified |
 | AIToken and AIToken+AIWire | Working structural-token path and combined small-frame path |
 | Session templates | Discovery, forced handshake, SHA verification, bounded session dictionaries |
-| Session resume cache | Persistent local cache for known peer dictionary states; supports resume hello/response negotiation and fail-closed verification |
+| Session resume cache | Persistent local cache for known peer dictionary states; supports resume hello/response negotiation, proxy startup resume, and fail-closed verification |
 | Dictionary compatibility | Compatibility manifest and fail-closed checker for static dictionary, session dictionary, delta version, and LUT state; wired into proxy/example startup |
 | Structured message helpers | Working canonical JSON encode/decode helpers |
 | AI-to-AI benchmark harness | Working LAN, realistic-profile, and concurrent-agent tooling |
-| Explicit sidecar proxy | Working TCP ingress/egress sidecar for raw length-prefixed agent frames over an AIWire tunnel |
+| Explicit sidecar proxy | Working TCP ingress/egress sidecar for raw length-prefixed agent frames over an AIWire tunnel with optional cached-session resume |
 | General AURA compressor | Alpha research path |
 | Large-file CLI | Experimental but usable for local tests |
 | Production readiness | Not production-ready; use for prototyping and measurement |
@@ -488,6 +488,12 @@ bytes. The sidecar-to-sidecar hop performs a fail-closed AIWire handshake,
 exchanges and verifies an AIWire compatibility manifest before semantic data
 moves, keeps control frames separately inspectable, and moves semantic frames
 through the AIWire session stream.
+
+For repeat peer connections, add `--resume-cache`, `--resume-peer-id`, and
+`--resume-app-namespace` on both sidecars. Add `--require-resume` when startup
+must fail closed unless the peer selects a cached session dictionary state that
+verifies locally. Add `--resume-auth-key-file` to HMAC-protect the resume
+hello/response without putting the shared key on the command line.
 
 Egress side, next to the upstream service:
 

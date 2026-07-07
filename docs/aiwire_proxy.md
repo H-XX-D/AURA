@@ -78,6 +78,59 @@ upstream service.
 For smoke tests or one-shot jobs, add `--once`. For service mode, omit
 `--once` and `--connections`.
 
+## Optional Session Resume
+
+When both sidecars already know the same session dictionary state, they can
+offer it during proxy startup and rebuild the AIWire encoder/decoder with that
+cached template set before semantic frames move.
+
+Seed each peer with the same `peer_id`, namespace, template file, and epoch:
+
+```bash
+aura-aiwire-resume-cache --cache /var/lib/aura/aiwire-resume.json put \
+  --peer-id z6-to-nano \
+  --app-namespace aura-cluster \
+  --session-templates ./session-templates.json \
+  --epoch 2
+```
+
+Then enable the cache on both sidecars:
+
+```bash
+aura-proxy egress \
+  --listen-host 0.0.0.0 \
+  --listen-port 9102 \
+  --upstream-host 127.0.0.1 \
+  --upstream-port 8765 \
+  --backend native \
+  --resume-cache /var/lib/aura/aiwire-resume.json \
+  --resume-peer-id z6-to-nano \
+  --resume-app-namespace aura-cluster \
+  --resume-auth-key-file /etc/aura/aiwire-resume.key \
+  --require-resume
+```
+
+```bash
+aura-proxy ingress \
+  --listen-host 127.0.0.1 \
+  --listen-port 9101 \
+  --egress-host <egress-host-or-z6> \
+  --egress-port 9102 \
+  --backend native \
+  --resume-cache /var/lib/aura/aiwire-resume.json \
+  --resume-peer-id z6-to-nano \
+  --resume-app-namespace aura-cluster \
+  --resume-auth-key-file /etc/aura/aiwire-resume.key \
+  --require-resume
+```
+
+Without `--require-resume`, a rejected resume offer falls back to a fresh AIWire
+session. With `--require-resume`, the sidecar handshake fails closed unless the
+peer selects a cached state hash that verifies locally. This is the service-mode
+path for future connections to resume known structure instead of relearning it.
+`--resume-auth-key-file` adds HMAC tags to the resume hello/response without
+placing the shared key in the process command line.
+
 ## What It Measures
 
 Metrics JSON includes:
@@ -85,6 +138,8 @@ Metrics JSON includes:
 - accepted connections and handshakes
 - AIWire compatibility codec, delta version, reason, and local/peer manifest
   hashes
+- session resume enabled/required/authenticated flags, offered state count,
+  selected state hash, epoch, template count, and accept/reject reason
 - raw request/response payload bytes
 - raw framed bytes
 - tunnel request/response framed bytes

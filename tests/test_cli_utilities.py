@@ -13,6 +13,8 @@ from aura_compression.cli.aiwire_resume_cache import main as resume_cache_main
 from aura_compression.cli.benchmark import main as benchmark_main
 from aura_compression.cli.compress import main as cli_compress_main
 from aura_compression.cli.decompress import main as cli_decompress_main
+from aura_compression.cli.proxy import _resume_config
+from aura_compression.cli.proxy import build_parser as proxy_build_parser
 from aura_compression.cli.server import main as server_main
 from tools.compress_large_file import (
     _output_stats,
@@ -309,6 +311,43 @@ def test_package_cli_aiwire_resume_cache_round_trip(tmp_path: Path):
     verify_payload = json.loads(verified.read_text(encoding="utf-8"))
     assert verify_payload["accepted"] is True
     assert verify_payload["entry"]["peer_id"] == "nano-engineer"
+
+
+def test_package_cli_proxy_resume_flags_parse(tmp_path: Path):
+    cache = tmp_path / "proxy-resume.json"
+    auth_key = tmp_path / "resume.key"
+    auth_key.write_text("shared-proxy-resume-key\n", encoding="utf-8")
+    parser = proxy_build_parser()
+    args = parser.parse_args(
+        [
+            "ingress",
+            "--listen-port",
+            "9101",
+            "--egress-host",
+            "127.0.0.1",
+            "--egress-port",
+            "9102",
+            "--backend",
+            "python",
+            "--resume-cache",
+            str(cache),
+            "--resume-peer-id",
+            "z6-to-nano",
+            "--resume-app-namespace",
+            "aura-cluster",
+            "--resume-auth-key-file",
+            str(auth_key),
+            "--require-resume",
+        ]
+    )
+    config = _resume_config(args, parser)
+
+    assert config is not None
+    assert config.cache_path == cache
+    assert config.peer_id == "z6-to-nano"
+    assert config.app_namespace == "aura-cluster"
+    assert config.require_resume is True
+    assert config.auth_key == b"shared-proxy-resume-key"
 
 
 def test_package_cli_server_guidance(capsys):

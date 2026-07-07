@@ -27,13 +27,17 @@ from .ai_wire import (
     AIWireHandshakeError,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    AIWireSessionResumeHello,
+    AIWireSessionResumeResponse,
     aiwire_compatibility_manifest_sha256,
     build_aiwire_compatibility_manifest,
     build_aiwire_handshake,
     negotiate_aiwire_handshake,
+    negotiate_aiwire_session_resume,
     verify_aiwire_compatibility_manifest,
 )
 from .aiwire_replay_log import dumps_replay_log
+from .aiwire_resume_cache import AIWireResumeCache, AIWireResumeCacheEntry
 
 AIWIRE_PROXY_SCHEMA = "aura.aiwire.proxy.tcp.v1"
 AIWIRE_PROXY_CONTROL_LANE = "control"
@@ -149,6 +153,27 @@ class TunnelImpairmentConfig:
             "tail_pause_ms": self.tail_pause_ms,
             "seed": self.seed,
         }
+
+
+@dataclass(frozen=True)
+class AIWireProxyResumeConfig:
+    """Opt-in session-resume cache configuration for an AIWire proxy peer."""
+
+    cache_path: str | Path
+    peer_id: str
+    app_namespace: str = "default"
+    require_resume: bool = False
+    auth_key: bytes | str | None = None
+
+    def validate(self) -> None:
+        if not str(self.cache_path):
+            raise ValueError("resume cache path must not be empty")
+        if not self.peer_id:
+            raise ValueError("resume peer id must not be empty")
+        if not self.app_namespace:
+            raise ValueError("resume app namespace must not be empty")
+        if self.auth_key is not None and not self.auth_key:
+            raise ValueError("resume auth key must not be empty")
 
 
 class TunnelImpairment:
@@ -403,6 +428,17 @@ class AIWireProxyMetrics:
     compatibility_reason: str | None = None
     compatibility_local_manifest_sha256: str = ""
     compatibility_peer_manifest_sha256: str = ""
+    session_resume_enabled: bool = False
+    session_resume_required: bool = False
+    session_resume_authenticated: bool = False
+    session_resume_peer_id: str = ""
+    session_resume_app_namespace: str = ""
+    session_resume_offered_hashes: int = 0
+    session_resume_accepted: bool | None = None
+    session_resume_reason: str | None = None
+    session_resume_state_hash: str = ""
+    session_resume_epoch: int | None = None
+    session_resume_template_count: int = 0
     tunnel_impairment: dict[str, float | int] = field(default_factory=dict)
     tunnel_impairment_wait_ns: int = 0
     stage_time_ns: dict[str, int] = field(default_factory=dict)
@@ -478,6 +514,12 @@ class AIWireProxyMetrics:
             "tunnel_control_framed_bytes": self.tunnel_control_framed_bytes,
             "bandwidth_capacity_gain": self.bandwidth_capacity_gain,
             "tunnel_impairment_wait_seconds": self.tunnel_impairment_wait_seconds,
+            "session_resume_enabled": self.session_resume_enabled,
+            "session_resume_authenticated": self.session_resume_authenticated,
+            "session_resume_accepted": self.session_resume_accepted,
+            "session_resume_state_hash": self.session_resume_state_hash,
+            "session_resume_epoch": self.session_resume_epoch,
+            "session_resume_template_count": self.session_resume_template_count,
         }
 
     def to_dict(self) -> dict[str, Any]:
@@ -518,6 +560,17 @@ class AIWireProxyMetrics:
             "compatibility_reason": self.compatibility_reason,
             "compatibility_local_manifest_sha256": self.compatibility_local_manifest_sha256,
             "compatibility_peer_manifest_sha256": self.compatibility_peer_manifest_sha256,
+            "session_resume_enabled": self.session_resume_enabled,
+            "session_resume_required": self.session_resume_required,
+            "session_resume_authenticated": self.session_resume_authenticated,
+            "session_resume_peer_id": self.session_resume_peer_id,
+            "session_resume_app_namespace": self.session_resume_app_namespace,
+            "session_resume_offered_hashes": self.session_resume_offered_hashes,
+            "session_resume_accepted": self.session_resume_accepted,
+            "session_resume_reason": self.session_resume_reason,
+            "session_resume_state_hash": self.session_resume_state_hash,
+            "session_resume_epoch": self.session_resume_epoch,
+            "session_resume_template_count": self.session_resume_template_count,
             "tunnel_impairment": self.tunnel_impairment,
             "tunnel_impairment_wait_ns": self.tunnel_impairment_wait_ns,
             "tunnel_impairment_wait_seconds": self.tunnel_impairment_wait_seconds,
@@ -564,6 +617,11 @@ def _connection_metrics_from(metrics: AIWireProxyMetrics) -> AIWireProxyMetrics:
         max_frame_bytes=metrics.max_frame_bytes,
         target_host=metrics.target_host,
         target_port=metrics.target_port,
+        session_resume_enabled=metrics.session_resume_enabled,
+        session_resume_required=metrics.session_resume_required,
+        session_resume_authenticated=metrics.session_resume_authenticated,
+        session_resume_peer_id=metrics.session_resume_peer_id,
+        session_resume_app_namespace=metrics.session_resume_app_namespace,
         tunnel_impairment=dict(metrics.tunnel_impairment),
     )
 
@@ -610,6 +668,28 @@ def _merge_connection_metrics(
         metrics.compatibility_peer_manifest_sha256 = (
             connection_metrics.compatibility_peer_manifest_sha256
         )
+    if connection_metrics.session_resume_enabled:
+        metrics.session_resume_enabled = True
+    if connection_metrics.session_resume_required:
+        metrics.session_resume_required = True
+    if connection_metrics.session_resume_authenticated:
+        metrics.session_resume_authenticated = True
+    if connection_metrics.session_resume_peer_id:
+        metrics.session_resume_peer_id = connection_metrics.session_resume_peer_id
+    if connection_metrics.session_resume_app_namespace:
+        metrics.session_resume_app_namespace = connection_metrics.session_resume_app_namespace
+    if connection_metrics.session_resume_offered_hashes:
+        metrics.session_resume_offered_hashes += connection_metrics.session_resume_offered_hashes
+    if connection_metrics.session_resume_accepted is not None:
+        metrics.session_resume_accepted = connection_metrics.session_resume_accepted
+    if connection_metrics.session_resume_reason is not None:
+        metrics.session_resume_reason = connection_metrics.session_resume_reason
+    if connection_metrics.session_resume_state_hash:
+        metrics.session_resume_state_hash = connection_metrics.session_resume_state_hash
+    if connection_metrics.session_resume_epoch is not None:
+        metrics.session_resume_epoch = connection_metrics.session_resume_epoch
+    if connection_metrics.session_resume_template_count:
+        metrics.session_resume_template_count = connection_metrics.session_resume_template_count
     if connection_metrics.last_error:
         metrics.last_error = connection_metrics.last_error
 
@@ -657,12 +737,166 @@ def _record_proxy_compatibility(
     metrics.compatibility_peer_manifest_sha256 = check.peer_manifest_sha256
 
 
+def _proxy_resume_cache(config: AIWireProxyResumeConfig | None) -> AIWireResumeCache | None:
+    if config is None:
+        return None
+    config.validate()
+    return AIWireResumeCache(config.cache_path)
+
+
+def _record_proxy_resume_config(
+    metrics: AIWireProxyMetrics,
+    config: AIWireProxyResumeConfig | None,
+) -> None:
+    if config is None:
+        return
+    metrics.session_resume_enabled = True
+    metrics.session_resume_required = config.require_resume
+    metrics.session_resume_authenticated = config.auth_key is not None
+    metrics.session_resume_peer_id = config.peer_id
+    metrics.session_resume_app_namespace = config.app_namespace
+
+
+def _record_proxy_resume_hello(
+    metrics: AIWireProxyMetrics,
+    hello: AIWireSessionResumeHello | None,
+) -> None:
+    if hello is None:
+        return
+    metrics.session_resume_enabled = True
+    metrics.session_resume_peer_id = hello.peer_id
+    metrics.session_resume_app_namespace = hello.app_namespace
+    metrics.session_resume_offered_hashes += len(hello.cached_state_hashes)
+
+
+def _record_proxy_resume_response(
+    metrics: AIWireProxyMetrics,
+    response: AIWireSessionResumeResponse | None,
+    entry: AIWireResumeCacheEntry | None,
+) -> None:
+    if response is None:
+        return
+    metrics.session_resume_enabled = True
+    metrics.session_resume_accepted = response.accepted
+    metrics.session_resume_reason = response.reason
+    if response.resume_state_hash is not None:
+        metrics.session_resume_state_hash = response.resume_state_hash
+    if entry is not None:
+        metrics.session_resume_epoch = entry.epoch
+        metrics.session_resume_template_count = len(entry.session_templates)
+
+
+def _build_proxy_resume_hello(
+    cache: AIWireResumeCache | None,
+    config: AIWireProxyResumeConfig | None,
+) -> AIWireSessionResumeHello | None:
+    if cache is None or config is None:
+        return None
+    hashes = cache.cached_state_hashes(config.peer_id, config.app_namespace)
+    if not hashes and not config.require_resume:
+        return None
+    if not hashes:
+        raise AIWireProxyHandshakeError("AIWire proxy resume cache has no offered state hashes")
+    return cache.build_resume_hello(
+        peer_id=config.peer_id,
+        app_namespace=config.app_namespace,
+        auth_key=config.auth_key,
+    )
+
+
+def _proxy_resume_response_from_ack(
+    ack: Mapping[str, Any],
+) -> AIWireSessionResumeResponse | None:
+    value = ack.get("aiwire_session_resume_response")
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise AIWireProxyHandshakeError("malformed AIWire session resume response")
+    try:
+        return AIWireSessionResumeResponse.from_dict(value)
+    except AIWireHandshakeError as exc:
+        raise AIWireProxyHandshakeError(str(exc)) from exc
+
+
+def _verify_proxy_resume_response(
+    *,
+    cache: AIWireResumeCache | None,
+    config: AIWireProxyResumeConfig | None,
+    hello: AIWireSessionResumeHello | None,
+    response: AIWireSessionResumeResponse | None,
+) -> AIWireResumeCacheEntry | None:
+    if hello is None:
+        if response is not None:
+            raise AIWireProxyHandshakeError("unexpected AIWire session resume response")
+        return None
+    if cache is None or config is None:
+        raise AIWireProxyHandshakeError("local AIWire resume cache is missing")
+    if response is None:
+        if config.require_resume:
+            raise AIWireProxyHandshakeError("AIWire proxy resume response is missing")
+        return None
+    if response.hello_nonce != hello.nonce:
+        raise AIWireProxyHandshakeError("AIWire proxy resume response nonce mismatch")
+    if response.static_dictionary_sha256 != hello.static_dictionary_sha256:
+        raise AIWireProxyHandshakeError("AIWire proxy resume static dictionary mismatch")
+    if not response.accepted:
+        if config.require_resume:
+            reason = response.reason or "session resume rejected"
+            raise AIWireProxyHandshakeError(f"AIWire proxy resume rejected: {reason}")
+        return None
+    try:
+        return cache.verify_resume_response(hello, response, auth_key=config.auth_key)
+    except AIWireHandshakeError as exc:
+        raise AIWireProxyHandshakeError(str(exc)) from exc
+
+
+def _negotiate_proxy_resume(
+    hello_payload: Mapping[str, Any] | None,
+    *,
+    cache: AIWireResumeCache | None,
+    config: AIWireProxyResumeConfig | None,
+) -> tuple[AIWireSessionResumeResponse | None, AIWireResumeCacheEntry | None]:
+    if hello_payload is None:
+        if config is not None and config.require_resume:
+            raise AIWireProxyHandshakeError("AIWire proxy resume hello is missing")
+        return None, None
+    try:
+        hello = AIWireSessionResumeHello.from_dict(hello_payload)
+        if cache is None:
+            response = negotiate_aiwire_session_resume(
+                hello,
+                available_state_hashes=(),
+                auth_key=config.auth_key if config is not None else None,
+            )
+            return response, None
+        response = cache.negotiate_resume(
+            hello,
+            auth_key=config.auth_key if config is not None else None,
+        )
+        entry = (
+            cache.get_state(
+                response.resume_state_hash,
+                peer_id=hello.peer_id,
+                app_namespace=hello.app_namespace,
+            )
+            if response.accepted and response.resume_state_hash is not None
+            else None
+        )
+        if config is not None and config.require_resume and not response.accepted:
+            reason = response.reason or "session resume rejected"
+            raise AIWireProxyHandshakeError(f"AIWire proxy resume rejected: {reason}")
+        return response, entry
+    except AIWireHandshakeError as exc:
+        raise AIWireProxyHandshakeError(str(exc)) from exc
+
+
 def _proxy_client_hello(
     *,
     level: int,
     backend: BackendName,
     tunnel_codec: TunnelCodec,
     compatibility_manifest: AIWireCompatibilityManifest | None = None,
+    resume_hello: AIWireSessionResumeHello | None = None,
 ) -> dict[str, Any]:
     hello: dict[str, Any] = {
         "schema": AIWIRE_PROXY_SCHEMA,
@@ -679,6 +913,8 @@ def _proxy_client_hello(
             fallback_codecs=(),
         )
         hello["aiwire_handshake"] = handshake.to_dict()
+        if resume_hello is not None:
+            hello["aiwire_session_resume_hello"] = resume_hello.to_dict()
     return hello
 
 
@@ -689,6 +925,7 @@ def _write_proxy_client_hello(
     backend: BackendName,
     tunnel_codec: TunnelCodec,
     compatibility_manifest: AIWireCompatibilityManifest | None = None,
+    resume_hello: AIWireSessionResumeHello | None = None,
     impairment: TunnelImpairment | None = None,
 ) -> int:
     return _write_control_frame(
@@ -698,6 +935,7 @@ def _write_proxy_client_hello(
             backend=backend,
             tunnel_codec=tunnel_codec,
             compatibility_manifest=compatibility_manifest,
+            resume_hello=resume_hello,
         ),
         impairment=impairment,
     )
@@ -709,7 +947,16 @@ def _read_proxy_server_ack(
     max_frame_bytes: int,
     tunnel_codec: TunnelCodec,
     compatibility_manifest: AIWireCompatibilityManifest | None = None,
-) -> tuple[dict[str, Any], int, AIWireCompatibilityCheck | None]:
+    resume_cache: AIWireResumeCache | None = None,
+    resume_config: AIWireProxyResumeConfig | None = None,
+    resume_hello: AIWireSessionResumeHello | None = None,
+) -> tuple[
+    dict[str, Any],
+    int,
+    AIWireCompatibilityCheck | None,
+    AIWireSessionResumeResponse | None,
+    AIWireResumeCacheEntry | None,
+]:
     ack, framed_bytes = _read_control_frame_with_size(sock, max_frame_bytes=max_frame_bytes)
     if ack.get("role") != "egress":
         raise AIWireProxyHandshakeError("proxy handshake ack came from unexpected role")
@@ -747,7 +994,15 @@ def _read_proxy_server_ack(
                 compatibility_check.local_manifest_sha256
             ):
                 raise AIWireProxyHandshakeError("AIWire local compatibility hash mismatch")
-    return ack, framed_bytes, compatibility_check
+
+    resume_response = _proxy_resume_response_from_ack(ack)
+    resume_entry = _verify_proxy_resume_response(
+        cache=resume_cache,
+        config=resume_config,
+        hello=resume_hello,
+        response=resume_response,
+    )
+    return ack, framed_bytes, compatibility_check, resume_response, resume_entry
 
 
 def _proxy_server_ack(
@@ -760,6 +1015,7 @@ def _proxy_server_ack(
     negotiation: Mapping[str, Any] | None = None,
     compatibility_manifest: AIWireCompatibilityManifest | None = None,
     compatibility_check: AIWireCompatibilityCheck | None = None,
+    resume_response: AIWireSessionResumeResponse | None = None,
 ) -> dict[str, Any]:
     ack: dict[str, Any] = {
         "schema": AIWIRE_PROXY_SCHEMA,
@@ -776,6 +1032,8 @@ def _proxy_server_ack(
         _add_proxy_compatibility_payload(ack, compatibility_manifest)
     if compatibility_check is not None:
         ack["aiwire_compatibility_check"] = compatibility_check.to_dict()
+    if resume_response is not None:
+        ack["aiwire_session_resume_response"] = resume_response.to_dict()
     return ack
 
 
@@ -787,7 +1045,14 @@ def _accept_proxy_handshake(
     tunnel_codec: TunnelCodec,
     max_frame_bytes: int,
     impairment: TunnelImpairment | None = None,
-) -> tuple[int, dict[str, Any], AIWireCompatibilityCheck | None]:
+    resume_config: AIWireProxyResumeConfig | None = None,
+) -> tuple[
+    int,
+    dict[str, Any],
+    AIWireCompatibilityCheck | None,
+    AIWireSessionResumeResponse | None,
+    AIWireResumeCacheEntry | None,
+]:
     control_bytes = 0
     hello, hello_bytes = _read_control_frame_with_size(sock, max_frame_bytes=max_frame_bytes)
     control_bytes += hello_bytes
@@ -822,9 +1087,11 @@ def _accept_proxy_handshake(
             },
         )
         control_bytes += _write_control_frame(sock, ack, impairment=impairment)
-        return control_bytes, ack, None
+        return control_bytes, ack, None, None, None
 
     local_manifest = _proxy_aiwire_compatibility_manifest()
+    resume_response: AIWireSessionResumeResponse | None = None
+    resume_entry: AIWireResumeCacheEntry | None = None
     try:
         peer_manifest = _proxy_compatibility_manifest_from_payload(hello)
         compatibility_check = verify_aiwire_compatibility_manifest(
@@ -883,6 +1150,47 @@ def _accept_proxy_handshake(
         )
         raise AIWireProxyHandshakeError(reason)
 
+    raw_resume_hello = hello.get("aiwire_session_resume_hello")
+    if raw_resume_hello is not None and not isinstance(raw_resume_hello, Mapping):
+        reason = "malformed AIWire session resume hello"
+        control_bytes += _write_control_frame(
+            sock,
+            _proxy_server_ack(
+                accepted=False,
+                codec="aiwire",
+                version=None,
+                reason=reason,
+                backend=backend,
+                compatibility_manifest=local_manifest,
+                compatibility_check=compatibility_check,
+            ),
+            impairment=impairment,
+        )
+        raise AIWireProxyHandshakeError(reason)
+
+    try:
+        resume_response, resume_entry = _negotiate_proxy_resume(
+            raw_resume_hello,
+            cache=_proxy_resume_cache(resume_config),
+            config=resume_config,
+        )
+    except AIWireProxyHandshakeError as exc:
+        reason = str(exc)
+        control_bytes += _write_control_frame(
+            sock,
+            _proxy_server_ack(
+                accepted=False,
+                codec="aiwire",
+                version=None,
+                reason=reason,
+                backend=backend,
+                compatibility_manifest=local_manifest,
+                compatibility_check=compatibility_check,
+            ),
+            impairment=impairment,
+        )
+        raise
+
     negotiation = negotiate_aiwire_handshake(
         dict(peer_handshake),
         level=level,
@@ -899,12 +1207,13 @@ def _accept_proxy_handshake(
         negotiation=negotiation.to_dict(),
         compatibility_manifest=local_manifest,
         compatibility_check=compatibility_check,
+        resume_response=resume_response,
     )
     control_bytes += _write_control_frame(sock, ack, impairment=impairment)
     if not negotiation.accepted:
         reason = negotiation.reason or "rejected"
         raise AIWireProxyHandshakeError(f"AIWire proxy handshake rejected: {reason}")
-    return control_bytes, ack, compatibility_check
+    return control_bytes, ack, compatibility_check, resume_response, resume_entry
 
 
 def _encode_semantic_payload(
@@ -949,18 +1258,14 @@ def _handle_ingress_connection(
     max_frame_bytes: int,
     connect_timeout: float,
     tunnel_impairment: TunnelImpairment | None,
+    resume_config: AIWireProxyResumeConfig | None,
     metrics: AIWireProxyMetrics,
 ) -> None:
     _set_socket_options(client)
     use_native = _backend_flag(backend)
     request_encoder: AIWireSessionEncoder | None = None
     response_decoder: AIWireSessionDecoder | None = None
-    if tunnel_codec == "aiwire":
-        request_encoder = AIWireSessionEncoder(level=level, use_native=use_native)
-        response_decoder = AIWireSessionDecoder(use_native=use_native)
-        metrics.encoder_backend = request_encoder.backend
-        metrics.decoder_backend = response_decoder.backend
-    else:
+    if tunnel_codec != "aiwire":
         metrics.encoder_backend = tunnel_codec
         metrics.decoder_backend = tunnel_codec
 
@@ -976,6 +1281,13 @@ def _handle_ingress_connection(
         compatibility_manifest = (
             _proxy_aiwire_compatibility_manifest() if tunnel_codec == "aiwire" else None
         )
+        resume_cache = _proxy_resume_cache(resume_config) if tunnel_codec == "aiwire" else None
+        resume_hello = (
+            _build_proxy_resume_hello(resume_cache, resume_config)
+            if tunnel_codec == "aiwire"
+            else None
+        )
+        _record_proxy_resume_hello(metrics, resume_hello)
         started_ns = time.perf_counter_ns()
         metrics.tunnel_control_framed_bytes += _write_proxy_client_hello(
             tunnel,
@@ -983,16 +1295,34 @@ def _handle_ingress_connection(
             backend=backend,
             tunnel_codec=tunnel_codec,
             compatibility_manifest=compatibility_manifest,
+            resume_hello=resume_hello,
             impairment=tunnel_impairment,
         )
         metrics.record_stage("handshake_write_hello", time.perf_counter_ns() - started_ns)
         started_ns = time.perf_counter_ns()
-        ack, ack_bytes, compatibility_check = _read_proxy_server_ack(
+        ack, ack_bytes, compatibility_check, resume_response, resume_entry = _read_proxy_server_ack(
             tunnel,
             max_frame_bytes=max_frame_bytes,
             tunnel_codec=tunnel_codec,
             compatibility_manifest=compatibility_manifest,
+            resume_cache=resume_cache,
+            resume_config=resume_config,
+            resume_hello=resume_hello,
         )
+        _record_proxy_resume_response(metrics, resume_response, resume_entry)
+        if tunnel_codec == "aiwire":
+            session_templates = resume_entry.session_templates if resume_entry is not None else None
+            request_encoder = AIWireSessionEncoder(
+                level=level,
+                use_native=use_native,
+                session_templates=session_templates,
+            )
+            response_decoder = AIWireSessionDecoder(
+                use_native=use_native,
+                session_templates=session_templates,
+            )
+            metrics.encoder_backend = request_encoder.backend
+            metrics.decoder_backend = response_decoder.backend
         metrics.record_stage("handshake_read_ack", time.perf_counter_ns() - started_ns)
         metrics.tunnel_control_framed_bytes += ack_bytes
         metrics.handshakes_accepted += 1
@@ -1073,22 +1403,27 @@ def _handle_egress_connection(
     max_frame_bytes: int,
     connect_timeout: float,
     tunnel_impairment: TunnelImpairment | None,
+    resume_config: AIWireProxyResumeConfig | None,
     metrics: AIWireProxyMetrics,
 ) -> None:
     _set_socket_options(tunnel)
     started_ns = time.perf_counter_ns()
-    control_bytes, ack, compatibility_check = _accept_proxy_handshake(
-        tunnel,
-        level=level,
-        backend=backend,
-        tunnel_codec=tunnel_codec,
-        max_frame_bytes=max_frame_bytes,
-        impairment=tunnel_impairment,
+    control_bytes, ack, compatibility_check, resume_response, resume_entry = (
+        _accept_proxy_handshake(
+            tunnel,
+            level=level,
+            backend=backend,
+            tunnel_codec=tunnel_codec,
+            max_frame_bytes=max_frame_bytes,
+            impairment=tunnel_impairment,
+            resume_config=resume_config,
+        )
     )
     metrics.record_stage("handshake_accept", time.perf_counter_ns() - started_ns)
     metrics.tunnel_control_framed_bytes += control_bytes
     metrics.handshakes_accepted += 1
     _record_proxy_compatibility(metrics, compatibility_check)
+    _record_proxy_resume_response(metrics, resume_response, resume_entry)
     metrics.negotiation_codec = str(ack.get("codec") or "")
     version = ack.get("version")
     metrics.negotiation_version = int(version) if version is not None else None
@@ -1098,8 +1433,16 @@ def _handle_egress_connection(
     request_decoder: AIWireSessionDecoder | None = None
     response_encoder: AIWireSessionEncoder | None = None
     if tunnel_codec == "aiwire":
-        request_decoder = AIWireSessionDecoder(use_native=use_native)
-        response_encoder = AIWireSessionEncoder(level=level, use_native=use_native)
+        session_templates = resume_entry.session_templates if resume_entry is not None else None
+        request_decoder = AIWireSessionDecoder(
+            use_native=use_native,
+            session_templates=session_templates,
+        )
+        response_encoder = AIWireSessionEncoder(
+            level=level,
+            use_native=use_native,
+            session_templates=session_templates,
+        )
         metrics.encoder_backend = response_encoder.backend
         metrics.decoder_backend = request_decoder.backend
     else:
@@ -1243,8 +1586,13 @@ def _run_listener(
     metrics_output: str | Path | None,
     replay_log_output: str | Path | None,
     ready_callback: Callable[[int], None] | None,
+    resume_config: AIWireProxyResumeConfig | None = None,
     upstream_responder: EgressUpstreamResponder | None = None,
 ) -> AIWireProxyMetrics:
+    if resume_config is not None:
+        resume_config.validate()
+        if tunnel_codec != "aiwire":
+            raise ValueError("AIWire proxy resume cache requires --tunnel-codec aiwire")
     metrics = AIWireProxyMetrics(
         mode=mode,
         listen_host=listen_host,
@@ -1257,6 +1605,7 @@ def _run_listener(
         target_port=target_port,
         tunnel_impairment=tunnel_impairment_config.to_dict(),
     )
+    _record_proxy_resume_config(metrics, resume_config)
     tunnel_impairment = (
         TunnelImpairment(tunnel_impairment_config) if tunnel_impairment_config.enabled else None
     )
@@ -1280,6 +1629,7 @@ def _run_listener(
                             max_frame_bytes=max_frame_bytes,
                             connect_timeout=connect_timeout,
                             tunnel_impairment=tunnel_impairment,
+                            resume_config=resume_config,
                             metrics=connection_metrics,
                         )
                     else:
@@ -1294,6 +1644,7 @@ def _run_listener(
                             max_frame_bytes=max_frame_bytes,
                             connect_timeout=connect_timeout,
                             tunnel_impairment=tunnel_impairment,
+                            resume_config=resume_config,
                             metrics=connection_metrics,
                         )
                 except AIWireProxyHandshakeError:
@@ -1357,6 +1708,7 @@ def run_ingress_proxy(
     tunnel_impairment_config: TunnelImpairmentConfig | None = None,
     metrics_output: str | Path | None = None,
     replay_log_output: str | Path | None = None,
+    resume_config: AIWireProxyResumeConfig | None = None,
     ready_callback: Callable[[int], None] | None = None,
 ) -> AIWireProxyMetrics:
     """Run an ingress sidecar from raw local frames to an AIWire tunnel."""
@@ -1377,6 +1729,7 @@ def run_ingress_proxy(
         tunnel_impairment_config=tunnel_impairment_config or TunnelImpairmentConfig(),
         metrics_output=metrics_output,
         replay_log_output=replay_log_output,
+        resume_config=resume_config,
         ready_callback=ready_callback,
     )
 
@@ -1397,6 +1750,7 @@ def run_egress_proxy(
     tunnel_impairment_config: TunnelImpairmentConfig | None = None,
     metrics_output: str | Path | None = None,
     replay_log_output: str | Path | None = None,
+    resume_config: AIWireProxyResumeConfig | None = None,
     ready_callback: Callable[[int], None] | None = None,
 ) -> AIWireProxyMetrics:
     """Run an egress sidecar from an AIWire tunnel to raw upstream frames."""
@@ -1419,6 +1773,7 @@ def run_egress_proxy(
         tunnel_impairment_config=tunnel_impairment_config or TunnelImpairmentConfig(),
         metrics_output=metrics_output,
         replay_log_output=replay_log_output,
+        resume_config=resume_config,
         ready_callback=ready_callback,
         upstream_responder=upstream_responder,
     )
@@ -1432,6 +1787,7 @@ __all__ = [
     "AIWireProxyHandshakeError",
     "AIWireProxyMetrics",
     "AIWireProxyProtocolError",
+    "AIWireProxyResumeConfig",
     "DEFAULT_MAX_FRAME_BYTES",
     "EgressUpstreamResponder",
     "TUNNEL_CODECS",

@@ -125,8 +125,10 @@ def test_proxy_cluster_connection_sweep_dry_run_outputs_plans(
     assert [run["connections_per_target"] for run in rendered["runs"]] == [2, 4]
     assert rendered["runs"][0]["report"]["run_id"] == "sweep-test-2x"
     assert rendered["runs"][1]["report"]["run_id"] == "sweep-test-4x"
-    assert rendered["runs"][0]["report"]["output_dir"].endswith("/artifacts/2x")
-    assert rendered["runs"][1]["report"]["output_dir"].endswith("/artifacts/4x")
+    first_output_dir = Path(rendered["runs"][0]["report"]["output_dir"])
+    second_output_dir = Path(rendered["runs"][1]["report"]["output_dir"])
+    assert first_output_dir.parts[-2:] == ("artifacts", "2x")
+    assert second_output_dir.parts[-2:] == ("artifacts", "4x")
     assert "| 2 | 2 | `sweep-test-2x` | planned |" in summary_text
     assert "| 4 | 4 | `sweep-test-4x` | planned |" in summary_text
 

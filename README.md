@@ -520,6 +520,7 @@ Benchmark the full local proxy path with the public fixture corpus:
 ```bash
 aura-proxy-benchmark \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --modeled-link-mbps 10 \
   --output /tmp/aura-proxy-benchmark.json \
@@ -545,6 +546,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --target edge-2=<edge-ssh-host>,remote_root=/home/<user>/AURA \
   --preflight \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --fixture-variation-profile cluster \
   --output /tmp/aura-proxy-cluster.json \
@@ -556,6 +558,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --target edge-2=<edge-ssh-host>,remote_root=/home/<user>/AURA \
   --preflight \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --fixture-variation-profile cluster \
   --run
@@ -574,6 +577,9 @@ keys do not accidentally emit the same authorized-key command for every edge.
 For larger labs, start from the public-safe target file example at
 `deploy/aura-proxy/proxy-cluster.targets.example` and keep the real filled-in
 copy untracked.
+Use `--connections N` to run N parallel client/ingress/egress/fixture sessions
+per target. The default is `1`, matching the original single-session proxy
+measurements.
 
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native

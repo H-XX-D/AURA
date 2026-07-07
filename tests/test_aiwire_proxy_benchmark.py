@@ -89,6 +89,7 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     result = run_proxy_benchmark(
         seconds=0,
         max_exchanges=6,
+        connections=2,
         backend="python",
         output=output,
         replay_log_output=replay_log,
@@ -96,6 +97,8 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
 
     assert result["schema"] == AIWIRE_PROXY_BENCHMARK_SCHEMA
     assert result["verified"] is True
+    assert result["requested_connections"] == 2
+    assert result["connections"] == 2
     assert result["exchanges"] == 6
     assert result["actual_backend"] == "python"
     assert result["fixture_corpus_source"] == "file"
@@ -103,6 +106,9 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     assert result["tunnel_saved_percent"] > 0
     assert result["modeled_tunnel_gain_vs_raw"] > 1
     assert result["ingress_metrics"]["negotiation_codec"] == "aiwire"
+    assert result["ingress_metrics"]["accepted_connections"] == 2
+    assert result["egress_metrics"]["accepted_connections"] == 2
+    assert result["upstream"]["accepted_connections"] == 2
     assert json.loads(output.read_text())["exchanges"] == 6
 
     records = loads_replay_log(replay_log.read_text())
@@ -124,7 +130,7 @@ def test_proxy_ingress_benchmark_round_trips_remote_egress_shape(tmp_path: Path)
             listen_port=upstream_port,
             fixture_variation_profile="cluster",
             fixture_peer_label="edge-1",
-            max_connections=1,
+            max_connections=2,
             metrics_output=fixture_metrics,
             ready_callback=lambda _port: fixture_ready.set(),
         )
@@ -139,7 +145,7 @@ def test_proxy_ingress_benchmark_round_trips_remote_egress_shape(tmp_path: Path)
             upstream_host=HOST,
             upstream_port=upstream_port,
             backend="python",
-            max_connections=1,
+            max_connections=2,
             metrics_output=egress_metrics,
             ready_callback=lambda _port: egress_ready.set(),
         )
@@ -150,7 +156,8 @@ def test_proxy_ingress_benchmark_round_trips_remote_egress_shape(tmp_path: Path)
         egress_host=HOST,
         egress_port=egress_port,
         seconds=0,
-        max_exchanges=5,
+        max_exchanges=6,
+        connections=2,
         backend="python",
         fixture_variation_profile="cluster",
         fixture_peer_label="edge-1",
@@ -162,21 +169,28 @@ def test_proxy_ingress_benchmark_round_trips_remote_egress_shape(tmp_path: Path)
 
     assert result["mode"] == "ingress_client"
     assert result["verified"] is True
-    assert result["exchanges"] == 5
+    assert result["requested_connections"] == 2
+    assert result["connections"] == 2
+    assert result["exchanges"] == 6
     assert result["fixture_variation_profile"] == "cluster"
     assert result["fixture_peer_label"] == "edge-1"
-    assert egress.exchanges == 5
-    assert fixture.exchanges == 5
+    assert egress.accepted_connections == 2
+    assert egress.exchanges == 6
+    assert fixture.accepted_connections == 2
+    assert fixture.exchanges == 6
     assert json.loads(fixture_metrics.read_text())["schema"] == AIWIRE_PROXY_FIXTURE_SERVER_SCHEMA
-    assert json.loads(ingress_metrics.read_text())["exchanges"] == 5
+    assert json.loads(ingress_metrics.read_text())["exchanges"] == 6
 
 
 def test_proxy_benchmark_cli_outputs_json(capsys) -> None:
-    assert proxy_benchmark_main(["--seconds", "0", "--max-exchanges", "3"]) == 0
+    assert (
+        proxy_benchmark_main(["--seconds", "0", "--max-exchanges", "4", "--connections", "2"]) == 0
+    )
     result = json.loads(capsys.readouterr().out)
 
     assert result["schema"] == AIWIRE_PROXY_BENCHMARK_SCHEMA
-    assert result["exchanges"] == 3
+    assert result["connections"] == 2
+    assert result["exchanges"] == 4
     assert result["verified"] is True
 
 

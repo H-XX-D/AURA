@@ -173,7 +173,8 @@ and editable systemd/launchd templates.
 - `aura-proxy-benchmark` for sustained local sidecar byte-movement checks.
 - `tools/run_aiwire_proxy_cluster.py` for 60-second coordinator-to-edge proxy
   runs with remote fixture servers, remote egress sidecars, local ingress
-  clients, per-target JSON artifacts, and markdown summaries.
+  clients, per-target JSON artifacts, markdown summaries, and opt-in
+  multi-connection sessions per target.
 - Service-manager templates for systemd and launchd.
 
 Definition of done:

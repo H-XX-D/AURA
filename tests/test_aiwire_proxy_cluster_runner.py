@@ -45,6 +45,8 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
                 "60",
                 "--backend",
                 "python",
+                "--connections",
+                "3",
                 "--run-id",
                 "test-run",
                 "--output-dir",
@@ -64,15 +66,21 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     assert rendered["schema"] == proxy_cluster.PROXY_CLUSTER_SCHEMA
     assert rendered == written
     assert rendered["dry_run"] is True
+    assert rendered["connections"] == 3
     assert rendered["fixture_variation_profile"] == "cluster"
     assert rendered["targets"][0]["target"]["label"] == "edge-1"
     start_fixture = rendered["targets"][0]["commands"]["start_fixture"]
     assert "aura_compression.cli.proxy_fixture_server" in start_fixture
+    assert "--connections 3" in start_fixture
     assert "cd $HOME/AURA" in start_fixture
     assert "&& (nohup sh -lc" in start_fixture
     assert "& echo $! >" in start_fixture
-    assert "aura_compression.cli.proxy" in rendered["targets"][0]["commands"]["start_egress"]
-    assert "Run again with `--run`" in summary.read_text()
+    start_egress = rendered["targets"][0]["commands"]["start_egress"]
+    assert "aura_compression.cli.proxy" in start_egress
+    assert "--connections 3" in start_egress
+    summary_text = summary.read_text()
+    assert "Connections per target: `3`" in summary_text
+    assert "Run again with `--run`" in summary_text
 
 
 def test_proxy_cluster_target_remote_root_overrides_global_default(

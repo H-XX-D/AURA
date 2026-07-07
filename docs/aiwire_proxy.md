@@ -102,6 +102,7 @@ replays request/response pairs through the full proxy path.
 ```bash
 aura-proxy-benchmark \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --modeled-link-mbps 10 \
   --output /tmp/aura-proxy-benchmark.json \
@@ -119,6 +120,8 @@ bytes, control overhead, p50/p95/p99 local round-trip latency, and modeled
 10 Mbps raw-vs-tunnel capacity. This is useful for checking whether the
 sidecar shape preserves the bandwidth-proportional benefit before moving the
 same commands to the Z6 or Nano-class targets.
+Use `--connections N` to open N parallel client sessions through the local
+ingress, remote egress, and fixture upstream path.
 
 ## Cross-Machine Benchmark
 
@@ -162,6 +165,7 @@ aura-proxy-benchmark \
   --egress-host <edge-host> \
   --egress-port 9200 \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --fixture-variation-profile cluster \
   --fixture-peer-label edge-1 \
@@ -179,6 +183,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --target edge-4=<edge-ssh-host> \
   --preflight \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --fixture-variation-profile cluster \
   --target-parallelism 4 \
@@ -197,6 +202,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --preflight \
   --ready-targets-output /tmp/aura-ready-targets.txt \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --fixture-variation-profile cluster \
   --output /tmp/aura-edge-readiness.json \
@@ -213,6 +219,10 @@ The global `--remote-root` defaults to `~/AURA`. Use a per-target
 `remote_root` only when a real lab has mixed SSH users or checkout paths.
 The global `--ssh-public-key` remains the default for bootstrap reports; use a
 per-target `ssh_public_key` when each edge has its own dedicated keypair.
+Use `--connections N` when a single-session run shows stable byte savings but
+low modeled-link utilization. The cluster runner applies the same connection
+count to the local clients, local ingress sessions, remote egress sessions, and
+remote fixture upstream sessions for every target.
 
 If the edge hosts are reachable but fail batch SSH authentication, generate a
 safe bootstrap report from the coordinator's public key:

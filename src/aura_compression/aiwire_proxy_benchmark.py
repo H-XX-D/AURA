@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import queue
 import socket
@@ -343,10 +344,16 @@ def _fixture_responder(
     exchanges = 0
     raw_request_payload_bytes = 0
     raw_response_payload_bytes = 0
-    with listener:
-        while max_connections is None or accepted_connections < max_connections:
-            conn, _addr = listener.accept()
-            accepted_connections += 1
+    totals_lock = threading.Lock()
+    workers: list[threading.Thread] = []
+    errors: list[BaseException] = []
+
+    def handle_connection(conn: socket.socket, connection_index: int) -> None:
+        nonlocal exchanges, raw_request_payload_bytes, raw_response_payload_bytes
+        local_exchanges = 0
+        local_request_bytes = 0
+        local_response_bytes = 0
+        try:
             with conn:
                 while True:
                     try:
@@ -356,16 +363,41 @@ def _fixture_responder(
                         )
                     except EOFError:
                         break
-                    pair = pairs[exchanges % len(pairs)]
+                    pair = pairs[local_exchanges % len(pairs)]
                     if request != pair.request:
                         raise AssertionError(
-                            f"request payload mismatch at exchange {exchanges}; "
+                            f"request payload mismatch on connection {connection_index} "
+                            f"at exchange {local_exchanges}; "
                             f"fixture={pair.session_id}:{pair.exchange_index}"
                         )
-                    raw_request_payload_bytes += len(request)
-                    raw_response_payload_bytes += len(pair.response)
+                    local_request_bytes += len(request)
+                    local_response_bytes += len(pair.response)
                     write_length_prefixed(conn, pair.response)
-                    exchanges += 1
+                    local_exchanges += 1
+        except BaseException as exc:
+            with totals_lock:
+                errors.append(exc)
+        finally:
+            with totals_lock:
+                exchanges += local_exchanges
+                raw_request_payload_bytes += local_request_bytes
+                raw_response_payload_bytes += local_response_bytes
+
+    with listener:
+        while max_connections is None or accepted_connections < max_connections:
+            conn, _addr = listener.accept()
+            accepted_connections += 1
+            worker = threading.Thread(
+                target=handle_connection,
+                args=(conn, accepted_connections),
+            )
+            worker.start()
+            workers.append(worker)
+
+        for worker in workers:
+            worker.join()
+        if errors:
+            raise errors[0]
 
     return {
         "accepted_connections": accepted_connections,
@@ -503,6 +535,79 @@ def _run_fixture_client(
     }
 
 
+def _validate_connections(connections: int) -> None:
+    if connections <= 0:
+        raise ValueError("connections must be positive")
+
+
+def _active_connections(*, connections: int, max_exchanges: int | None) -> int:
+    _validate_connections(connections)
+    if max_exchanges is None:
+        return connections
+    return max(1, min(connections, max_exchanges))
+
+
+def _split_max_exchanges(total: int, connections: int) -> list[int]:
+    base, remainder = divmod(total, connections)
+    return [base + (1 if index < remainder else 0) for index in range(connections)]
+
+
+def _run_fixture_clients(
+    *,
+    ingress_host: str,
+    ingress_port: int,
+    pairs: Sequence[ProxyFixturePair],
+    seconds: float,
+    max_exchanges: int | None,
+    connections: int,
+) -> dict[str, Any]:
+    active_connections = _active_connections(
+        connections=connections,
+        max_exchanges=max_exchanges,
+    )
+    started_at_utc = _utc_now()
+    started = time.perf_counter()
+    per_connection_max = (
+        _split_max_exchanges(max_exchanges, active_connections)
+        if max_exchanges is not None
+        else [None] * active_connections
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=active_connections) as executor:
+        futures = [
+            executor.submit(
+                _run_fixture_client,
+                ingress_host=ingress_host,
+                ingress_port=ingress_port,
+                pairs=pairs,
+                seconds=seconds,
+                max_exchanges=max_for_connection,
+            )
+            for max_for_connection in per_connection_max
+        ]
+        runs = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+    latencies_ms = [latency for run in runs for latency in list(run.get("latencies_ms", []))]
+    return {
+        "started_at_utc": started_at_utc,
+        "elapsed_seconds": max(time.perf_counter() - started, 0.000001),
+        "requested_connections": connections,
+        "connections": active_connections,
+        "exchanges": sum(int(run["exchanges"]) for run in runs),
+        "client_raw_framed_bytes": sum(int(run["client_raw_framed_bytes"]) for run in runs),
+        "latencies_ms": latencies_ms,
+        "client_runs": [
+            {
+                "exchanges": int(run["exchanges"]),
+                "elapsed_seconds": float(run["elapsed_seconds"]),
+                "client_raw_framed_bytes": int(run["client_raw_framed_bytes"]),
+                "roundtrip_ms_p95": _percentile(list(run.get("latencies_ms", [])), 0.95),
+            }
+            for run in runs
+        ],
+    }
+
+
 def _result_from_ingress_metrics(
     *,
     mode: str,
@@ -549,6 +654,8 @@ def _result_from_ingress_metrics(
         "fixture_peer_label": fixture_peer_label,
         "seconds": seconds,
         "max_exchanges": max_exchanges,
+        "requested_connections": client_run.get("requested_connections", 1),
+        "connections": client_run.get("connections", 1),
         "elapsed_seconds": elapsed,
         "requested_backend": backend,
         "actual_backend": actual_backend,
@@ -557,6 +664,7 @@ def _result_from_ingress_metrics(
         "exchanges": exchanges,
         "exchanges_per_second": exchanges / elapsed,
         "client_raw_framed_bytes": client_run["client_raw_framed_bytes"],
+        "client_runs": list(client_run.get("client_runs", [])),
         "raw_framed_bytes": raw_framed_bytes,
         "raw_request_payload_bytes": ingress_payload["raw_request_payload_bytes"],
         "raw_response_payload_bytes": ingress_payload["raw_response_payload_bytes"],
@@ -627,6 +735,7 @@ def run_proxy_ingress_benchmark(
     fixture_peer_label: str = "proxy-fixture",
     seconds: float = 60.0,
     max_exchanges: int | None = None,
+    connections: int = 1,
     backend: BackendName = "python",
     level: int = AI_WIRE_DEFAULT_LEVEL,
     modeled_link_mbps: float = 10.0,
@@ -640,6 +749,10 @@ def run_proxy_ingress_benchmark(
         raise ValueError("seconds must be positive unless max_exchanges is set")
     if max_exchanges is not None and max_exchanges <= 0:
         raise ValueError("max_exchanges must be positive")
+    connection_count = _active_connections(
+        connections=connections,
+        max_exchanges=max_exchanges,
+    )
 
     fixture_path = Path(fixture_corpus_path)
     corpus, fixture_corpus_source = _load_fixture_corpus(fixture_path)
@@ -669,7 +782,7 @@ def run_proxy_ingress_benchmark(
                 egress_port=egress_port,
                 backend=backend,
                 level=level,
-                max_connections=1,
+                max_connections=connection_count,
                 metrics_output=ingress_metrics_path,
                 ready_callback=ingress_ready_callback,
             )
@@ -677,12 +790,13 @@ def run_proxy_ingress_benchmark(
         if not ingress_ready.wait(timeout=5):
             raise TimeoutError("ingress proxy did not become ready")
 
-        client_run = _run_fixture_client(
+        client_run = _run_fixture_clients(
             ingress_host=HOST,
             ingress_port=ingress_port_holder[0],
             pairs=pairs,
             seconds=seconds,
             max_exchanges=max_exchanges,
+            connections=connections,
         )
         ingress_metrics = _background_result(ingress_thread, ingress_results)
         ingress_payload = ingress_metrics.to_dict()
@@ -715,6 +829,7 @@ def run_proxy_benchmark(
     fixture_peer_label: str = "proxy-fixture",
     seconds: float = 60.0,
     max_exchanges: int | None = None,
+    connections: int = 1,
     backend: BackendName = "python",
     level: int = AI_WIRE_DEFAULT_LEVEL,
     modeled_link_mbps: float = 10.0,
@@ -727,6 +842,10 @@ def run_proxy_benchmark(
         raise ValueError("seconds must be positive unless max_exchanges is set")
     if max_exchanges is not None and max_exchanges <= 0:
         raise ValueError("max_exchanges must be positive")
+    connection_count = _active_connections(
+        connections=connections,
+        max_exchanges=max_exchanges,
+    )
 
     fixture_path = Path(fixture_corpus_path)
     corpus, fixture_corpus_source = _load_fixture_corpus(fixture_path)
@@ -738,7 +857,11 @@ def run_proxy_benchmark(
 
     upstream_listener, upstream_port = _bound_listener()
     upstream_thread, upstream_results = _run_background(
-        lambda: _fixture_responder(upstream_listener, pairs=pairs)
+        lambda: _fixture_responder(
+            upstream_listener,
+            pairs=pairs,
+            max_connections=connection_count,
+        )
     )
 
     with tempfile.TemporaryDirectory(prefix="aura-proxy-benchmark-") as tmpdir:
@@ -761,7 +884,7 @@ def run_proxy_benchmark(
                 upstream_port=upstream_port,
                 backend=backend,
                 level=level,
-                max_connections=1,
+                max_connections=connection_count,
                 metrics_output=egress_metrics_path,
                 ready_callback=egress_ready_callback,
             )
@@ -784,7 +907,7 @@ def run_proxy_benchmark(
                 egress_port=egress_port_holder[0],
                 backend=backend,
                 level=level,
-                max_connections=1,
+                max_connections=connection_count,
                 metrics_output=ingress_metrics_path,
                 ready_callback=ingress_ready_callback,
             )
@@ -792,12 +915,13 @@ def run_proxy_benchmark(
         if not ingress_ready.wait(timeout=5):
             raise TimeoutError("ingress proxy did not become ready")
 
-        client_run = _run_fixture_client(
+        client_run = _run_fixture_clients(
             ingress_host=HOST,
             ingress_port=ingress_port_holder[0],
             pairs=pairs,
             seconds=seconds,
             max_exchanges=max_exchanges,
+            connections=connections,
         )
 
         ingress_metrics = _background_result(ingress_thread, ingress_results)

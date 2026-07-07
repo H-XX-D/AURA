@@ -34,6 +34,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--max-exchanges", type=int)
     parser.add_argument(
+        "--connections",
+        type=int,
+        default=1,
+        help="parallel client/ingress/egress/fixture connections to use",
+    )
+    parser.add_argument(
         "--backend",
         choices=("python", "native", "auto"),
         default="python",
@@ -58,12 +64,15 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--egress-host and --egress-port must be provided together")
     if args.ingress_metrics_output and not args.egress_host:
         parser.error("--ingress-metrics-output only applies with --egress-host/--egress-port")
+    if args.connections <= 0:
+        parser.error("--connections must be positive")
     common = {
         "fixture_corpus_path": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "fixture_peer_label": args.fixture_peer_label,
         "seconds": args.seconds,
         "max_exchanges": args.max_exchanges,
+        "connections": args.connections,
         "backend": args.backend,
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,

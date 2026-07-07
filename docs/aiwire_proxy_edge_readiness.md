@@ -43,6 +43,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --preflight \
   --ready-targets-output /tmp/aura-ready-targets.txt \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --fixture-variation-profile cluster \
   --target-parallelism 4 \
@@ -94,6 +95,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --run \
   --seconds 10 \
   --max-exchanges 32 \
+  --connections 1 \
   --backend native \
   --fixture-variation-profile cluster \
   --target-parallelism 4 \
@@ -109,6 +111,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --preflight \
   --run \
   --seconds 60 \
+  --connections 1 \
   --backend native \
   --fixture-variation-profile cluster \
   --target-parallelism 4 \
@@ -121,6 +124,10 @@ any active target fails readiness.
 
 If you want a strict all-target run, omit `--ready-targets-output`, fix every
 failure in `/tmp/aura-targets.txt`, and run directly from that file.
+
+Increase `--connections` after the single-session run is stable. The runner
+uses that value for each target's client sessions, local ingress sessions,
+remote egress sessions, and remote fixture upstream sessions.
 
 ## Latest Public Validation
 

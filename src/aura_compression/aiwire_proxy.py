@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import socket
 import struct
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -351,6 +352,46 @@ def _write_metrics_outputs(
         )
 
 
+def _connection_metrics_from(metrics: AIWireProxyMetrics) -> AIWireProxyMetrics:
+    return AIWireProxyMetrics(
+        mode=metrics.mode,
+        listen_host=metrics.listen_host,
+        listen_port=metrics.listen_port,
+        requested_backend=metrics.requested_backend,
+        level=metrics.level,
+        max_frame_bytes=metrics.max_frame_bytes,
+        target_host=metrics.target_host,
+        target_port=metrics.target_port,
+    )
+
+
+def _merge_connection_metrics(
+    metrics: AIWireProxyMetrics,
+    connection_metrics: AIWireProxyMetrics,
+) -> None:
+    metrics.handshakes_accepted += connection_metrics.handshakes_accepted
+    metrics.handshakes_rejected += connection_metrics.handshakes_rejected
+    metrics.exchanges += connection_metrics.exchanges
+    metrics.raw_request_payload_bytes += connection_metrics.raw_request_payload_bytes
+    metrics.raw_response_payload_bytes += connection_metrics.raw_response_payload_bytes
+    metrics.raw_framed_bytes += connection_metrics.raw_framed_bytes
+    metrics.tunnel_request_framed_bytes += connection_metrics.tunnel_request_framed_bytes
+    metrics.tunnel_response_framed_bytes += connection_metrics.tunnel_response_framed_bytes
+    metrics.tunnel_control_framed_bytes += connection_metrics.tunnel_control_framed_bytes
+    if connection_metrics.encoder_backend:
+        metrics.encoder_backend = connection_metrics.encoder_backend
+    if connection_metrics.decoder_backend:
+        metrics.decoder_backend = connection_metrics.decoder_backend
+    if connection_metrics.negotiation_codec:
+        metrics.negotiation_codec = connection_metrics.negotiation_codec
+    if connection_metrics.negotiation_version is not None:
+        metrics.negotiation_version = connection_metrics.negotiation_version
+    if connection_metrics.negotiation_reason is not None:
+        metrics.negotiation_reason = connection_metrics.negotiation_reason
+    if connection_metrics.last_error:
+        metrics.last_error = connection_metrics.last_error
+
+
 def _proxy_client_hello(
     *,
     level: int,
@@ -598,6 +639,47 @@ def _run_listener(
         target_host=target_host,
         target_port=target_port,
     )
+    metrics_lock = threading.Lock()
+    workers: list[threading.Thread] = []
+    errors: list[BaseException] = []
+
+    def handle_connection(conn: socket.socket) -> None:
+        connection_metrics = _connection_metrics_from(metrics)
+        try:
+            with conn:
+                try:
+                    if mode == "ingress":
+                        _handle_ingress_connection(
+                            conn,
+                            egress_host=target_host,
+                            egress_port=target_port,
+                            level=level,
+                            backend=backend,
+                            max_frame_bytes=max_frame_bytes,
+                            connect_timeout=connect_timeout,
+                            metrics=connection_metrics,
+                        )
+                    else:
+                        _handle_egress_connection(
+                            conn,
+                            upstream_host=target_host,
+                            upstream_port=target_port,
+                            level=level,
+                            backend=backend,
+                            max_frame_bytes=max_frame_bytes,
+                            connect_timeout=connect_timeout,
+                            metrics=connection_metrics,
+                        )
+                except AIWireProxyHandshakeError:
+                    connection_metrics.handshakes_rejected += 1
+                    raise
+        except BaseException as exc:
+            connection_metrics.last_error = f"{type(exc).__name__}: {exc}"
+            with metrics_lock:
+                errors.append(exc)
+        finally:
+            with metrics_lock:
+                _merge_connection_metrics(metrics, connection_metrics)
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
@@ -610,34 +692,16 @@ def _run_listener(
 
             while max_connections is None or metrics.accepted_connections < max_connections:
                 conn, _addr = listener.accept()
-                metrics.accepted_connections += 1
-                with conn:
-                    try:
-                        if mode == "ingress":
-                            _handle_ingress_connection(
-                                conn,
-                                egress_host=target_host,
-                                egress_port=target_port,
-                                level=level,
-                                backend=backend,
-                                max_frame_bytes=max_frame_bytes,
-                                connect_timeout=connect_timeout,
-                                metrics=metrics,
-                            )
-                        else:
-                            _handle_egress_connection(
-                                conn,
-                                upstream_host=target_host,
-                                upstream_port=target_port,
-                                level=level,
-                                backend=backend,
-                                max_frame_bytes=max_frame_bytes,
-                                connect_timeout=connect_timeout,
-                                metrics=metrics,
-                            )
-                    except AIWireProxyHandshakeError:
-                        metrics.handshakes_rejected += 1
-                        raise
+                with metrics_lock:
+                    metrics.accepted_connections += 1
+                worker = threading.Thread(target=handle_connection, args=(conn,))
+                worker.start()
+                workers.append(worker)
+
+            for worker in workers:
+                worker.join()
+            if errors:
+                raise errors[0]
     except BaseException as exc:
         metrics.last_error = f"{type(exc).__name__}: {exc}"
         raise

@@ -237,7 +237,7 @@ def build_target_plan(
         "--fixture-peer-label",
         target.label,
         "--connections",
-        "1",
+        str(args.connections),
         "--metrics-output",
         remote_fixture_metrics,
     ]
@@ -256,7 +256,7 @@ def build_target_plan(
         "--level",
         str(args.level),
         "--connections",
-        "1",
+        str(args.connections),
         "--metrics-output",
         remote_egress_metrics,
     ]
@@ -318,6 +318,7 @@ def build_plan(args: argparse.Namespace, targets: list[ProxyClusterTarget]) -> d
         "modeled_link_mbps": args.modeled_link_mbps,
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
+        "connections": args.connections,
         "target_parallelism": args.target_parallelism,
         "output_dir": str(output_dir),
         "targets": [
@@ -755,6 +756,7 @@ def run_target(
             fixture_peer_label=target.label,
             seconds=args.seconds,
             max_exchanges=args.max_exchanges,
+            connections=args.connections,
             backend=args.backend,
             level=args.level,
             modeled_link_mbps=args.modeled_link_mbps,
@@ -804,9 +806,11 @@ def _aggregate_results(results: list[dict[str, Any]]) -> dict[str, Any]:
     tunnel_semantic = sum(int(row["benchmark"]["tunnel_semantic_framed_bytes"]) for row in results)
     tunnel_control = sum(int(row["benchmark"]["tunnel_control_framed_bytes"]) for row in results)
     ex_per_second = sum(float(row["benchmark"]["exchanges_per_second"]) for row in results)
+    connections = sum(int(row["benchmark"].get("connections", 1)) for row in results)
     return {
         "targets": len(results),
         "verified_targets": sum(1 for row in results if row["verified"]),
+        "connections": connections,
         "exchanges": exchanges,
         "exchanges_per_second_group": ex_per_second,
         "raw_framed_bytes": raw_framed,
@@ -858,6 +862,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"Fixture variation: `{report['fixture_variation_profile']}`",
         f"Backend: `{report['backend']}`",
         f"Seconds: `{report['seconds']}`",
+        f"Connections per target: `{report.get('connections', 1)}`",
         "",
     ]
     if report.get("dry_run"):
@@ -981,10 +986,11 @@ def render_markdown(report: dict[str, Any]) -> str:
         [
             "## Aggregate",
             "",
-            "| Targets | Exchanges | Group ex/s | Raw B/ex | AIWire B/ex | Saved | p95 max |",
-            "|---:|---:|---:|---:|---:|---:|---:|",
+            "| Targets | Connections | Exchanges | Group ex/s | Raw B/ex | AIWire B/ex | Saved | p95 max |",
+            "|---:|---:|---:|---:|---:|---:|---:|---:|",
             (
                 f"| {aggregate['verified_targets']}/{aggregate['targets']} | "
+                f"{aggregate['connections']} | "
                 f"{aggregate['exchanges']:,} | "
                 f"{aggregate['exchanges_per_second_group']:,.1f} | "
                 f"{aggregate['raw_framed_bytes_per_exchange']:,.1f} | "
@@ -995,15 +1001,16 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
             "## Targets",
             "",
-            "| Target | Exchanges | Ex/s | Raw B/ex | AIWire B/ex | Saved | p95 | Verified |",
-            "|---|---:|---:|---:|---:|---:|---:|---|",
+            "| Target | Conn | Exchanges | Ex/s | Raw B/ex | AIWire B/ex | Saved | p95 | Verified |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---|",
         ]
     )
     for item in report["results"]:
         target = item["target"]
         benchmark = item["benchmark"]
         lines.append(
-            f"| {target['label']} | {benchmark['exchanges']:,} | "
+            f"| {target['label']} | {benchmark.get('connections', 1)} | "
+            f"{benchmark['exchanges']:,} | "
             f"{benchmark['exchanges_per_second']:,.1f} | "
             f"{benchmark['raw_framed_bytes_per_exchange']:,.1f} | "
             f"{benchmark['tunnel_semantic_framed_bytes_per_exchange']:,.1f} | "
@@ -1065,6 +1072,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--max-exchanges", type=int)
+    parser.add_argument(
+        "--connections",
+        type=int,
+        default=1,
+        help="parallel proxy connections per target",
+    )
     parser.add_argument("--backend", choices=("python", "native", "auto"), default="native")
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument("--modeled-link-mbps", type=float, default=10.0)
@@ -1081,6 +1094,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.ready_targets_output and not args.preflight:
         print("--ready-targets-output requires --preflight", file=sys.stderr)
+        return 2
+    if args.connections <= 0:
+        print("--connections must be positive", file=sys.stderr)
         return 2
     targets = collect_targets(args)
     plan = build_plan(args, targets)

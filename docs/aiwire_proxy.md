@@ -223,8 +223,9 @@ Use `--connections N` when a single-session run shows stable byte savings but
 low modeled-link utilization. The cluster runner applies the same connection
 count to the local clients, local ingress sessions, remote egress sessions, and
 remote fixture upstream sessions for every target.
-Use `--connections-sweep 1,2,4,8,16,32` to run those levels sequentially and
-write one combined JSON artifact plus one markdown scaling table.
+Use `--connections-sweep 1,2,4,8,16,32,64` to run those levels sequentially and
+write one combined JSON artifact plus one markdown scaling table. Add higher
+levels only when deliberately probing saturation.
 
 If the edge hosts are reachable but fail batch SSH authentication, generate a
 safe bootstrap report from the coordinator's public key:

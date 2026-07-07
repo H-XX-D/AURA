@@ -153,6 +153,11 @@ combined sweep report. A 60-second saturation pass with `--connections-sweep
 across 48 and 96 total sessions. Group throughput reached 1,080.6 and
 2,142.2 ex/s, with AIWire still near 366.6 semantic bytes per exchange,
 84.4% semantic-byte savings, 6.40x modeled capacity gain, and 48.61 ms max p95.
+A later `--connections-sweep 64,128` pass identified the knee: 64 connections
+per target verified 229,223 exchanges across 192 sessions at 3,802.8 ex/s and
+59.81 ms max p95, while 128 connections per target still verified but fell to
+161,648 exchanges, 2,562.6 ex/s, and 223.18 ms max p95. Use the higher level as
+a saturation probe, not the default operating point.
 
 The result is documented in
 [AIWire Proxy Ready-Targets Run](perf/aiwire_proxy_ready_targets_2026-07-07.md).

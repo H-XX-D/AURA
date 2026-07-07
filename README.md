@@ -94,6 +94,7 @@ Relevant public protocol context:
 | AIWire lane model | Semantic lane implemented; control/session structures implemented for handshake, template, dictionary, and resume flow; blob descriptor lane specified |
 | AIToken and AIToken+AIWire | Working structural-token path and combined small-frame path |
 | Session templates | Discovery, forced handshake, SHA verification, bounded session dictionaries |
+| Dictionary compatibility | Compatibility manifest and fail-closed checker for static dictionary, session dictionary, delta version, and LUT state |
 | Structured message helpers | Working canonical JSON encode/decode helpers |
 | AI-to-AI benchmark harness | Working LAN, realistic-profile, and concurrent-agent tooling |
 | Explicit sidecar proxy | Working TCP ingress/egress sidecar for raw length-prefixed agent frames over an AIWire tunnel |
@@ -1030,6 +1031,7 @@ delta streams.
 - [Current project context](docs/AURA_SYSTEM_CONTEXT.md)
 - [AIWire v1 protocol spec](docs/aiwire_v1_spec.md)
 - [AIWire session dictionary safety](docs/aiwire_session_dictionary.md)
+- [AIWire dictionary evolution](docs/aiwire_dictionary_evolution.md)
 - [AIWire session fixtures](docs/aiwire_session_fixtures.md)
 - [Realistic network benchmarks](docs/perf/realistic_network_benchmarks.md)
 - [AI-to-AI messaging metrics](docs/perf/ai_to_ai_messaging_metrics_2026-07-04.md)
@@ -1075,7 +1077,7 @@ Current phase state:
 - Phase 4 Native and Edge Performance: next active performance track.
 - Phase 5 Transport Examples: implemented for TCP, WebSocket, HTTP streaming,
   and local broker; replay-log polish remains.
-- Phase 6 Dictionary Evolution: planned.
+- Phase 6 Dictionary Evolution: active; compatibility manifest/checker landed.
 - Phase 7 General AURA Cleanup: planned.
 
 Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).

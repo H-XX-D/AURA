@@ -18,6 +18,7 @@ from aura_compression.ai_wire import (
     AIWireSessionDecoder,
     AIWireSessionEncoder,
     AIWireStats,
+    aiwire_compatibility_manifest_sha256,
     aiwire_control_lut_frame_hex,
     aiwire_control_lut_sha256,
     aiwire_native_status,
@@ -26,6 +27,7 @@ from aura_compression.ai_wire import (
     apply_aiwire_session_dictionary_diff,
     apply_aiwire_session_template_update,
     build_ai_wire_messages,
+    build_aiwire_compatibility_manifest,
     build_aiwire_handshake,
     build_aiwire_session_dictionary_diff,
     build_aiwire_session_resume_hello,
@@ -47,6 +49,7 @@ from aura_compression.ai_wire import (
     negotiate_aiwire_session_resume,
     normalize_aiwire_control_lut,
     summarize_ai_wire_corpus,
+    verify_aiwire_compatibility_manifest,
     verify_aiwire_session_dictionary_ack,
     verify_aiwire_session_resume_response,
     verify_aiwire_system_control_message,
@@ -68,6 +71,86 @@ def test_static_dictionary_identity_is_pinned_for_v1_compatibility() -> None:
         "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117"
     )
     assert f"{AI_WIRE_DICTIONARY_FNV1A64:016x}" == "94dd21718372952e"
+
+
+def test_aiwire_compatibility_manifest_records_dictionary_and_session_state() -> None:
+    templates = {128: "agent {0} calls tool {1}"}
+    manifest = build_aiwire_compatibility_manifest(
+        session_templates=templates,
+        session_template_epoch=3,
+    )
+    payload = manifest.to_dict()
+
+    assert payload["schema"] == "aura.aiwire.compatibility_manifest.v1"
+    assert payload["static_dictionary_sha256"] == AI_WIRE_DICTIONARY_SHA256
+    assert payload["static_dictionary_fnv1a64"] == "94dd21718372952e"
+    assert payload["session_template_count"] == 1
+    assert payload["session_dictionary_epoch"] == 3
+    assert payload["session_dictionary_state_hash"] == aiwire_session_dictionary_state_sha256(
+        templates,
+        epoch=3,
+    )
+    assert len(aiwire_compatibility_manifest_sha256(manifest)) == 64
+
+
+def test_aiwire_compatibility_manifest_accepts_matching_peer() -> None:
+    templates = {128: "agent {0} calls tool {1}"}
+    local = build_aiwire_compatibility_manifest(
+        session_templates=templates,
+        session_template_epoch=1,
+    )
+    peer = build_aiwire_compatibility_manifest(
+        session_templates=templates,
+        session_template_epoch=1,
+    ).to_dict()
+
+    check = verify_aiwire_compatibility_manifest(peer, local_manifest=local)
+
+    assert check.accepted is True
+    assert check.codec == "aiwire"
+    assert check.version == 1
+    assert check.selected_delta_version == 1
+    assert check.reason is None
+
+
+def test_aiwire_compatibility_manifest_fails_closed_on_session_state_mismatch() -> None:
+    templates = {128: "agent {0} calls tool {1}"}
+    local = build_aiwire_compatibility_manifest(
+        session_templates=templates,
+        session_template_epoch=1,
+    )
+    stale_peer = build_aiwire_compatibility_manifest(
+        session_templates=templates,
+        session_template_epoch=0,
+    )
+
+    check = verify_aiwire_compatibility_manifest(
+        stale_peer,
+        local_manifest=local,
+        allow_fallback=False,
+    )
+
+    assert check.accepted is False
+    assert check.codec == ""
+    assert check.reason == "session_dictionary_state_hash_mismatch"
+
+
+def test_aiwire_compatibility_manifest_can_select_explicit_fallback() -> None:
+    local = build_aiwire_compatibility_manifest()
+    peer_payload = build_aiwire_compatibility_manifest().to_dict()
+    peer_payload["static_dictionary_sha256"] = "0" * 64
+
+    check = verify_aiwire_compatibility_manifest(
+        peer_payload,
+        local_manifest=local,
+        allow_fallback=True,
+    )
+
+    assert check.accepted is True
+    assert check.codec == "zlib"
+    assert check.version is None
+    assert check.reason == "dictionary_sha256_mismatch"
+    assert check.shared_fallback_codecs == ("zlib", "raw")
 
 
 def test_ai_wire_round_trips_ordered_frames() -> None:

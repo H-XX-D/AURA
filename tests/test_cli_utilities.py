@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from aura_compression.cli.aiwire_compatibility import main as compatibility_main
 from aura_compression.cli.benchmark import main as benchmark_main
 from aura_compression.cli.compress import main as cli_compress_main
 from aura_compression.cli.decompress import main as cli_decompress_main
@@ -167,6 +168,50 @@ def test_package_cli_benchmark_supports_bursty_profile(capsys):
     assert summary["top_level_key_counts"]["benchmark_profile"] == 32
     assert summary["top_level_key_counts"]["burst_payload"] > 0
     assert summary["max_frame_bytes"] > summary["min_frame_bytes"] * 3
+
+
+def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
+    templates = tmp_path / "templates.json"
+    manifest = tmp_path / "manifest.json"
+    check = tmp_path / "check.json"
+    templates.write_text(json.dumps({"128": "agent {0} calls tool {1}"}), encoding="utf-8")
+
+    assert (
+        compatibility_main(
+            [
+                "--session-templates",
+                str(templates),
+                "--session-template-epoch",
+                "1",
+                "--output",
+                str(manifest),
+            ]
+        )
+        == 0
+    )
+    manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+    assert manifest_payload["schema"] == "aura.aiwire.compatibility_manifest.v1"
+    assert len(manifest_payload["manifest_sha256"]) == 64
+
+    assert (
+        compatibility_main(
+            [
+                "--session-templates",
+                str(templates),
+                "--session-template-epoch",
+                "1",
+                "--peer-manifest",
+                str(manifest),
+                "--output",
+                str(check),
+            ]
+        )
+        == 0
+    )
+    check_payload = json.loads(check.read_text(encoding="utf-8"))
+    assert check_payload["accepted"] is True
+    assert check_payload["codec"] == "aiwire"
+    assert check_payload["reason"] is None
 
 
 def test_package_cli_server_guidance(capsys):

@@ -41,6 +41,7 @@ AI_WIRE_PROTOCOL = "aura.aiwire"
 AI_WIRE_HANDSHAKE_SCHEMA = "aura.aiwire.handshake.v1"
 AI_WIRE_NEGOTIATION_SCHEMA = "aura.aiwire.negotiation.v1"
 AI_WIRE_NARY_NEGOTIATION_SCHEMA = "aura.aiwire.nary_negotiation.v1"
+AI_WIRE_COMPATIBILITY_MANIFEST_SCHEMA = "aura.aiwire.compatibility_manifest.v1"
 AI_WIRE_CONTROL_LUT_SCHEMA = "aura.aiwire.control_lut.v1"
 AI_WIRE_SYSTEM_CONTROL_SCHEMA = "aura.aiwire.system_control.v1"
 AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA = "aura.aiwire.session_templates.update.v1"
@@ -877,7 +878,7 @@ class AIWireSessionTemplateUpdate:
         }
 
     @classmethod
-    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionTemplateUpdate":
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireSessionTemplateUpdate":
         if value.get("schema") != AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA:
             raise AIWireHandshakeError("unsupported AIWire session template update schema")
         if value.get("protocol") != AI_WIRE_PROTOCOL:
@@ -1028,7 +1029,7 @@ class AIWireSessionDictionaryDiff:
         return payload
 
     @classmethod
-    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionDictionaryDiff":
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireSessionDictionaryDiff":
         if value.get("schema") != AI_WIRE_SESSION_DICTIONARY_DIFF_SCHEMA:
             raise AIWireHandshakeError("unsupported AIWire session dictionary diff schema")
         if value.get("protocol") != AI_WIRE_PROTOCOL:
@@ -1109,7 +1110,7 @@ class AIWireSessionDictionaryAck:
         return payload
 
     @classmethod
-    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionDictionaryAck":
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireSessionDictionaryAck":
         if value.get("schema") != AI_WIRE_SESSION_DICTIONARY_ACK_SCHEMA:
             raise AIWireHandshakeError("unsupported AIWire session dictionary ACK schema")
         if value.get("protocol") != AI_WIRE_PROTOCOL:
@@ -1169,7 +1170,7 @@ class AIWireSessionResumeHello:
         return payload
 
     @classmethod
-    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionResumeHello":
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireSessionResumeHello":
         if value.get("schema") != AI_WIRE_SESSION_RESUME_HELLO_SCHEMA:
             raise AIWireHandshakeError("unsupported AIWire session resume hello schema")
         if value.get("protocol") != AI_WIRE_PROTOCOL:
@@ -1229,7 +1230,7 @@ class AIWireSessionResumeResponse:
         return payload
 
     @classmethod
-    def from_dict(cls, value: dict[str, object]) -> "AIWireSessionResumeResponse":
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireSessionResumeResponse":
         if value.get("schema") != AI_WIRE_SESSION_RESUME_RESPONSE_SCHEMA:
             raise AIWireHandshakeError("unsupported AIWire session resume response schema")
         if value.get("protocol") != AI_WIRE_PROTOCOL:
@@ -1378,7 +1379,7 @@ def apply_aiwire_session_dictionary_diff(
     auth_key: AIWireAuthKey = None,
     replay_cache: set[str] | None = None,
     ack_nonce: str | None = None,
-) -> tuple[tuple[int, str], AIWireSessionDictionaryAck]:
+) -> tuple[tuple[tuple[int, str], ...], AIWireSessionDictionaryAck]:
     """Validate, apply, and ACK a session dictionary diff proposal."""
 
     parsed = (
@@ -2050,7 +2051,7 @@ class AIWireHandshake:
         return payload
 
     @classmethod
-    def from_dict(cls, value: dict[str, object]) -> "AIWireHandshake":
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireHandshake":
         if value.get("schema") != AI_WIRE_HANDSHAKE_SCHEMA:
             raise AIWireHandshakeError("unsupported AIWire handshake schema")
         if value.get("protocol") != AI_WIRE_PROTOCOL:
@@ -2170,6 +2171,345 @@ class AIWireNaryNegotiation:
                 for index, negotiation in enumerate(self.peer_negotiations, start=1)
             ],
         }
+
+
+@dataclass(frozen=True)
+class AIWireCompatibilityManifest:
+    """Stable AIWire compatibility record for peers, releases, and deployments."""
+
+    versions: tuple[int, ...]
+    preferred_version: int
+    supported_delta_versions: tuple[int, ...]
+    preferred_delta_version: int
+    static_dictionary_sha256: str
+    static_dictionary_size: int
+    static_dictionary_fnv1a64: str
+    wbits: int
+    mem_level: int
+    flush_mode: str
+    fallback_codecs: tuple[str, ...]
+    session_template_sha256: str
+    session_template_count: int
+    session_template_epoch: int
+    session_dictionary_state_hash: str
+    session_dictionary_epoch: int
+    control_lut_sha256: str
+    control_lut_count: int
+    control_lut_epoch: int
+    limits: tuple[tuple[str, int], ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_COMPATIBILITY_MANIFEST_SCHEMA,
+            "protocol": AI_WIRE_PROTOCOL,
+            "versions": list(self.versions),
+            "preferred_version": self.preferred_version,
+            "supported_delta_versions": list(self.supported_delta_versions),
+            "preferred_delta_version": self.preferred_delta_version,
+            "static_dictionary_sha256": self.static_dictionary_sha256,
+            "static_dictionary_size": self.static_dictionary_size,
+            "static_dictionary_fnv1a64": self.static_dictionary_fnv1a64,
+            "wbits": self.wbits,
+            "mem_level": self.mem_level,
+            "flush_mode": self.flush_mode,
+            "fallback_codecs": list(self.fallback_codecs),
+            "session_template_sha256": self.session_template_sha256,
+            "session_template_count": self.session_template_count,
+            "session_template_epoch": self.session_template_epoch,
+            "session_dictionary_state_hash": self.session_dictionary_state_hash,
+            "session_dictionary_epoch": self.session_dictionary_epoch,
+            "control_lut_sha256": self.control_lut_sha256,
+            "control_lut_count": self.control_lut_count,
+            "control_lut_epoch": self.control_lut_epoch,
+            "limits": dict(self.limits),
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireCompatibilityManifest":
+        if value.get("schema") != AI_WIRE_COMPATIBILITY_MANIFEST_SCHEMA:
+            raise AIWireHandshakeError("unsupported AIWire compatibility manifest schema")
+        if value.get("protocol") != AI_WIRE_PROTOCOL:
+            raise AIWireHandshakeError("unsupported AIWire protocol")
+
+        try:
+            static_dictionary_sha256 = str(value["static_dictionary_sha256"])
+            session_dictionary_state_hash = str(value["session_dictionary_state_hash"])
+            _validate_sha256_hex(static_dictionary_sha256, "static_dictionary_sha256")
+            _validate_sha256_hex(session_dictionary_state_hash, "session_dictionary_state_hash")
+
+            session_template_sha256 = str(value.get("session_template_sha256", ""))
+            if session_template_sha256:
+                _validate_sha256_hex(session_template_sha256, "session_template_sha256")
+
+            control_lut_sha256 = str(value.get("control_lut_sha256", ""))
+            if control_lut_sha256:
+                _validate_sha256_hex(control_lut_sha256, "control_lut_sha256")
+
+            static_dictionary_fnv1a64 = str(value["static_dictionary_fnv1a64"]).lower()
+            if len(static_dictionary_fnv1a64) != 16 or any(
+                char not in "0123456789abcdef" for char in static_dictionary_fnv1a64
+            ):
+                raise AIWireHandshakeError("static_dictionary_fnv1a64 must be 16 hex chars")
+
+            limits_value = value.get("limits", {})
+            if not isinstance(limits_value, Mapping):
+                raise AIWireHandshakeError("compatibility limits must be a mapping")
+            limits = tuple(sorted((str(name), int(limit)) for name, limit in limits_value.items()))
+            return cls(
+                versions=tuple(int(version) for version in value["versions"]),  # type: ignore[index]
+                preferred_version=int(value["preferred_version"]),
+                supported_delta_versions=tuple(
+                    int(version) for version in value["supported_delta_versions"]  # type: ignore[index]
+                ),
+                preferred_delta_version=int(value["preferred_delta_version"]),
+                static_dictionary_sha256=static_dictionary_sha256,
+                static_dictionary_size=int(value["static_dictionary_size"]),
+                static_dictionary_fnv1a64=static_dictionary_fnv1a64,
+                wbits=int(value["wbits"]),
+                mem_level=int(value["mem_level"]),
+                flush_mode=str(value["flush_mode"]),
+                fallback_codecs=tuple(
+                    _normalize_aiwire_fallback_codec(codec)
+                    for codec in value.get("fallback_codecs", ())
+                ),
+                session_template_sha256=session_template_sha256,
+                session_template_count=int(value.get("session_template_count", 0)),
+                session_template_epoch=int(value.get("session_template_epoch", 0)),
+                session_dictionary_state_hash=session_dictionary_state_hash,
+                session_dictionary_epoch=int(value.get("session_dictionary_epoch", 0)),
+                control_lut_sha256=control_lut_sha256,
+                control_lut_count=int(value.get("control_lut_count", 0)),
+                control_lut_epoch=int(value.get("control_lut_epoch", 0)),
+                limits=limits,
+            )
+        except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire compatibility manifest: {exc}") from exc
+
+
+@dataclass(frozen=True)
+class AIWireCompatibilityCheck:
+    """Result of comparing a peer manifest against a local AIWire contract."""
+
+    accepted: bool
+    codec: str
+    version: int | None
+    selected_delta_version: int | None
+    reason: str | None
+    shared_fallback_codecs: tuple[str, ...]
+    local_manifest_sha256: str
+    peer_manifest_sha256: str
+    local_manifest: AIWireCompatibilityManifest
+    peer_manifest: AIWireCompatibilityManifest
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "aura.aiwire.compatibility_check.v1",
+            "accepted": self.accepted,
+            "codec": self.codec,
+            "version": self.version,
+            "selected_delta_version": self.selected_delta_version,
+            "reason": self.reason,
+            "shared_fallback_codecs": list(self.shared_fallback_codecs),
+            "local_manifest_sha256": self.local_manifest_sha256,
+            "peer_manifest_sha256": self.peer_manifest_sha256,
+            "local": self.local_manifest.to_dict(),
+            "peer": self.peer_manifest.to_dict(),
+        }
+
+
+def _aiwire_compatibility_limits() -> tuple[tuple[str, int], ...]:
+    return (
+        ("max_control_lut_entries", AI_WIRE_MAX_CONTROL_LUT_ENTRIES),
+        ("max_session_dictionary_bytes", AI_WIRE_MAX_SESSION_DICTIONARY_BYTES),
+        ("max_session_dictionary_diff_additions", AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS),
+        ("max_session_template_bytes", AI_WIRE_MAX_SESSION_TEMPLATE_BYTES),
+        ("max_session_templates", AI_WIRE_MAX_SESSION_TEMPLATES),
+    )
+
+
+def build_aiwire_compatibility_manifest(
+    *,
+    fallback_codecs: Iterable[str] = AI_WIRE_FALLBACK_CODECS,
+    session_templates: AIWireSessionTemplates | None = None,
+    session_template_epoch: int = 0,
+    session_dictionary_epoch: int | None = None,
+    supported_delta_versions: Iterable[int] = (AI_WIRE_DELTA_VERSION,),
+    control_lut: AIWireControlLUTEntries | None = None,
+    control_lut_epoch: int = 0,
+) -> AIWireCompatibilityManifest:
+    """Build a reproducible compatibility manifest for dictionary evolution."""
+
+    normalized_templates = normalize_aiwire_session_templates(session_templates)
+    normalized_control_lut = normalize_aiwire_control_lut(control_lut)
+    dictionary_epoch = (
+        session_template_epoch if session_dictionary_epoch is None else session_dictionary_epoch
+    )
+    normalized_fallback_codecs = tuple(
+        _normalize_aiwire_fallback_codec(codec) for codec in fallback_codecs
+    )
+    delta_versions = tuple(sorted({int(version) for version in supported_delta_versions}))
+    if not delta_versions:
+        raise AIWireHandshakeError("compatibility manifest requires a delta version")
+    if AI_WIRE_DELTA_VERSION not in delta_versions:
+        raise AIWireHandshakeError("compatibility manifest must include local delta version")
+
+    return AIWireCompatibilityManifest(
+        versions=AI_WIRE_SUPPORTED_VERSIONS,
+        preferred_version=AI_WIRE_VERSION,
+        supported_delta_versions=delta_versions,
+        preferred_delta_version=AI_WIRE_DELTA_VERSION,
+        static_dictionary_sha256=AI_WIRE_DICTIONARY_SHA256,
+        static_dictionary_size=len(AI_WIRE_STATIC_DICTIONARY),
+        static_dictionary_fnv1a64=f"{AI_WIRE_DICTIONARY_FNV1A64:016x}",
+        wbits=AI_WIRE_WBITS,
+        mem_level=AI_WIRE_MEM_LEVEL,
+        flush_mode=AI_WIRE_FLUSH_MODE,
+        fallback_codecs=normalized_fallback_codecs,
+        session_template_sha256=aiwire_session_templates_sha256(normalized_templates),
+        session_template_count=len(normalized_templates),
+        session_template_epoch=session_template_epoch,
+        session_dictionary_state_hash=aiwire_session_dictionary_state_sha256(
+            normalized_templates,
+            epoch=dictionary_epoch,
+        ),
+        session_dictionary_epoch=dictionary_epoch,
+        control_lut_sha256=aiwire_control_lut_sha256(normalized_control_lut),
+        control_lut_count=len(normalized_control_lut),
+        control_lut_epoch=control_lut_epoch,
+        limits=_aiwire_compatibility_limits(),
+    )
+
+
+def aiwire_compatibility_manifest_sha256(
+    manifest: AIWireCompatibilityManifest | Mapping[str, Any],
+) -> str:
+    """Hash an AIWire compatibility manifest in canonical form."""
+
+    parsed = (
+        manifest
+        if isinstance(manifest, AIWireCompatibilityManifest)
+        else AIWireCompatibilityManifest.from_dict(manifest)
+    )
+    return _sha256_hex(_canonical_json_bytes(parsed.to_dict()))
+
+
+def verify_aiwire_compatibility_manifest(
+    peer_manifest: AIWireCompatibilityManifest | Mapping[str, Any],
+    *,
+    local_manifest: AIWireCompatibilityManifest | Mapping[str, Any] | None = None,
+    require_session_templates: bool = False,
+    require_session_dictionary: bool = True,
+    require_control_lut: bool = False,
+    allow_fallback: bool = True,
+) -> AIWireCompatibilityCheck:
+    """Compare peer/local manifests and select AIWire, fallback, or rejection."""
+
+    peer = (
+        peer_manifest
+        if isinstance(peer_manifest, AIWireCompatibilityManifest)
+        else AIWireCompatibilityManifest.from_dict(peer_manifest)
+    )
+    local = (
+        build_aiwire_compatibility_manifest()
+        if local_manifest is None
+        else (
+            local_manifest
+            if isinstance(local_manifest, AIWireCompatibilityManifest)
+            else AIWireCompatibilityManifest.from_dict(local_manifest)
+        )
+    )
+    common_versions = sorted(set(peer.versions).intersection(local.versions), reverse=True)
+    common_delta_versions = sorted(
+        set(peer.supported_delta_versions).intersection(local.supported_delta_versions),
+        reverse=True,
+    )
+    shared_fallbacks = tuple(
+        codec for codec in local.fallback_codecs if codec in set(peer.fallback_codecs)
+    )
+
+    templates_are_required = (
+        require_session_templates
+        or bool(peer.session_template_count)
+        or bool(local.session_template_count)
+    )
+    dictionary_is_required = require_session_dictionary or templates_are_required
+    control_lut_is_required = (
+        require_control_lut or bool(peer.control_lut_count) or bool(local.control_lut_count)
+    )
+
+    reason = None
+    if not common_versions:
+        reason = "no_common_aiwire_version"
+    elif not common_delta_versions:
+        reason = "no_common_delta_version"
+    elif peer.static_dictionary_sha256 != local.static_dictionary_sha256:
+        reason = "dictionary_sha256_mismatch"
+    elif peer.static_dictionary_size != local.static_dictionary_size:
+        reason = "dictionary_size_mismatch"
+    elif peer.static_dictionary_fnv1a64 != local.static_dictionary_fnv1a64:
+        reason = "dictionary_fnv1a64_mismatch"
+    elif peer.wbits != local.wbits:
+        reason = "zlib_window_mismatch"
+    elif peer.mem_level != local.mem_level:
+        reason = "mem_level_mismatch"
+    elif peer.flush_mode != local.flush_mode:
+        reason = "flush_mode_mismatch"
+    elif templates_are_required and peer.session_template_count != local.session_template_count:
+        reason = "session_template_count_mismatch"
+    elif templates_are_required and peer.session_template_sha256 != local.session_template_sha256:
+        reason = "session_template_sha256_mismatch"
+    elif (
+        dictionary_is_required
+        and peer.session_dictionary_state_hash != local.session_dictionary_state_hash
+    ):
+        reason = "session_dictionary_state_hash_mismatch"
+    elif control_lut_is_required and peer.control_lut_count != local.control_lut_count:
+        reason = "control_lut_count_mismatch"
+    elif control_lut_is_required and peer.control_lut_sha256 != local.control_lut_sha256:
+        reason = "control_lut_sha256_mismatch"
+
+    local_hash = aiwire_compatibility_manifest_sha256(local)
+    peer_hash = aiwire_compatibility_manifest_sha256(peer)
+    if reason is None:
+        return AIWireCompatibilityCheck(
+            accepted=True,
+            codec="aiwire",
+            version=common_versions[0],
+            selected_delta_version=common_delta_versions[0],
+            reason=None,
+            shared_fallback_codecs=shared_fallbacks,
+            local_manifest_sha256=local_hash,
+            peer_manifest_sha256=peer_hash,
+            local_manifest=local,
+            peer_manifest=peer,
+        )
+
+    if allow_fallback and shared_fallbacks:
+        return AIWireCompatibilityCheck(
+            accepted=True,
+            codec=shared_fallbacks[0],
+            version=None,
+            selected_delta_version=None,
+            reason=reason,
+            shared_fallback_codecs=shared_fallbacks,
+            local_manifest_sha256=local_hash,
+            peer_manifest_sha256=peer_hash,
+            local_manifest=local,
+            peer_manifest=peer,
+        )
+
+    return AIWireCompatibilityCheck(
+        accepted=False,
+        codec="",
+        version=None,
+        selected_delta_version=None,
+        reason=reason,
+        shared_fallback_codecs=shared_fallbacks,
+        local_manifest_sha256=local_hash,
+        peer_manifest_sha256=peer_hash,
+        local_manifest=local,
+        peer_manifest=peer,
+    )
 
 
 def build_aiwire_handshake(
@@ -2665,7 +3005,7 @@ class AIWireSessionEncoder:
         self.session_templates = normalize_aiwire_session_templates(session_templates)
         self.backend = "python"
         self._native: _NativeAIWireEncoder | None = None
-        self._compressor: zlib.compressobj | None = None
+        self._compressor: Any | None = None
         self._frames = 0
         self._bytes_in = 0
         self._bytes_out = 0
@@ -2688,7 +3028,7 @@ class AIWireSessionEncoder:
                 if use_native is True:
                     raise
 
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "level": level,
             "method": zlib.DEFLATED,
             "wbits": AI_WIRE_WBITS,
@@ -2759,7 +3099,7 @@ class AIWireSessionDecoder:
         self.session_templates = normalize_aiwire_session_templates(session_templates)
         self.backend = "python"
         self._native: _NativeAIWireDecoder | None = None
-        self._decompressor: zlib.decompressobj | None = None
+        self._decompressor: Any | None = None
         self._frames = 0
         self._bytes_in = 0
         self._bytes_out = 0
@@ -2782,7 +3122,7 @@ class AIWireSessionDecoder:
                 if use_native is True:
                     raise
 
-        kwargs = {"wbits": AI_WIRE_WBITS}
+        kwargs: dict[str, Any] = {"wbits": AI_WIRE_WBITS}
         if dictionary:
             kwargs["zdict"] = dictionary
         self._decompressor = zlib.decompressobj(**kwargs)

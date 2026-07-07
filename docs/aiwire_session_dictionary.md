@@ -6,6 +6,9 @@ same session dictionary diff.
 
 This document explains the safety model. The normative protocol fields and
 wire-level contract are in [AIWire v1 Protocol Spec](aiwire_v1_spec.md).
+Release and deployment preflight for static dictionary, delta-version, session
+dictionary, and LUT compatibility is covered in
+[AIWire Dictionary Evolution](aiwire_dictionary_evolution.md).
 
 ## State Model
 

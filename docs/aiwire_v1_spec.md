@@ -60,6 +60,7 @@ Those concerns belong at the transport or application layer.
 | Handshake schema | `aura.aiwire.handshake.v1` |
 | Negotiation schema | `aura.aiwire.negotiation.v1` |
 | N-ary negotiation schema | `aura.aiwire.nary_negotiation.v1` |
+| Compatibility manifest schema | `aura.aiwire.compatibility_manifest.v1` |
 | Control LUT schema | `aura.aiwire.control_lut.v1` |
 | System control schema | `aura.aiwire.system_control.v1` |
 | Blob descriptor schema | `aura.aiwire.blob_descriptor.v1` |
@@ -88,6 +89,14 @@ Those concerns belong at the transport or application layer.
 The static dictionary is implementation-versioned by SHA-256. Peers MUST compare
 the static dictionary SHA-256 and byte size when `use_static_dictionary` is
 true.
+
+Implementations SHOULD also be able to emit an
+`aura.aiwire.compatibility_manifest.v1` record for release and deployment
+preflight. The manifest pins protocol versions, delta versions, static
+dictionary identity, zlib parameters, fallback codecs, session dictionary state,
+routine-control LUT state, and hard safety limits. It does not replace the live
+handshake; it is an inspectable compatibility matrix that lets operators reject
+or fall back before moving data.
 
 ## Serialization
 

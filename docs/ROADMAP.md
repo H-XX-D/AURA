@@ -199,9 +199,15 @@ Definition of done:
 
 Goal: improve compression without breaking deployed peers.
 
-Status: planned.
+Status: active. The first compatibility gate is implemented: AIWire can now
+emit and compare a manifest that pins protocol version, static dictionary hash
+and size, zlib parameters, delta version, session dictionary state, routine
+control-LUT state, fallback codecs, and safety limits before a peer/release is
+trusted.
 
 - Version static dictionaries and session-template catalogs explicitly.
+- Keep `aura-aiwire-compatibility` available as the release/deployment preflight
+  for dictionary, template, delta-version, and LUT compatibility.
 - Add corpus-driven dictionary generation tooling.
 - Keep a compatibility matrix for dictionary hash, protocol version, and
   template hash, delta version, and fallback codec.

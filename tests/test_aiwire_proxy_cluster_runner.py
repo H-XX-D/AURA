@@ -12,6 +12,8 @@ if str(TOOLS) not in sys.path:
 
 import run_aiwire_proxy_cluster as proxy_cluster  # noqa: E402
 
+from aura_compression.aiwire_resume_cache import AIWireResumeCache  # noqa: E402
+
 
 def test_proxy_cluster_target_parser_supports_public_labels() -> None:
     target = proxy_cluster.parse_target(
@@ -172,6 +174,136 @@ def test_proxy_cluster_dry_run_wires_session_resume(tmp_path: Path, capsys) -> N
     assert "--resume-auth-key-file /etc/aura/resume.key" in start_egress
     assert "--require-resume" in start_egress
     assert "Session resume: `required`, `authenticated`" in summary_text
+
+
+def test_proxy_cluster_dry_run_wires_resume_cache_seed(tmp_path: Path, capsys) -> None:
+    output = tmp_path / "plan.json"
+    summary = tmp_path / "plan.md"
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=edge-host.local",
+                "--seconds",
+                "60",
+                "--backend",
+                "python",
+                "--tunnel-codec",
+                "aiwire",
+                "--resume-cache",
+                str(tmp_path / "ingress-resume.json"),
+                "--remote-resume-cache",
+                "/var/lib/aura/egress-resume.json",
+                "--resume-peer-id",
+                "{coordinator}-to-{target}",
+                "--resume-app-namespace",
+                "aura-cluster",
+                "--seed-resume-cache",
+                "--run-id",
+                "resume-seed-test",
+                "--output",
+                str(output),
+                "--summary-output",
+                str(summary),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    target_plan = rendered["targets"][0]
+    seed = rendered["resume_cache_seed"]
+    target_seed = target_plan["resume_cache_seed"]
+    remote_seed_command = target_plan["commands"]["seed_remote_resume_cache"]
+    summary_text = summary.read_text()
+
+    assert seed["enabled"] is True
+    assert seed["source"] == "fixture_corpus.updated_session_templates"
+    assert seed["epoch"] == 1
+    assert seed["session_template_count"] == 8
+    assert target_seed["peer_id"] == "z6-to-edge-1"
+    assert target_seed["state_hash"] == seed["state_hash"]
+    assert "aura_compression.aiwire_resume_cache" in remote_seed_command
+    assert "/var/lib/aura/egress-resume.json" in remote_seed_command
+    assert "z6-to-edge-1" in remote_seed_command
+    assert "Resume cache seed:" in summary_text
+    assert not (tmp_path / "ingress-resume.json").exists()
+
+
+def test_proxy_cluster_seed_resume_caches_writes_local_and_remote(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    remote_outputs: list[str] = []
+
+    def fake_ssh_capture(target, args, command, *, timeout):  # noqa: ANN001
+        remote_outputs.append(command)
+        seed = proxy_cluster._target_resume_seed_summary(args, target)
+        return json.dumps(
+            {
+                "cache": args.remote_resume_cache,
+                "peer_id": seed["peer_id"],
+                "app_namespace": args.resume_app_namespace,
+                "state_hash": seed["state_hash"],
+                "epoch": args.resume_seed_epoch,
+                "session_template_count": seed["session_template_count"],
+            }
+        )
+
+    monkeypatch.setattr(proxy_cluster, "_ssh_capture", fake_ssh_capture)
+    local_cache = tmp_path / "ingress-resume.json"
+    args = proxy_cluster.parse_args(
+        [
+            "--target",
+            "edge-1=edge-host.local",
+            "--target",
+            "edge-2=edge-two.local",
+            "--tunnel-codec",
+            "aiwire",
+            "--resume-cache",
+            str(local_cache),
+            "--remote-resume-cache",
+            "/var/lib/aura/egress-resume.json",
+            "--resume-peer-id",
+            "{coordinator}-to-{target}",
+            "--resume-app-namespace",
+            "aura-cluster",
+            "--seed-resume-cache",
+            "--run-id",
+            "resume-seed-test",
+        ]
+    )
+    plan = proxy_cluster.build_plan(args, proxy_cluster.collect_targets(args))
+
+    result = proxy_cluster.seed_resume_caches(plan, args)
+
+    cache = AIWireResumeCache(local_cache)
+    peer_ids = {entry.peer_id for entry in cache.entries}
+    state_hashes = {entry.state_hash for entry in cache.entries}
+
+    assert result["enabled"] is True
+    assert len(result["local"]) == 2
+    assert len(result["remote"]) == 2
+    assert len(remote_outputs) == 2
+    assert peer_ids == {"z6-to-edge-1", "z6-to-edge-2"}
+    assert state_hashes == {plan["resume_cache_seed"]["state_hash"]}
+
+
+def test_proxy_cluster_rejects_seed_resume_cache_without_resume_flags(capsys) -> None:
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=edge-host.local",
+                "--seed-resume-cache",
+            ]
+        )
+        == 2
+    )
+
+    captured = capsys.readouterr()
+    assert "session resume requires --resume-cache" in captured.err
 
 
 def test_proxy_cluster_rejects_resume_with_non_aiwire_codec(capsys) -> None:

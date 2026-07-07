@@ -573,10 +573,13 @@ python tools/run_aiwire_proxy_cluster.py \
   --run
 ```
 
-For sustained-handshake tests, seed matching resume-cache entries on the
-coordinator and each edge, then add the cluster resume flags. The peer id accepts
-`{coordinator}` and `{target}` placeholders so one command can address every
-edge with a distinct cache identity:
+For sustained-handshake fixture tests, add `--seed-resume-cache` with the cluster
+resume flags. The runner derives the updated session templates from the selected
+fixture corpus, writes the coordinator cache locally, seeds each target cache
+over SSH before sidecars start, and records the selected state hash in the JSON
+and Markdown reports. The peer id accepts `{coordinator}` and `{target}`
+placeholders so one command can address every edge with a distinct cache
+identity:
 
 ```bash
 python tools/run_aiwire_proxy_cluster.py \
@@ -589,10 +592,15 @@ python tools/run_aiwire_proxy_cluster.py \
   --remote-resume-cache /var/lib/aura/aiwire-resume.json \
   --resume-peer-id '{coordinator}-to-{target}' \
   --resume-app-namespace aura-cluster \
+  --seed-resume-cache \
   --resume-auth-key-file ~/.config/aura/aiwire-resume.key \
   --remote-resume-auth-key-file /etc/aura/aiwire-resume.key \
   --require-resume
 ```
+
+For private deployments, seed caches from the application template catalog
+instead of the public fixture corpus. `--seed-resume-cache` is benchmark tooling;
+`aura-aiwire-resume-cache put` remains the explicit service-management path.
 
 Use `--ssh-bootstrap` only to generate the safe key-install report when targets
 are network-reachable but batch SSH auth fails. It emits `ssh-copy-id`, target

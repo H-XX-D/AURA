@@ -132,8 +132,12 @@ path for future connections to resume known structure instead of relearning it.
 placing the shared key in the process command line.
 
 For cross-machine benchmark orchestration, pass both the coordinator-local cache
-path and the target-side cache path to the cluster runner. The runner expands
-`{coordinator}` and `{target}` in `--resume-peer-id` for each edge:
+path and the target-side cache path to the cluster runner. Add
+`--seed-resume-cache` for fixture-backed sustained-handshake tests; the runner
+extracts the fixture corpus `updated_session_templates`, writes the local cache,
+seeds each target cache over SSH, and reports the state hash before sidecars
+start. The runner expands `{coordinator}` and `{target}` in `--resume-peer-id`
+for each edge:
 
 ```bash
 python tools/run_aiwire_proxy_cluster.py \
@@ -146,6 +150,7 @@ python tools/run_aiwire_proxy_cluster.py \
   --remote-resume-cache /var/lib/aura/aiwire-resume.json \
   --resume-peer-id '{coordinator}-to-{target}' \
   --resume-app-namespace aura-cluster \
+  --seed-resume-cache \
   --resume-auth-key-file ~/.config/aura/aiwire-resume.key \
   --remote-resume-auth-key-file /etc/aura/aiwire-resume.key \
   --require-resume
@@ -154,6 +159,11 @@ python tools/run_aiwire_proxy_cluster.py \
 Session resume is AIWire-only. The cluster runner rejects resume settings for
 `raw` or `zlib` tunnel codecs, including mixed codec sweeps, because those modes
 do not negotiate an AIWire session dictionary.
+
+`--seed-resume-cache` is intentionally tied to the benchmark fixture corpus. For
+long-running services, seed the cache with the application-owned template catalog
+using `aura-aiwire-resume-cache put`, then run the sidecars with the matching
+cache, peer id, namespace, and optional auth-key files.
 
 ## What It Measures
 

@@ -24,13 +24,18 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
+from aura_compression.ai_wire import (
+    AI_WIRE_DEFAULT_LEVEL,
+    aiwire_session_dictionary_state_sha256,
+    normalize_aiwire_session_templates,
+)
 from aura_compression.aiwire_proxy import TUNNEL_CODECS, AIWireProxyResumeConfig
 from aura_compression.aiwire_proxy_benchmark import (
     FIXTURE_VARIATION_PROFILES,
     UPSTREAM_AGENT_PROFILES,
     run_proxy_ingress_benchmark,
 )
+from aura_compression.aiwire_resume_cache import AIWireResumeCache
 
 DEFAULT_FIXTURE_CORPUS = "fixtures/aiwire_sessions/public_session_corpus_v1.json"
 PROXY_CLUSTER_SCHEMA = "aura.aiwire.proxy_cluster_benchmark.v1"
@@ -92,6 +97,7 @@ def _session_resume_enabled(args: argparse.Namespace) -> bool:
             args.resume_auth_key_file,
             args.remote_resume_auth_key_file,
             args.require_resume,
+            args.seed_resume_cache,
         )
     )
 
@@ -130,6 +136,99 @@ def _target_session_resume_summary(
         **_session_resume_summary(args),
         "peer_id": _target_resume_peer_id(args, target),
     }
+
+
+def _load_resume_seed_templates(
+    fixture_corpus: str | Path,
+) -> tuple[tuple[int, str], ...]:
+    path = _local_fixture_path(str(fixture_corpus))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    sessions = payload.get("sessions")
+    if not isinstance(sessions, list) or not sessions:
+        raise ValueError("fixture corpus is missing sessions for resume-cache seeding")
+
+    first_session = sessions[0]
+    if not isinstance(first_session, dict):
+        raise ValueError("fixture corpus session is not an object")
+
+    templates = first_session.get("updated_session_templates")
+    if templates is None:
+        templates = first_session.get("initial_session_templates")
+    normalized = normalize_aiwire_session_templates(templates)
+    if not normalized:
+        raise ValueError("fixture corpus has no session templates for resume-cache seeding")
+    return normalized
+
+
+def _resume_seed_summary(args: argparse.Namespace) -> dict[str, Any]:
+    enabled = bool(args.seed_resume_cache)
+    if not enabled:
+        return {"enabled": False}
+    templates = _load_resume_seed_templates(args.fixture_corpus)
+    return {
+        "enabled": True,
+        "source": "fixture_corpus.updated_session_templates",
+        "fixture_corpus": args.fixture_corpus,
+        "epoch": args.resume_seed_epoch,
+        "session_template_count": len(templates),
+        "state_hash": aiwire_session_dictionary_state_sha256(
+            templates,
+            epoch=args.resume_seed_epoch,
+        ),
+    }
+
+
+def _target_resume_seed_summary(
+    args: argparse.Namespace,
+    target: ProxyClusterTarget,
+) -> dict[str, Any]:
+    if not args.seed_resume_cache:
+        return {"enabled": False}
+    return {
+        **_resume_seed_summary(args),
+        "peer_id": _target_resume_peer_id(args, target),
+        "local_cache": args.resume_cache,
+        "remote_cache": args.remote_resume_cache,
+    }
+
+
+def _remote_resume_seed_command(
+    *,
+    args: argparse.Namespace,
+    target: ProxyClusterTarget,
+    remote_root: str,
+) -> str:
+    templates = [
+        {"template_id": template_id, "pattern": pattern}
+        for template_id, pattern in _load_resume_seed_templates(args.fixture_corpus)
+    ]
+    label = f"proxy-cluster:{args.run_id or 'run'}:{target.label}"
+    remote_cache_literal = json.dumps(str(args.remote_resume_cache))
+    code = "\n".join(
+        [
+            "import json",
+            "from aura_compression.aiwire_resume_cache import AIWireResumeCache",
+            f"templates = json.loads({json.dumps(json.dumps(templates, sort_keys=True))})",
+            f"cache = AIWireResumeCache({remote_cache_literal})",
+            "entry = cache.put_state(",
+            f"    peer_id={json.dumps(_target_resume_peer_id(args, target))},",
+            f"    app_namespace={json.dumps(args.resume_app_namespace)},",
+            "    session_templates=templates,",
+            f"    epoch={int(args.resume_seed_epoch)},",
+            f"    label={json.dumps(label)},",
+            ")",
+            "print(json.dumps({",
+            '    "cache": str(cache.path),',
+            '    "peer_id": entry.peer_id,',
+            '    "app_namespace": entry.app_namespace,',
+            '    "state_hash": entry.state_hash,',
+            '    "epoch": entry.epoch,',
+            '    "session_template_count": len(entry.session_templates),',
+            "}, sort_keys=True))",
+        ]
+    )
+    command = shlex.join([args.remote_python, "-c", code])
+    return f"cd {_quote_remote_path(remote_root)} && PYTHONPATH=src {command}"
 
 
 def _read_resume_auth_key(path: str | None) -> bytes | None:
@@ -363,6 +462,7 @@ def build_target_plan(
     remote_egress_metrics = f"{remote_run_dir}/egress.metrics.json"
     remote_root = target.remote_root or args.remote_root
     session_resume = _target_session_resume_summary(args, target)
+    resume_cache_seed = _target_resume_seed_summary(args, target)
 
     egress_args = [
         "egress",
@@ -452,6 +552,12 @@ def build_target_plan(
         "fetch_egress_metrics": _fetch_json_command(remote_egress_metrics),
         "cleanup": _cleanup_command(remote_run_dir),
     }
+    if resume_cache_seed["enabled"]:
+        commands["seed_remote_resume_cache"] = _remote_resume_seed_command(
+            args=args,
+            target=target,
+            remote_root=remote_root,
+        )
     if not args.inline_upstream_fixture:
         fixture_args = [
             "--listen-host",
@@ -500,6 +606,7 @@ def build_target_plan(
         },
         "commands": commands,
         "session_resume": session_resume,
+        "resume_cache_seed": resume_cache_seed,
     }
 
 
@@ -521,6 +628,7 @@ def build_plan(args: argparse.Namespace, targets: list[ProxyClusterTarget]) -> d
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "session_resume": _session_resume_summary(args),
+        "resume_cache_seed": _resume_seed_summary(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "upstream_agent_profile": args.upstream_agent_profile,
@@ -946,6 +1054,78 @@ def _local_fixture_path(path: str) -> Path:
     return candidate if candidate.is_absolute() else ROOT / candidate
 
 
+def _seed_local_resume_caches(
+    plan: dict[str, Any],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    templates = _load_resume_seed_templates(args.fixture_corpus)
+    cache = AIWireResumeCache(args.resume_cache)
+    seeded: list[dict[str, Any]] = []
+    for target_plan in plan["targets"]:
+        target = ProxyClusterTarget(**target_plan["target"])
+        entry = cache.put_state(
+            peer_id=_target_resume_peer_id(args, target),
+            app_namespace=args.resume_app_namespace,
+            session_templates=templates,
+            epoch=args.resume_seed_epoch,
+            label=f"proxy-cluster:{plan['run_id']}:{target.label}:coordinator",
+            save=False,
+        )
+        seeded.append(
+            {
+                "target": target.label,
+                "cache": str(cache.path),
+                "peer_id": entry.peer_id,
+                "app_namespace": entry.app_namespace,
+                "state_hash": entry.state_hash,
+                "epoch": entry.epoch,
+                "session_template_count": len(entry.session_templates),
+            }
+        )
+    cache.save()
+    return seeded
+
+
+def _seed_remote_resume_cache(
+    target_plan: dict[str, Any],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    target = ProxyClusterTarget(**target_plan["target"])
+    command = target_plan["commands"]["seed_remote_resume_cache"]
+    output = _ssh_capture(target, args, command, timeout=args.ssh_timeout)
+    try:
+        seeded = json.loads(output)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"remote resume-cache seed for {target.label} returned invalid JSON: {exc}"
+        ) from exc
+    if not isinstance(seeded, dict):
+        raise RuntimeError(f"remote resume-cache seed for {target.label} returned non-object JSON")
+    return {"target": target.label, **seeded}
+
+
+def seed_resume_caches(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    if not args.seed_resume_cache:
+        return {"enabled": False}
+
+    local = _seed_local_resume_caches(plan, args)
+    remote: list[dict[str, Any]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.target_parallelism) as executor:
+        futures = [
+            executor.submit(_seed_remote_resume_cache, target_plan, args)
+            for target_plan in plan["targets"]
+        ]
+        remote = [future.result() for future in concurrent.futures.as_completed(futures)]
+    remote.sort(key=lambda row: str(row["target"]))
+
+    return {
+        "enabled": True,
+        "seeded_at_utc": _utc_now(),
+        "local": local,
+        "remote": remote,
+    }
+
+
 def run_target(
     target_plan: dict[str, Any],
     args: argparse.Namespace,
@@ -1138,6 +1318,7 @@ def _aggregate_impairment_wait(results: list[dict[str, Any]]) -> dict[str, float
 
 def run_plan(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     started_at = _utc_now()
+    resume_seed_result = seed_resume_caches(plan, args)
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.target_parallelism) as executor:
         futures = [
             executor.submit(run_target, target_plan, args) for target_plan in plan["targets"]
@@ -1150,6 +1331,7 @@ def run_plan(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
         "dry_run": False,
         "started_at_utc": started_at,
         "ended_at_utc": _utc_now(),
+        "resume_cache_seed_result": resume_seed_result,
         "results": results,
         "aggregate": _aggregate_results(results),
     }
@@ -1165,6 +1347,18 @@ def _session_resume_markdown_line(report: dict[str, Any]) -> str | None:
         "Session resume: "
         f"`{required}`, `{auth}`, peer `{session_resume.get('peer_id_template')}`, "
         f"namespace `{session_resume.get('app_namespace')}`"
+    )
+
+
+def _resume_seed_markdown_line(report: dict[str, Any]) -> str | None:
+    resume_seed = report.get("resume_cache_seed") or {}
+    if not resume_seed.get("enabled"):
+        return None
+    return (
+        "Resume cache seed: "
+        f"`{resume_seed.get('source')}`, epoch `{resume_seed.get('epoch')}`, "
+        f"{resume_seed.get('session_template_count')} templates, "
+        f"state `{resume_seed.get('state_hash')}`"
     )
 
 
@@ -1186,6 +1380,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     resume_line = _session_resume_markdown_line(report)
     if resume_line is not None:
         lines.insert(-1, resume_line)
+    seed_line = _resume_seed_markdown_line(report)
+    if seed_line is not None:
+        lines.insert(-1, seed_line)
     if report.get("dry_run"):
         ssh_bootstrap = report.get("ssh_bootstrap")
         if ssh_bootstrap:
@@ -1455,6 +1652,7 @@ def run_connection_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "session_resume": _session_resume_summary(args),
+        "resume_cache_seed": _resume_seed_summary(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "upstream_agent_profile": args.upstream_agent_profile,
@@ -1536,6 +1734,9 @@ def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
     resume_line = _session_resume_markdown_line(report)
     if resume_line is not None:
         lines.insert(-3, resume_line)
+    seed_line = _resume_seed_markdown_line(report)
+    if seed_line is not None:
+        lines.insert(-3, seed_line)
     rows = report.get("aggregate", [])
     if rows and all("exchanges" in row for row in rows):
         lines.extend(
@@ -1625,6 +1826,7 @@ def run_codec_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "session_resume": _session_resume_summary(args),
+        "resume_cache_seed": _resume_seed_summary(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "upstream_agent_profile": args.upstream_agent_profile,
@@ -1719,6 +1921,9 @@ def render_codec_sweep_markdown(report: dict[str, Any]) -> str:
     resume_line = _session_resume_markdown_line(report)
     if resume_line is not None:
         lines.insert(-3, resume_line)
+    seed_line = _resume_seed_markdown_line(report)
+    if seed_line is not None:
+        lines.insert(-3, seed_line)
     rows = report.get("aggregate", [])
     if rows and all("exchanges" in row for row in rows):
         lines.extend(
@@ -1905,6 +2110,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Fail each sidecar handshake unless the peer selects a verified cached session state.",
     )
+    parser.add_argument(
+        "--seed-resume-cache",
+        action="store_true",
+        help=(
+            "Before --run, seed the coordinator and target resume caches from the selected "
+            "fixture corpus updated session templates. Dry-runs include the remote seed command."
+        ),
+    )
+    parser.add_argument(
+        "--resume-seed-epoch",
+        type=int,
+        default=1,
+        help="Session dictionary epoch used by --seed-resume-cache.",
+    )
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument("--modeled-link-mbps", type=float, default=10.0)
     parser.add_argument(
@@ -1965,6 +2184,9 @@ def _validate_session_resume_args(args: argparse.Namespace) -> str | None:
 
     if bool(args.resume_auth_key_file) != bool(args.remote_resume_auth_key_file):
         return "--resume-auth-key-file and --remote-resume-auth-key-file must be set together"
+
+    if args.seed_resume_cache and args.resume_seed_epoch < 0:
+        return "--resume-seed-epoch must be non-negative"
 
     if args.tunnel_codec_sweep:
         non_aiwire = [codec for codec in args.tunnel_codec_sweep if codec != "aiwire"]

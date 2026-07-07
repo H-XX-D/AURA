@@ -190,6 +190,9 @@ startup checks.
   runs with remote fixture servers, remote egress sidecars, local ingress
   clients, per-target JSON artifacts, markdown summaries, and opt-in
   multi-connection sessions per target.
+- Opt-in fixture resume-cache seeding in the proxy cluster runner so sustained
+  handshake runs can seed matching coordinator/edge dictionary state before
+  sidecars start.
 - Service-manager templates for systemd and launchd.
 
 Definition of done:

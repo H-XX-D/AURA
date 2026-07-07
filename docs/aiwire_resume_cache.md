@@ -133,6 +133,32 @@ The CLI intentionally omits auth-key arguments so secrets are not exposed in
 shell history or process listings. Use the Python API when the resume messages
 need HMAC protection.
 
+## Cluster Benchmark Seeding
+
+For public fixture benchmark runs, `tools/run_aiwire_proxy_cluster.py` can seed
+the matching coordinator and target caches automatically:
+
+```bash
+python tools/run_aiwire_proxy_cluster.py \
+  --targets-file /tmp/aura-ready-targets.txt \
+  --preflight --run --seconds 60 \
+  --connections 64 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --resume-cache ~/.cache/aura/aiwire-resume.json \
+  --remote-resume-cache /var/lib/aura/aiwire-resume.json \
+  --resume-peer-id '{coordinator}-to-{target}' \
+  --resume-app-namespace aura-cluster \
+  --seed-resume-cache \
+  --require-resume
+```
+
+The seed path extracts the selected fixture corpus `updated_session_templates`
+and writes the same epoch/state hash to both sides before the sidecars start.
+It is benchmark tooling for repeatable sustained-handshake measurements. For
+services, seed from the real application template catalog with
+`aura-aiwire-resume-cache put`.
+
 By default, the cache path is:
 
 ```text

@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
@@ -126,7 +126,11 @@ def _start_servers(
             text=True,
         )
         servers.append(server)
-    time.sleep(args.server_start_delay)
+    startup_delay = max(
+        float(args.server_start_delay),
+        1.0 if sys.platform == "win32" else 0.0,
+    )
+    time.sleep(startup_delay)
     return servers
 
 
@@ -186,15 +190,28 @@ def _run_nary_client(
         label = str(target["label"])
         endpoint = f"{target['host']}:{target['port']}"
         client_cmd.extend(["--target", f"{label}={endpoint}"])
-    completed = subprocess.run(
-        client_cmd,
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=args.timeout + args.seconds * max(2, _codec_count(codecs)) + 30,
-    )
-    return json.loads(completed.stdout)
+    try:
+        completed = subprocess.run(
+            client_cmd,
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=args.timeout + args.seconds * max(2, _codec_count(codecs)) + 30,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            "n-ary client failed for coordinator "
+            f"{coordinator!r} with exit code {exc.returncode}\n"
+            f"stdout:\n{exc.stdout or ''}\n"
+            f"stderr:\n{exc.stderr or ''}"
+        ) from exc
+    payload = json.loads(completed.stdout)
+    if not isinstance(payload, dict):
+        raise RuntimeError(
+            f"n-ary client returned JSON that is not an object for coordinator {coordinator!r}"
+        )
+    return dict(payload)
 
 
 def _summary_for_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -241,7 +258,7 @@ def _aggregate_by_codec(summary: Mapping[str, Any]) -> dict[str, Mapping[str, An
     return {str(row["codec"]): row for row in summary["aggregate"]}
 
 
-def _delta_rows(summaries: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def _delta_rows(summaries: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     if len(summaries) < 2:
         return []
     baseline = summaries[0]

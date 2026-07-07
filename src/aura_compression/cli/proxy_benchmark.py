@@ -46,6 +46,37 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument("--modeled-link-mbps", type=float, default=10.0)
+    parser.add_argument(
+        "--tunnel-bandwidth-mbps",
+        type=float,
+        default=0.0,
+        help="Optional aggregate AIWire tunnel bandwidth cap. Zero disables the cap.",
+    )
+    parser.add_argument(
+        "--tunnel-one-way-delay-ms",
+        type=float,
+        default=0.0,
+        help="Optional one-way propagation delay applied to tunnel writes.",
+    )
+    parser.add_argument(
+        "--tunnel-jitter-ms",
+        type=float,
+        default=0.0,
+        help="Optional uniform +/- jitter applied to tunnel writes.",
+    )
+    parser.add_argument(
+        "--tunnel-tail-pause-probability",
+        type=float,
+        default=0.0,
+        help="Probability that a tunnel frame receives an extra tail pause.",
+    )
+    parser.add_argument(
+        "--tunnel-tail-pause-ms",
+        type=float,
+        default=0.0,
+        help="Maximum extra tail-pause delay in milliseconds.",
+    )
+    parser.add_argument("--impairment-seed", type=int, default=1729)
     parser.add_argument("--egress-host")
     parser.add_argument("--egress-port", type=int)
     parser.add_argument(
@@ -76,6 +107,12 @@ def main(argv: list[str] | None = None) -> int:
         "backend": args.backend,
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
+        "tunnel_bandwidth_mbps": args.tunnel_bandwidth_mbps,
+        "tunnel_one_way_delay_ms": args.tunnel_one_way_delay_ms,
+        "tunnel_jitter_ms": args.tunnel_jitter_ms,
+        "tunnel_tail_pause_probability": args.tunnel_tail_pause_probability,
+        "tunnel_tail_pause_ms": args.tunnel_tail_pause_ms,
+        "impairment_seed": args.impairment_seed,
         "output": args.output,
         "replay_log_output": args.replay_log_output,
     }

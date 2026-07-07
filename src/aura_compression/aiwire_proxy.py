@@ -8,9 +8,11 @@ AIWire frames plus inspectable control frames.
 from __future__ import annotations
 
 import json
+import random
 import socket
 import struct
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -79,6 +81,92 @@ def _canonical_json_bytes(value: Mapping[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
+@dataclass(frozen=True)
+class TunnelImpairmentConfig:
+    """Shared impairment model for the inter-sidecar AIWire tunnel."""
+
+    bandwidth_mbps: float = 0.0
+    one_way_delay_ms: float = 0.0
+    jitter_ms: float = 0.0
+    tail_pause_probability: float = 0.0
+    tail_pause_ms: float = 0.0
+    seed: int = 1729
+
+    @property
+    def enabled(self) -> bool:
+        return any(
+            (
+                self.bandwidth_mbps > 0,
+                self.one_way_delay_ms > 0,
+                self.jitter_ms > 0,
+                self.tail_pause_probability > 0 and self.tail_pause_ms > 0,
+            )
+        )
+
+    def validate(self) -> None:
+        if self.bandwidth_mbps < 0:
+            raise ValueError("tunnel bandwidth must be non-negative")
+        if self.one_way_delay_ms < 0:
+            raise ValueError("tunnel one-way delay must be non-negative")
+        if self.jitter_ms < 0:
+            raise ValueError("tunnel jitter must be non-negative")
+        if not 0 <= self.tail_pause_probability <= 1:
+            raise ValueError("tunnel tail-pause probability must be between 0 and 1")
+        if self.tail_pause_ms < 0:
+            raise ValueError("tunnel tail-pause duration must be non-negative")
+
+    def to_dict(self) -> dict[str, float | int]:
+        return {
+            "bandwidth_mbps": self.bandwidth_mbps,
+            "one_way_delay_ms": self.one_way_delay_ms,
+            "jitter_ms": self.jitter_ms,
+            "tail_pause_probability": self.tail_pause_probability,
+            "tail_pause_ms": self.tail_pause_ms,
+            "seed": self.seed,
+        }
+
+
+class TunnelImpairment:
+    """Apply aggregate serialization, propagation, jitter, and tail delay."""
+
+    def __init__(self, config: TunnelImpairmentConfig) -> None:
+        config.validate()
+        self.config = config
+        self._lock = threading.Lock()
+        self._rng = random.Random(config.seed)
+        self._next_serialized_ns = time.perf_counter_ns()
+
+    def wait_before_write(self, framed_bytes: int) -> None:
+        if not self.config.enabled:
+            return
+        with self._lock:
+            now_ns = time.perf_counter_ns()
+            serialized_start_ns = max(now_ns, self._next_serialized_ns)
+            serialization_ns = 0
+            if self.config.bandwidth_mbps > 0:
+                serialization_seconds = (
+                    framed_bytes * 8.0 / (self.config.bandwidth_mbps * 1_000_000.0)
+                )
+                serialization_ns = int(serialization_seconds * 1_000_000_000)
+            serialized_end_ns = serialized_start_ns + serialization_ns
+            self._next_serialized_ns = serialized_end_ns
+
+            delay_ms = self.config.one_way_delay_ms
+            if self.config.jitter_ms > 0:
+                delay_ms += self._rng.uniform(-self.config.jitter_ms, self.config.jitter_ms)
+            if (
+                self.config.tail_pause_probability > 0
+                and self.config.tail_pause_ms > 0
+                and self._rng.random() < self.config.tail_pause_probability
+            ):
+                delay_ms += self._rng.uniform(0.0, self.config.tail_pause_ms)
+            due_ns = serialized_end_ns + int(max(0.0, delay_ms) * 1_000_000)
+
+        wait_ns = due_ns - time.perf_counter_ns()
+        if wait_ns > 0:
+            time.sleep(wait_ns / 1_000_000_000)
+
+
 def read_exact(sock: socket.socket, size: int) -> bytes:
     """Read exactly ``size`` bytes from a socket or raise ``EOFError``."""
 
@@ -136,10 +224,20 @@ def decode_tunnel_frame(frame: bytes) -> tuple[str, bytes]:
     return lane, frame[1:]
 
 
-def write_tunnel_frame(sock: socket.socket, lane: str, payload: bytes) -> int:
+def write_tunnel_frame(
+    sock: socket.socket,
+    lane: str,
+    payload: bytes,
+    *,
+    impairment: TunnelImpairment | None = None,
+) -> int:
     """Write a tagged proxy tunnel frame and return framed bytes sent."""
 
-    return write_length_prefixed(sock, encode_tunnel_frame(lane, payload))
+    frame = encode_tunnel_frame(lane, payload)
+    framed_bytes = _U32.size + len(frame)
+    if impairment is not None:
+        impairment.wait_before_write(framed_bytes)
+    return write_length_prefixed(sock, frame)
 
 
 def read_tunnel_frame(
@@ -168,11 +266,17 @@ def read_tunnel_frame_with_size(
     return lane, payload, _U32.size + len(frame)
 
 
-def _write_control_frame(sock: socket.socket, payload: Mapping[str, Any]) -> int:
+def _write_control_frame(
+    sock: socket.socket,
+    payload: Mapping[str, Any],
+    *,
+    impairment: TunnelImpairment | None = None,
+) -> int:
     return write_tunnel_frame(
         sock,
         AIWIRE_PROXY_CONTROL_LANE,
         _canonical_json_bytes(payload),
+        impairment=impairment,
     )
 
 
@@ -246,6 +350,7 @@ class AIWireProxyMetrics:
     negotiation_codec: str = ""
     negotiation_version: int | None = None
     negotiation_reason: str | None = None
+    tunnel_impairment: dict[str, float | int] = field(default_factory=dict)
     last_error: str | None = None
 
     @property
@@ -324,6 +429,7 @@ class AIWireProxyMetrics:
             "negotiation_codec": self.negotiation_codec,
             "negotiation_version": self.negotiation_version,
             "negotiation_reason": self.negotiation_reason,
+            "tunnel_impairment": self.tunnel_impairment,
             "last_error": self.last_error,
         }
 
@@ -362,6 +468,7 @@ def _connection_metrics_from(metrics: AIWireProxyMetrics) -> AIWireProxyMetrics:
         max_frame_bytes=metrics.max_frame_bytes,
         target_host=metrics.target_host,
         target_port=metrics.target_port,
+        tunnel_impairment=dict(metrics.tunnel_impairment),
     )
 
 
@@ -416,8 +523,13 @@ def _write_proxy_client_hello(
     *,
     level: int,
     backend: BackendName,
+    impairment: TunnelImpairment | None = None,
 ) -> int:
-    return _write_control_frame(sock, _proxy_client_hello(level=level, backend=backend))
+    return _write_control_frame(
+        sock,
+        _proxy_client_hello(level=level, backend=backend),
+        impairment=impairment,
+    )
 
 
 def _read_proxy_server_ack(
@@ -442,6 +554,7 @@ def _accept_proxy_handshake(
     level: int,
     backend: BackendName,
     max_frame_bytes: int,
+    impairment: TunnelImpairment | None = None,
 ) -> tuple[int, dict[str, Any]]:
     control_bytes = 0
     hello, hello_bytes = _read_control_frame_with_size(sock, max_frame_bytes=max_frame_bytes)
@@ -471,7 +584,7 @@ def _accept_proxy_handshake(
         "requested_backend": backend,
         "negotiation": negotiation.to_dict(),
     }
-    control_bytes += _write_control_frame(sock, ack)
+    control_bytes += _write_control_frame(sock, ack, impairment=impairment)
     if not negotiation.accepted:
         reason = negotiation.reason or "rejected"
         raise AIWireProxyHandshakeError(f"AIWire proxy handshake rejected: {reason}")
@@ -487,6 +600,7 @@ def _handle_ingress_connection(
     backend: BackendName,
     max_frame_bytes: int,
     connect_timeout: float,
+    tunnel_impairment: TunnelImpairment | None,
     metrics: AIWireProxyMetrics,
 ) -> None:
     _set_socket_options(client)
@@ -505,6 +619,7 @@ def _handle_ingress_connection(
             tunnel,
             level=level,
             backend=backend,
+            impairment=tunnel_impairment,
         )
         ack, ack_bytes = _read_proxy_server_ack(tunnel, max_frame_bytes=max_frame_bytes)
         metrics.tunnel_control_framed_bytes += ack_bytes
@@ -530,6 +645,7 @@ def _handle_ingress_connection(
                 tunnel,
                 AIWIRE_PROXY_SEMANTIC_LANE,
                 compressed_request,
+                impairment=tunnel_impairment,
             )
 
             lane, compressed_response = read_tunnel_frame(
@@ -556,6 +672,7 @@ def _handle_egress_connection(
     backend: BackendName,
     max_frame_bytes: int,
     connect_timeout: float,
+    tunnel_impairment: TunnelImpairment | None,
     metrics: AIWireProxyMetrics,
 ) -> None:
     _set_socket_options(tunnel)
@@ -564,6 +681,7 @@ def _handle_egress_connection(
         level=level,
         backend=backend,
         max_frame_bytes=max_frame_bytes,
+        impairment=tunnel_impairment,
     )
     metrics.tunnel_control_framed_bytes += control_bytes
     metrics.handshakes_accepted += 1
@@ -609,6 +727,7 @@ def _handle_egress_connection(
                 tunnel,
                 AIWIRE_PROXY_SEMANTIC_LANE,
                 compressed_response,
+                impairment=tunnel_impairment,
             )
             metrics.exchanges += 1
 
@@ -625,6 +744,7 @@ def _run_listener(
     max_frame_bytes: int,
     max_connections: int | None,
     connect_timeout: float,
+    tunnel_impairment_config: TunnelImpairmentConfig,
     metrics_output: str | Path | None,
     replay_log_output: str | Path | None,
     ready_callback: Callable[[int], None] | None,
@@ -638,6 +758,10 @@ def _run_listener(
         max_frame_bytes=max_frame_bytes,
         target_host=target_host,
         target_port=target_port,
+        tunnel_impairment=tunnel_impairment_config.to_dict(),
+    )
+    tunnel_impairment = (
+        TunnelImpairment(tunnel_impairment_config) if tunnel_impairment_config.enabled else None
     )
     metrics_lock = threading.Lock()
     workers: list[threading.Thread] = []
@@ -657,6 +781,7 @@ def _run_listener(
                             backend=backend,
                             max_frame_bytes=max_frame_bytes,
                             connect_timeout=connect_timeout,
+                            tunnel_impairment=tunnel_impairment,
                             metrics=connection_metrics,
                         )
                     else:
@@ -668,6 +793,7 @@ def _run_listener(
                             backend=backend,
                             max_frame_bytes=max_frame_bytes,
                             connect_timeout=connect_timeout,
+                            tunnel_impairment=tunnel_impairment,
                             metrics=connection_metrics,
                         )
                 except AIWireProxyHandshakeError:
@@ -727,6 +853,7 @@ def run_ingress_proxy(
     max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES,
     max_connections: int | None = None,
     connect_timeout: float = 5.0,
+    tunnel_impairment_config: TunnelImpairmentConfig | None = None,
     metrics_output: str | Path | None = None,
     replay_log_output: str | Path | None = None,
     ready_callback: Callable[[int], None] | None = None,
@@ -744,6 +871,7 @@ def run_ingress_proxy(
         max_frame_bytes=max_frame_bytes,
         max_connections=max_connections,
         connect_timeout=connect_timeout,
+        tunnel_impairment_config=tunnel_impairment_config or TunnelImpairmentConfig(),
         metrics_output=metrics_output,
         replay_log_output=replay_log_output,
         ready_callback=ready_callback,
@@ -761,6 +889,7 @@ def run_egress_proxy(
     max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES,
     max_connections: int | None = None,
     connect_timeout: float = 5.0,
+    tunnel_impairment_config: TunnelImpairmentConfig | None = None,
     metrics_output: str | Path | None = None,
     replay_log_output: str | Path | None = None,
     ready_callback: Callable[[int], None] | None = None,
@@ -778,6 +907,7 @@ def run_egress_proxy(
         max_frame_bytes=max_frame_bytes,
         max_connections=max_connections,
         connect_timeout=connect_timeout,
+        tunnel_impairment_config=tunnel_impairment_config or TunnelImpairmentConfig(),
         metrics_output=metrics_output,
         replay_log_output=replay_log_output,
         ready_callback=ready_callback,
@@ -793,6 +923,8 @@ __all__ = [
     "AIWireProxyMetrics",
     "AIWireProxyProtocolError",
     "DEFAULT_MAX_FRAME_BYTES",
+    "TunnelImpairment",
+    "TunnelImpairmentConfig",
     "decode_tunnel_frame",
     "encode_tunnel_frame",
     "read_exact",

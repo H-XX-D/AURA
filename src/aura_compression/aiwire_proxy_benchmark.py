@@ -24,6 +24,7 @@ from .ai_wire_fixtures import (
 from .aiwire_proxy import (
     DEFAULT_MAX_FRAME_BYTES,
     BackendName,
+    TunnelImpairmentConfig,
     read_length_prefixed,
     run_egress_proxy,
     run_ingress_proxy,
@@ -471,6 +472,27 @@ def _capacity_eps(link_mbps: float, bytes_per_exchange: float) -> float:
     return link_mbps * 1_000_000.0 / 8.0 / bytes_per_exchange
 
 
+def _tunnel_impairment_config(
+    *,
+    bandwidth_mbps: float = 0.0,
+    one_way_delay_ms: float = 0.0,
+    jitter_ms: float = 0.0,
+    tail_pause_probability: float = 0.0,
+    tail_pause_ms: float = 0.0,
+    seed: int = 1729,
+) -> TunnelImpairmentConfig:
+    config = TunnelImpairmentConfig(
+        bandwidth_mbps=bandwidth_mbps,
+        one_way_delay_ms=one_way_delay_ms,
+        jitter_ms=jitter_ms,
+        tail_pause_probability=tail_pause_probability,
+        tail_pause_ms=tail_pause_ms,
+        seed=seed,
+    )
+    config.validate()
+    return config
+
+
 def _benchmark_result_row(result: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "codec": "aiwire",
@@ -681,6 +703,7 @@ def _result_from_ingress_metrics(
         "modeled_tunnel_capacity_exchanges_per_second": tunnel_capacity,
         "modeled_tunnel_total_capacity_exchanges_per_second": tunnel_total_capacity,
         "modeled_tunnel_gain_vs_raw": tunnel_capacity / raw_capacity if raw_capacity else 0.0,
+        "tunnel_impairment": dict(ingress_payload.get("tunnel_impairment") or {}),
         "roundtrip_ms_min": min(latencies_ms) if latencies_ms else 0.0,
         "roundtrip_ms_mean": statistics.fmean(latencies_ms) if latencies_ms else 0.0,
         "roundtrip_ms_p50": _percentile(latencies_ms, 0.50),
@@ -739,6 +762,12 @@ def run_proxy_ingress_benchmark(
     backend: BackendName = "python",
     level: int = AI_WIRE_DEFAULT_LEVEL,
     modeled_link_mbps: float = 10.0,
+    tunnel_bandwidth_mbps: float = 0.0,
+    tunnel_one_way_delay_ms: float = 0.0,
+    tunnel_jitter_ms: float = 0.0,
+    tunnel_tail_pause_probability: float = 0.0,
+    tunnel_tail_pause_ms: float = 0.0,
+    impairment_seed: int = 1729,
     output: str | Path | None = None,
     replay_log_output: str | Path | None = None,
     ingress_metrics_output: str | Path | None = None,
@@ -760,6 +789,14 @@ def run_proxy_ingress_benchmark(
         corpus,
         fixture_variation_profile=fixture_variation_profile,
         fixture_peer_label=fixture_peer_label,
+    )
+    tunnel_impairment_config = _tunnel_impairment_config(
+        bandwidth_mbps=tunnel_bandwidth_mbps,
+        one_way_delay_ms=tunnel_one_way_delay_ms,
+        jitter_ms=tunnel_jitter_ms,
+        tail_pause_probability=tunnel_tail_pause_probability,
+        tail_pause_ms=tunnel_tail_pause_ms,
+        seed=impairment_seed,
     )
 
     with tempfile.TemporaryDirectory(prefix="aura-proxy-ingress-benchmark-") as tmpdir:
@@ -783,6 +820,7 @@ def run_proxy_ingress_benchmark(
                 backend=backend,
                 level=level,
                 max_connections=connection_count,
+                tunnel_impairment_config=tunnel_impairment_config,
                 metrics_output=ingress_metrics_path,
                 ready_callback=ingress_ready_callback,
             )
@@ -833,6 +871,12 @@ def run_proxy_benchmark(
     backend: BackendName = "python",
     level: int = AI_WIRE_DEFAULT_LEVEL,
     modeled_link_mbps: float = 10.0,
+    tunnel_bandwidth_mbps: float = 0.0,
+    tunnel_one_way_delay_ms: float = 0.0,
+    tunnel_jitter_ms: float = 0.0,
+    tunnel_tail_pause_probability: float = 0.0,
+    tunnel_tail_pause_ms: float = 0.0,
+    impairment_seed: int = 1729,
     output: str | Path | None = None,
     replay_log_output: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -853,6 +897,14 @@ def run_proxy_benchmark(
         corpus,
         fixture_variation_profile=fixture_variation_profile,
         fixture_peer_label=fixture_peer_label,
+    )
+    tunnel_impairment_config = _tunnel_impairment_config(
+        bandwidth_mbps=tunnel_bandwidth_mbps,
+        one_way_delay_ms=tunnel_one_way_delay_ms,
+        jitter_ms=tunnel_jitter_ms,
+        tail_pause_probability=tunnel_tail_pause_probability,
+        tail_pause_ms=tunnel_tail_pause_ms,
+        seed=impairment_seed,
     )
 
     upstream_listener, upstream_port = _bound_listener()
@@ -885,6 +937,7 @@ def run_proxy_benchmark(
                 backend=backend,
                 level=level,
                 max_connections=connection_count,
+                tunnel_impairment_config=tunnel_impairment_config,
                 metrics_output=egress_metrics_path,
                 ready_callback=egress_ready_callback,
             )
@@ -908,6 +961,7 @@ def run_proxy_benchmark(
                 backend=backend,
                 level=level,
                 max_connections=connection_count,
+                tunnel_impairment_config=tunnel_impairment_config,
                 metrics_output=ingress_metrics_path,
                 ready_callback=ingress_ready_callback,
             )

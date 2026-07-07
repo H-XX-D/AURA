@@ -68,6 +68,17 @@ def _shell_command(parts: list[str]) -> str:
     return shlex.join(parts)
 
 
+def _tunnel_impairment_dict(args: argparse.Namespace) -> dict[str, float | int]:
+    return {
+        "bandwidth_mbps": args.tunnel_bandwidth_mbps,
+        "one_way_delay_ms": args.tunnel_one_way_delay_ms,
+        "jitter_ms": args.tunnel_jitter_ms,
+        "tail_pause_probability": args.tunnel_tail_pause_probability,
+        "tail_pause_ms": args.tunnel_tail_pause_ms,
+        "seed": args.impairment_seed,
+    }
+
+
 def _quote_remote_path(value: str | Path) -> str:
     text = str(value)
     if text == "~":
@@ -176,9 +187,7 @@ def parse_connections_sweep(value: str) -> list[int]:
         if parsed <= 0:
             raise argparse.ArgumentTypeError("connection sweep values must be positive")
         if parsed in seen:
-            raise argparse.ArgumentTypeError(
-                f"duplicate connection sweep value: {parsed}"
-            )
+            raise argparse.ArgumentTypeError(f"duplicate connection sweep value: {parsed}")
         seen.add(parsed)
         connections.append(parsed)
     if not connections:
@@ -287,6 +296,18 @@ def build_target_plan(
         str(args.level),
         "--connections",
         str(args.connections),
+        "--tunnel-bandwidth-mbps",
+        str(args.tunnel_bandwidth_mbps),
+        "--tunnel-one-way-delay-ms",
+        str(args.tunnel_one_way_delay_ms),
+        "--tunnel-jitter-ms",
+        str(args.tunnel_jitter_ms),
+        "--tunnel-tail-pause-probability",
+        str(args.tunnel_tail_pause_probability),
+        "--tunnel-tail-pause-ms",
+        str(args.tunnel_tail_pause_ms),
+        "--impairment-seed",
+        str(args.impairment_seed),
         "--metrics-output",
         remote_egress_metrics,
     ]
@@ -346,6 +367,7 @@ def build_plan(args: argparse.Namespace, targets: list[ProxyClusterTarget]) -> d
         "backend": args.backend,
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
+        "tunnel_impairment": _tunnel_impairment_dict(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "connections": args.connections,
@@ -790,6 +812,12 @@ def run_target(
             backend=args.backend,
             level=args.level,
             modeled_link_mbps=args.modeled_link_mbps,
+            tunnel_bandwidth_mbps=args.tunnel_bandwidth_mbps,
+            tunnel_one_way_delay_ms=args.tunnel_one_way_delay_ms,
+            tunnel_jitter_ms=args.tunnel_jitter_ms,
+            tunnel_tail_pause_probability=args.tunnel_tail_pause_probability,
+            tunnel_tail_pause_ms=args.tunnel_tail_pause_ms,
+            impairment_seed=args.impairment_seed,
             output=artifacts["local_benchmark"],
             replay_log_output=artifacts["local_replay_log"],
             ingress_metrics_output=artifacts["local_ingress_metrics"],
@@ -893,6 +921,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"Backend: `{report['backend']}`",
         f"Seconds: `{report['seconds']}`",
         f"Connections per target: `{report.get('connections', 1)}`",
+        f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
         "",
     ]
     if report.get("dry_run"):
@@ -1122,6 +1151,7 @@ def run_connection_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]
         "backend": args.backend,
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
+        "tunnel_impairment": _tunnel_impairment_dict(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "connections_sweep": args.connections_sweep,
@@ -1187,6 +1217,7 @@ def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
         f"Backend: `{report['backend']}`",
         f"Seconds: `{report['seconds']}`",
         f"Connections sweep: `{', '.join(str(item) for item in report['connections_sweep'])}`",
+        f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
         "",
         "## Sweep",
         "",
@@ -1292,14 +1323,42 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--connections-sweep",
         type=parse_connections_sweep,
-        help=(
-            "comma-separated connection counts to run sequentially, for example "
-            "1,2,4,8,16"
-        ),
+        help=("comma-separated connection counts to run sequentially, for example " "1,2,4,8,16"),
     )
     parser.add_argument("--backend", choices=("python", "native", "auto"), default="native")
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument("--modeled-link-mbps", type=float, default=10.0)
+    parser.add_argument(
+        "--tunnel-bandwidth-mbps",
+        type=float,
+        default=0.0,
+        help="Optional aggregate AIWire tunnel bandwidth cap. Zero disables the cap.",
+    )
+    parser.add_argument(
+        "--tunnel-one-way-delay-ms",
+        type=float,
+        default=0.0,
+        help="Optional one-way propagation delay applied to tunnel writes.",
+    )
+    parser.add_argument(
+        "--tunnel-jitter-ms",
+        type=float,
+        default=0.0,
+        help="Optional uniform +/- jitter applied to tunnel writes.",
+    )
+    parser.add_argument(
+        "--tunnel-tail-pause-probability",
+        type=float,
+        default=0.0,
+        help="Probability that a tunnel frame receives an extra tail pause.",
+    )
+    parser.add_argument(
+        "--tunnel-tail-pause-ms",
+        type=float,
+        default=0.0,
+        help="Maximum extra tail-pause delay in milliseconds.",
+    )
+    parser.add_argument("--impairment-seed", type=int, default=1729)
     parser.add_argument("--egress-port-base", type=int, default=9200)
     parser.add_argument("--upstream-port-base", type=int, default=9300)
     parser.add_argument("--target-parallelism", type=int, default=4)
@@ -1316,6 +1375,21 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.connections <= 0:
         print("--connections must be positive", file=sys.stderr)
+        return 2
+    if args.tunnel_bandwidth_mbps < 0:
+        print("--tunnel-bandwidth-mbps must be non-negative", file=sys.stderr)
+        return 2
+    if args.tunnel_one_way_delay_ms < 0:
+        print("--tunnel-one-way-delay-ms must be non-negative", file=sys.stderr)
+        return 2
+    if args.tunnel_jitter_ms < 0:
+        print("--tunnel-jitter-ms must be non-negative", file=sys.stderr)
+        return 2
+    if not 0 <= args.tunnel_tail_pause_probability <= 1:
+        print("--tunnel-tail-pause-probability must be between 0 and 1", file=sys.stderr)
+        return 2
+    if args.tunnel_tail_pause_ms < 0:
+        print("--tunnel-tail-pause-ms must be non-negative", file=sys.stderr)
         return 2
     if args.connections_sweep:
         report, exit_code = run_connection_sweep(args)

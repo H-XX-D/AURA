@@ -9,6 +9,7 @@ from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
 from aura_compression.aiwire_proxy import (
     DEFAULT_MAX_FRAME_BYTES,
     BackendName,
+    TunnelImpairmentConfig,
     run_egress_proxy,
     run_ingress_proxy,
 )
@@ -42,6 +43,37 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
         help="Stop after one accepted connection. Useful for tests and smoke runs.",
     )
     parser.add_argument("--connect-timeout", type=float, default=5.0)
+    parser.add_argument(
+        "--tunnel-bandwidth-mbps",
+        type=float,
+        default=0.0,
+        help="Optional aggregate AIWire tunnel bandwidth cap. Zero disables the cap.",
+    )
+    parser.add_argument(
+        "--tunnel-one-way-delay-ms",
+        type=float,
+        default=0.0,
+        help="Optional one-way propagation delay applied to tunnel writes.",
+    )
+    parser.add_argument(
+        "--tunnel-jitter-ms",
+        type=float,
+        default=0.0,
+        help="Optional uniform +/- jitter applied to tunnel writes.",
+    )
+    parser.add_argument(
+        "--tunnel-tail-pause-probability",
+        type=float,
+        default=0.0,
+        help="Probability that a tunnel frame receives an extra tail pause.",
+    )
+    parser.add_argument(
+        "--tunnel-tail-pause-ms",
+        type=float,
+        default=0.0,
+        help="Maximum extra tail-pause delay in milliseconds.",
+    )
+    parser.add_argument("--impairment-seed", type=int, default=1729)
     parser.add_argument("--metrics-output")
     parser.add_argument("--replay-log-output")
 
@@ -86,6 +118,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     backend: BackendName = args.backend
+    tunnel_impairment_config = TunnelImpairmentConfig(
+        bandwidth_mbps=args.tunnel_bandwidth_mbps,
+        one_way_delay_ms=args.tunnel_one_way_delay_ms,
+        jitter_ms=args.tunnel_jitter_ms,
+        tail_pause_probability=args.tunnel_tail_pause_probability,
+        tail_pause_ms=args.tunnel_tail_pause_ms,
+        seed=args.impairment_seed,
+    )
 
     try:
         if args.mode == "ingress":
@@ -99,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
                 max_frame_bytes=args.max_frame_bytes,
                 max_connections=_max_connections(args),
                 connect_timeout=args.connect_timeout,
+                tunnel_impairment_config=tunnel_impairment_config,
                 metrics_output=args.metrics_output,
                 replay_log_output=args.replay_log_output,
             )
@@ -113,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
                 max_frame_bytes=args.max_frame_bytes,
                 max_connections=_max_connections(args),
                 connect_timeout=args.connect_timeout,
+                tunnel_impairment_config=tunnel_impairment_config,
                 metrics_output=args.metrics_output,
                 replay_log_output=args.replay_log_output,
             )

@@ -116,6 +116,31 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     assert records[1]["payload"]["row"]["exchanges"] == 6
 
 
+def test_proxy_benchmark_records_tunnel_impairment() -> None:
+    result = run_proxy_benchmark(
+        seconds=0,
+        max_exchanges=2,
+        connections=1,
+        backend="python",
+        tunnel_bandwidth_mbps=1000.0,
+        tunnel_one_way_delay_ms=0.01,
+        tunnel_jitter_ms=0.0,
+        impairment_seed=99,
+    )
+
+    assert result["verified"] is True
+    assert result["exchanges"] == 2
+    assert result["tunnel_impairment"] == {
+        "bandwidth_mbps": 1000.0,
+        "one_way_delay_ms": 0.01,
+        "jitter_ms": 0.0,
+        "tail_pause_probability": 0.0,
+        "tail_pause_ms": 0.0,
+        "seed": 99,
+    }
+    assert result["ingress_metrics"]["tunnel_impairment"] == result["tunnel_impairment"]
+
+
 def test_proxy_ingress_benchmark_round_trips_remote_egress_shape(tmp_path: Path) -> None:
     upstream_port = _free_port()
     egress_port = _free_port()

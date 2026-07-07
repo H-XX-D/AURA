@@ -48,6 +48,18 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
                 "python",
                 "--connections",
                 "3",
+                "--tunnel-bandwidth-mbps",
+                "8",
+                "--tunnel-one-way-delay-ms",
+                "18",
+                "--tunnel-jitter-ms",
+                "6",
+                "--tunnel-tail-pause-probability",
+                "0.02",
+                "--tunnel-tail-pause-ms",
+                "80",
+                "--impairment-seed",
+                "99",
                 "--run-id",
                 "test-run",
                 "--output-dir",
@@ -68,6 +80,14 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     assert rendered == written
     assert rendered["dry_run"] is True
     assert rendered["connections"] == 3
+    assert rendered["tunnel_impairment"] == {
+        "bandwidth_mbps": 8.0,
+        "one_way_delay_ms": 18.0,
+        "jitter_ms": 6.0,
+        "tail_pause_probability": 0.02,
+        "tail_pause_ms": 80.0,
+        "seed": 99,
+    }
     assert rendered["fixture_variation_profile"] == "cluster"
     assert rendered["targets"][0]["target"]["label"] == "edge-1"
     start_fixture = rendered["targets"][0]["commands"]["start_fixture"]
@@ -79,8 +99,11 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     start_egress = rendered["targets"][0]["commands"]["start_egress"]
     assert "aura_compression.cli.proxy" in start_egress
     assert "--connections 3" in start_egress
+    assert "--tunnel-bandwidth-mbps 8.0" in start_egress
+    assert "--tunnel-one-way-delay-ms 18.0" in start_egress
     summary_text = summary.read_text()
     assert "Connections per target: `3`" in summary_text
+    assert "Tunnel impairment:" in summary_text
     assert "Run again with `--run`" in summary_text
 
 

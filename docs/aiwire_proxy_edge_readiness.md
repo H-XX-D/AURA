@@ -159,10 +159,21 @@ per target verified 229,223 exchanges across 192 sessions at 3,802.8 ex/s and
 161,648 exchanges, 2,562.6 ex/s, and 223.18 ms max p95. Use the higher level as
 a saturation probe, not the default operating point.
 
+The next pass applied deterministic sidecar tunnel impairment rather than only
+modeling bandwidth after the fact. With 6 Mbps per target direction, 12 ms
+one-way delay, 8 ms jitter, and 2.5% tail pauses up to 120 ms, the 60-second
+`--connections-sweep 32,64` run verified 82,414 and 164,435 exchanges. The 64x
+level sustained 2,730.3 ex/s, kept AIWire near 367.1 semantic bytes per
+exchange, saved 84.4%, and held max p95 at 86.14 ms. In raw-equivalent terms,
+that is about 51.3 Mbps of useful JSON movement carried in about 8.0 Mbps of
+AIWire semantic tunnel bytes across the three target groups.
+
 The result is documented in
 [AIWire Proxy Ready-Targets Run](perf/aiwire_proxy_ready_targets_2026-07-07.md).
 The multi-connection scaling result is documented in
 [AIWire Proxy Multi-Connection Scaling Run](perf/aiwire_proxy_multiconnection_2026-07-07.md).
+The impaired tunnel result is documented in
+[AIWire Proxy Edge-Mesh Impairment Run](perf/aiwire_proxy_edge_mesh_impairment_2026-07-07.md).
 
 ## Safety Rules
 

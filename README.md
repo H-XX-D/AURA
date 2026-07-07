@@ -604,6 +604,16 @@ dropped to 2,562.6 ex/s and max p95 rose to 223.18 ms, so this LAN sidecar
 shape is useful through about 64 connections per target before scheduler,
 socket, or sidecar contention dominates.
 
+The proxy runner can also apply deterministic tunnel impairment to the
+inter-sidecar AIWire hop with `--tunnel-bandwidth-mbps`,
+`--tunnel-one-way-delay-ms`, `--tunnel-jitter-ms`, and tail-pause flags. An
+edge-mesh pass using 6 Mbps, 12 ms one-way delay, 8 ms jitter, and 2.5% tail
+pauses up to 120 ms verified 82,414 exchanges at 32 connections per target and
+164,435 at 64. The 64x impaired run sustained 2,730.3 ex/s with 84.4% byte
+savings and 86.14 ms max p95; that is about 51.3 Mbps of raw-JSON-equivalent
+movement carried in about 8.0 Mbps of AIWire semantic tunnel bytes across the
+three target groups.
+
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native
 backend readiness before any remote sidecars are launched.
@@ -618,6 +628,8 @@ Details:
 [AIWire Explicit Sidecar Proxy](docs/aiwire_proxy.md)
 and
 [AIWire Proxy Edge Readiness Runbook](docs/aiwire_proxy_edge_readiness.md)
+include the runbook details. The impaired cross-machine result is captured in
+[AIWire Proxy Edge-Mesh Impairment Run](docs/perf/aiwire_proxy_edge_mesh_impairment_2026-07-07.md).
 
 ## Benchmarking AIWire
 

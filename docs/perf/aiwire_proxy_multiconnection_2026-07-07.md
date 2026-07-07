@@ -51,4 +51,6 @@ report plus one markdown summary. The 64x and 128x measurements used the same
 runner path with `--connections-sweep 64,128`.
 
 This run still uses public fixture traffic and a modeled 10 Mbps capacity view.
-It is not a production workload replay or a throttled WAN test.
+It is not a production workload replay or a throttled WAN test. The follow-up
+with deterministic tunnel impairment is documented in
+[AIWire Proxy Edge-Mesh Impairment Run](aiwire_proxy_edge_mesh_impairment_2026-07-07.md).

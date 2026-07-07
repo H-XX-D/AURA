@@ -227,6 +227,28 @@ Use `--connections-sweep 1,2,4,8,16,32,64` to run those levels sequentially and
 write one combined JSON artifact plus one markdown scaling table. Add higher
 levels only when deliberately probing saturation.
 
+Use the tunnel impairment flags when the benchmark should apply pressure to the
+actual sidecar hop instead of only reporting a modeled link budget:
+
+```bash
+python tools/run_aiwire_proxy_cluster.py \
+  --targets-file /tmp/aura-ready-targets.txt \
+  --preflight --run --seconds 60 \
+  --connections-sweep 32,64 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --modeled-link-mbps 6 \
+  --tunnel-bandwidth-mbps 6 \
+  --tunnel-one-way-delay-ms 12 \
+  --tunnel-jitter-ms 8 \
+  --tunnel-tail-pause-probability 0.025 \
+  --tunnel-tail-pause-ms 120
+```
+
+The impairment is shared by all tunnel connections in a sidecar process, so the
+connections contend for one modeled link rather than receiving private bandwidth
+budgets.
+
 If the edge hosts are reachable but fail batch SSH authentication, generate a
 safe bootstrap report from the coordinator's public key:
 

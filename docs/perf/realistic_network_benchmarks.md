@@ -146,6 +146,15 @@ client side. In n-ary runs, each target label becomes a distinct peer label, so
 the public fixture is varied by role, route, workload, epoch, queue depth, token
 window, and telemetry while preserving SHA-256 response verification.
 
+The explicit proxy runner has matching tunnel impairment flags for the sidecar
+hop: `--tunnel-bandwidth-mbps`, `--tunnel-one-way-delay-ms`,
+`--tunnel-jitter-ms`, `--tunnel-tail-pause-probability`, and
+`--tunnel-tail-pause-ms`. Unlike the n-ary stress harness, these flags apply to
+the AIWire tunnel between sidecars while the raw application sockets remain
+local to each endpoint. The 2026-07-07 edge-mesh proxy run used the profile
+shape from this file and is documented in
+[AIWire Proxy Edge-Mesh Impairment Run](aiwire_proxy_edge_mesh_impairment_2026-07-07.md).
+
 ## Run One Manual Profile Across Machines
 
 Start the server using the server-side profile values:

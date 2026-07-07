@@ -284,6 +284,18 @@ sustained-handshake byte reduction.
 Read the two-edge proxy report:
 [AIWire Explicit Proxy Two-Edge Run](docs/perf/aiwire_proxy_two_nano_2026-07-06.md).
 
+The next run added a third reachable Jetson Orin Nano-class edge target with
+the same native sidecar path. A 60-second parallel run verified 4,075 exchanges
+as a group: 67.9 exchanges/second, 2,311.8 raw framed bytes per exchange,
+363.6 AIWire semantic bytes per exchange, 84.3% semantic-byte savings, and a
+47.98 ms max p95 round trip. The result keeps the same shape as the one- and
+two-edge sidecar runs: roughly 22.6 exchanges/second per target, stable
+sustained-handshake byte reduction, and remaining headroom on the modeled
+10 Mbps links.
+
+Read the three-edge proxy report:
+[AIWire Explicit Proxy Three-Edge Run](docs/perf/aiwire_proxy_three_nano_2026-07-06.md).
+
 Current local benchmark-profile smoke on 2026-07-05 uses the Python AIWire path,
 level 3, seed 1729, and synthetic public-safe `corpus_metadata` on every
 message. This is a reproducible codec/corpus check, not a LAN throughput claim:

@@ -581,13 +581,12 @@ Use `--connections N` to run N parallel client/ingress/egress/fixture sessions
 per target. The default is `1`, matching the original single-session proxy
 measurements.
 
-Latest LAN validation: after the single-session ready-target run, a 60-second
-native proxy run with `--connections 2` across three ready edge targets verified
-8,150 exchanges over six total proxy sessions at 135.8 group exchanges/second,
-2,348.0 raw framed bytes per exchange, 366.7 AIWire semantic bytes per
-exchange, 84.4% semantic-byte savings, and 47.92 ms max p95. That is roughly
-2x the single-session message rate while keeping the same savings and latency
-shape.
+Latest LAN validation: after the single-session ready-target run, 60-second
+native proxy runs with `--connections 2`, `4`, and `8` across three ready edge
+targets verified 8,150, 16,283, and 32,450 exchanges. Group rate scaled from
+67.9 ex/s at one connection per target to 540.3 ex/s at eight connections per
+target, a 7.96x gain, while AIWire stayed near 366.8 semantic bytes per
+exchange, 84.4% semantic-byte savings, and 48.16 ms max p95.
 
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native

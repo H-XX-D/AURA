@@ -98,6 +98,7 @@ jobs:
     - name: Install Linux native dependencies
       if: runner.os == 'Linux'
       run: |
+        sudo find /etc/apt/sources.list.d -type f \( -iname '*azure*' -o -iname '*microsoft*' \) -print -delete
         sudo apt-get update
         sudo apt-get install -y zlib1g-dev
 

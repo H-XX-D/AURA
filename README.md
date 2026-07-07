@@ -614,6 +614,22 @@ savings and 86.14 ms max p95; that is about 51.3 Mbps of raw-JSON-equivalent
 movement carried in about 8.0 Mbps of AIWire semantic tunnel bytes across the
 three target groups.
 
+The same impaired 64-connection sidecar shape was then rerun with
+`--tunnel-codec-sweep raw,zlib,aiwire` so raw, stateless zlib, and AIWire used
+the same sidecar envelope and delay model:
+
+| Tunnel codec | Exchanges | Group ex/s | vs raw | Tunnel B/ex | Saved | p95 max | Tunnel Mbps |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| raw | 114,681 | 1,905.9 | 1.00x | 2,349.8 | -0.1% | 118.85 ms | 35.82 |
+| zlib | 165,463 | 2,750.3 | 1.44x | 1,218.1 | 48.1% | 88.54 ms | 26.80 |
+| aiwire | 164,436 | 2,731.3 | 1.43x | 367.1 | 84.4% | 86.39 ms | 8.02 |
+
+That result is the clearest current sidecar comparison. AIWire and zlib moved
+roughly the same verified exchange rate at this concurrency, so the next
+bottleneck is sidecar/runtime work rather than AIWire bytes. But AIWire carried
+that rate in about one third of zlib's tunnel bytes and about one sixth of raw's,
+leaving much more room for control, verification, telemetry, and retries.
+
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native
 backend readiness before any remote sidecars are launched.
@@ -630,6 +646,8 @@ and
 [AIWire Proxy Edge Readiness Runbook](docs/aiwire_proxy_edge_readiness.md)
 include the runbook details. The impaired cross-machine result is captured in
 [AIWire Proxy Edge-Mesh Impairment Run](docs/perf/aiwire_proxy_edge_mesh_impairment_2026-07-07.md).
+The raw/zlib/AIWire sidecar comparison is captured in
+[AIWire Proxy Codec Sweep](docs/perf/aiwire_proxy_codec_sweep_2026-07-07.md).
 
 ## Benchmarking AIWire
 
@@ -971,6 +989,7 @@ delta streams.
 - [AI-to-AI LAN benchmark](docs/perf/ai_to_ai_lan_benchmark_2026-07-04.md)
 - [AIWire Z6-to-Nano relay benchmark](docs/perf/z6_to_nano_aiwire_2026-07-05.md)
 - [AIWire n-ary Z6-to-Nano benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
+- [AIWire proxy codec sweep](docs/perf/aiwire_proxy_codec_sweep_2026-07-07.md)
 - [AIWire fixture saturation benchmark](docs/perf/aiwire_fixture_saturation_2026-07-04.md)
 - [Transport examples](examples/README.md)
 - [Large-file and API notes](docs/api/compressor.md)

@@ -145,8 +145,10 @@ native token paths on each machine before cluster runs.
   saturating the modeled links at 95.7-99.9% utilization and 6.19-6.40x raw
   exchange rate. AIToken+AIWire reaches 7.43-14.97x raw and 95.3% byte savings
   but still leaves bandwidth headroom at 64 agents.
-- Compare Python AIWire, native AIWire, stateless zlib, and raw JSON under the
-  same link model.
+- Keep raw, stateless zlib, and native AIWire sidecar codec sweeps under the
+  same link model. The 2026-07-07 impaired proxy sweep shows AIWire matching
+  zlib's useful exchange rate in the current sidecar shape while using 367.1
+  tunnel bytes per exchange versus zlib's 1,218.1.
 
 Definition of done:
 

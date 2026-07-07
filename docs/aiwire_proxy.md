@@ -227,6 +227,14 @@ Use `--connections-sweep 1,2,4,8,16,32,64` to run those levels sequentially and
 write one combined JSON artifact plus one markdown scaling table. Add higher
 levels only when deliberately probing saturation.
 
+Use `--tunnel-codec raw|zlib|aiwire` when you need to compare the sidecar
+envelope with different semantic payload codecs. `raw` forwards the payload
+unchanged inside the proxy lane frame, `zlib` applies stateless per-frame zlib,
+and `aiwire` uses the negotiated AIWire session codec. The cluster runner also
+accepts `--tunnel-codec-sweep raw,zlib,aiwire` to run one sequential comparison
+with a shared target list, connection count, fixture profile, and impairment
+model.
+
 Use the tunnel impairment flags when the benchmark should apply pressure to the
 actual sidecar hop instead of only reporting a modeled link budget:
 
@@ -286,6 +294,8 @@ The ready-target workflow has a public-safe 60-second validation report:
 [AIWire Proxy Ready-Targets Run](perf/aiwire_proxy_ready_targets_2026-07-07.md).
 The follow-up multi-connection validation report is here:
 [AIWire Proxy Multi-Connection Scaling Run](perf/aiwire_proxy_multiconnection_2026-07-07.md).
+The matching raw/zlib/AIWire tunnel payload comparison is here:
+[AIWire Proxy Codec Sweep](perf/aiwire_proxy_codec_sweep_2026-07-07.md).
 
 The cluster variation profile deterministically changes role, workload, route,
 epoch, queue depth, token window, telemetry, and trace identifiers per peer.

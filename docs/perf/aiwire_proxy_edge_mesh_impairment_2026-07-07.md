@@ -60,3 +60,7 @@ Interpretation:
 This is still a benchmark harness, not production `tc/netem` shaping. The
 impairment is applied in the sidecar write path so it is deterministic,
 portable, and can run without privileged network configuration.
+
+The same 64-connection impaired sidecar shape was rerun with raw, zlib, and
+AIWire tunnel payload codecs. That comparison is documented in
+[AIWire Proxy Codec Sweep](aiwire_proxy_codec_sweep_2026-07-07.md).

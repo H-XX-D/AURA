@@ -154,6 +154,8 @@ the AIWire tunnel between sidecars while the raw application sockets remain
 local to each endpoint. The 2026-07-07 edge-mesh proxy run used the profile
 shape from this file and is documented in
 [AIWire Proxy Edge-Mesh Impairment Run](aiwire_proxy_edge_mesh_impairment_2026-07-07.md).
+The matching raw/zlib/AIWire sidecar payload-codec comparison is documented in
+[AIWire Proxy Codec Sweep](aiwire_proxy_codec_sweep_2026-07-07.md).
 
 ## Run One Manual Profile Across Machines
 

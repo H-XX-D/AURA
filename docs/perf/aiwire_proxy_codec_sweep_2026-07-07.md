@@ -69,3 +69,55 @@ Interpretation:
 This is a benchmark harness, not production traffic shaping. The impairment is
 applied in the sidecar write path so the comparison is deterministic and does
 not need privileged network configuration.
+
+## Stage Profile Follow-up
+
+After the sweep above, the proxy metrics were extended with per-stage timing and
+impairment wait accounting. A shorter 20-second-per-codec follow-up used the
+same three ready edge targets, native backend, 64 connections per target, and
+the same 6 Mbps plus latency/jitter/tail impairment model.
+
+- Run ID: `edge-mesh-profile-64-20s-20260706-231342`
+- Commit: `1b3b84a`
+- Duration: 20 seconds per codec
+- Total proxy sessions: 192
+- Verified targets: 3/3 for every codec
+
+Aggregate result:
+
+| Codec | Total sessions | Verified | Exchanges | Group ex/s | vs raw | Raw B/ex | Tunnel B/ex | Saved | Capacity gain | p95 max |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `raw` | 192 | 3/3 | 38,156 | 1,890.0 | 1.00x | 2,348.0 | 2,350.0 | -0.1% | 1.00x | 123.05 ms |
+| `zlib` | 192 | 3/3 | 55,301 | 2,741.5 | 1.45x | 2,347.3 | 1,217.9 | 48.1% | 1.93x | 89.13 ms |
+| `aiwire` | 192 | 3/3 | 54,912 | 2,712.8 | 1.44x | 2,348.0 | 369.2 | 84.3% | 6.36x | 87.20 ms |
+
+Top stage means:
+
+| Codec | Role | Stage | Calls | Total s | Mean ms |
+|---|---|---|---:|---:|---:|
+| `raw` | ingress | `tunnel_request_write` | 38,156 | 1,949.254 | 51.086 |
+| `raw` | egress | `tunnel_response_write` | 38,156 | 1,852.015 | 48.538 |
+| `zlib` | ingress | `tunnel_request_write` | 55,301 | 955.483 | 17.278 |
+| `zlib` | egress | `tunnel_response_write` | 55,301 | 903.587 | 16.339 |
+| `zlib` | egress | `response_encode` | 55,301 | 11.968 | 0.216 |
+| `aiwire` | ingress | `tunnel_request_write` | 54,912 | 877.776 | 15.985 |
+| `aiwire` | egress | `tunnel_response_write` | 54,912 | 786.707 | 14.327 |
+| `aiwire` | egress | `response_encode` | 54,912 | 16.592 | 0.302 |
+
+Stage totals are summed across concurrent sessions, so they can exceed wall
+clock time. The mean milliseconds per call are the per-exchange signal.
+
+Interpretation:
+
+- AIWire's semantic tunnel bytes stayed about 3.30x smaller than zlib and 6.36x
+  smaller than raw in the same sidecar path.
+- AIWire write-stage means were lower than zlib's, but not 3.30x lower because
+  the impairment model includes fixed per-frame latency, jitter, and tail pause
+  components in addition to serialization time.
+- AIWire encode/decode cost was not the bottleneck in this run: egress response
+  encode averaged 0.302 ms per exchange and ingress response decode averaged
+  0.039 ms per exchange.
+- The dominant remaining stages after compression were response-path waits:
+  ingress `tunnel_response_read` and egress `upstream_response_read`. That points
+  the next optimization at proxy scheduling, fixture/upstream response handling,
+  and concurrent socket coordination rather than the AIWire codec itself.

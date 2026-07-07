@@ -149,6 +149,11 @@ native token paths on each machine before cluster runs.
   same link model. The 2026-07-07 impaired proxy sweep shows AIWire matching
   zlib's useful exchange rate in the current sidecar shape while using 367.1
   tunnel bytes per exchange versus zlib's 1,218.1.
+- Keep sidecar stage profiling in the proxy benchmark output. The follow-up
+  profile shows AIWire encode/decode staying sub-millisecond per exchange while
+  response-path waits and fixed per-frame latency dominate at 64 connections per
+  target, so the next sidecar optimization target is scheduling/socket
+  coordination rather than the codec hot path.
 
 Definition of done:
 

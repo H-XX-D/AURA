@@ -87,6 +87,10 @@ Metrics JSON includes:
 - selected AIWire negotiation codec/version
 - `tunnel_saved_percent`
 - `bandwidth_capacity_gain`
+- per-stage timing maps: `stage_time_ns`, `stage_call_count`,
+  `stage_time_seconds`, and `stage_mean_ms`
+- `tunnel_impairment_wait_seconds` when deterministic tunnel impairment is
+  enabled
 
 The replay-log option writes a deterministic AIWire replay-log JSONL artifact
 with the proxy result row so sidecar runs can be archived beside benchmark
@@ -116,10 +120,10 @@ aura-proxy-benchmark --seconds 0 --max-exchanges 32 --backend python
 ```
 
 The report includes measured exchanges/second, raw framed bytes, AIWire tunnel
-bytes, control overhead, p50/p95/p99 local round-trip latency, and modeled
-10 Mbps raw-vs-tunnel capacity. This is useful for checking whether the
-sidecar shape preserves the bandwidth-proportional benefit before moving the
-same commands to the Z6 or Nano-class targets.
+bytes, control overhead, p50/p95/p99 local round-trip latency, per-stage proxy
+timing, and modeled 10 Mbps raw-vs-tunnel capacity. This is useful for checking
+whether the sidecar shape preserves the bandwidth-proportional benefit before
+moving the same commands to the Z6 or Nano-class targets.
 Use `--connections N` to open N parallel client sessions through the local
 ingress, remote egress, and fixture upstream path.
 

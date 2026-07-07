@@ -630,6 +630,21 @@ bottleneck is sidecar/runtime work rather than AIWire bytes. But AIWire carried
 that rate in about one third of zlib's tunnel bytes and about one sixth of raw's,
 leaving much more room for control, verification, telemetry, and retries.
 
+A 20-second-per-codec profiling follow-up on the same 192-session shape added
+sidecar stage timing. Stage totals are summed across concurrent sessions, so the
+mean milliseconds per call is the useful per-exchange reading:
+
+| Tunnel codec | Group ex/s | Tunnel B/ex | Saved | p95 max | Ingress write mean | Egress write mean | Egress encode mean |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| raw | 1,890.0 | 2,350.0 | -0.1% | 123.05 ms | 51.09 ms | 48.54 ms | 0.003 ms |
+| zlib | 2,741.5 | 1,217.9 | 48.1% | 89.13 ms | 17.28 ms | 16.34 ms | 0.216 ms |
+| aiwire | 2,712.8 | 369.2 | 84.3% | 87.20 ms | 15.99 ms | 14.33 ms | 0.302 ms |
+
+The profile says the byte savings are real, but after frames shrink the current
+sidecar run is dominated by response-path waits and fixed per-frame latency, not
+AIWire encode/decode cost. AIWire encode/decode stayed sub-millisecond per
+exchange while consuming far less tunnel bandwidth than zlib.
+
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native
 backend readiness before any remote sidecars are launched.

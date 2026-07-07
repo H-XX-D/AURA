@@ -139,8 +139,16 @@ ready-only file verified 4,076 exchanges across 3 targets at 67.9 group
 exchanges/second, 2,311.7 raw framed bytes per exchange, 363.6 AIWire semantic
 bytes per exchange, 84.3% semantic-byte savings, and 47.92 ms max p95.
 
+A follow-up 60-second run on the same ready target shape used
+`--connections 2`, so each target carried two client/ingress/egress/fixture
+sessions. It verified 8,150 exchanges across 3 targets at 135.8 group
+exchanges/second, 2,348.0 raw framed bytes per exchange, 366.7 AIWire semantic
+bytes per exchange, 84.4% semantic-byte savings, and 47.92 ms max p95.
+
 The result is documented in
 [AIWire Proxy Ready-Targets Run](perf/aiwire_proxy_ready_targets_2026-07-07.md).
+The multi-connection result is documented in
+[AIWire Proxy Multi-Connection Run](perf/aiwire_proxy_multiconnection_2026-07-07.md).
 
 ## Safety Rules
 

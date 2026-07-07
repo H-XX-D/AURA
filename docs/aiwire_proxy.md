@@ -259,6 +259,8 @@ The edge readiness runbook expands the bootstrap and failure-recovery workflow:
 
 The ready-target workflow has a public-safe 60-second validation report:
 [AIWire Proxy Ready-Targets Run](perf/aiwire_proxy_ready_targets_2026-07-07.md).
+The follow-up multi-connection validation report is here:
+[AIWire Proxy Multi-Connection Run](perf/aiwire_proxy_multiconnection_2026-07-07.md).
 
 The cluster variation profile deterministically changes role, workload, route,
 epoch, queue depth, token window, telemetry, and trace identifiers per peer.

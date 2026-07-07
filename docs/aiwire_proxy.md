@@ -131,6 +131,30 @@ path for future connections to resume known structure instead of relearning it.
 `--resume-auth-key-file` adds HMAC tags to the resume hello/response without
 placing the shared key in the process command line.
 
+For cross-machine benchmark orchestration, pass both the coordinator-local cache
+path and the target-side cache path to the cluster runner. The runner expands
+`{coordinator}` and `{target}` in `--resume-peer-id` for each edge:
+
+```bash
+python tools/run_aiwire_proxy_cluster.py \
+  --targets-file /tmp/aura-ready-targets.txt \
+  --preflight --run --seconds 60 \
+  --connections 64 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --resume-cache ~/.cache/aura/aiwire-resume.json \
+  --remote-resume-cache /var/lib/aura/aiwire-resume.json \
+  --resume-peer-id '{coordinator}-to-{target}' \
+  --resume-app-namespace aura-cluster \
+  --resume-auth-key-file ~/.config/aura/aiwire-resume.key \
+  --remote-resume-auth-key-file /etc/aura/aiwire-resume.key \
+  --require-resume
+```
+
+Session resume is AIWire-only. The cluster runner rejects resume settings for
+`raw` or `zlib` tunnel codecs, including mixed codec sweeps, because those modes
+do not negotiate an AIWire session dictionary.
+
 ## What It Measures
 
 Metrics JSON includes:
@@ -308,7 +332,8 @@ unchanged inside the proxy lane frame, `zlib` applies stateless per-frame zlib,
 and `aiwire` uses the negotiated AIWire session codec. The cluster runner also
 accepts `--tunnel-codec-sweep raw,zlib,aiwire` to run one sequential comparison
 with a shared target list, connection count, fixture profile, and impairment
-model.
+model. Resume-cache flags are accepted only when every selected codec is
+`aiwire`.
 
 Use `--inline-upstream-fixture` when you need to isolate the sidecar tunnel from
 the benchmark fixture server. The runner will start only the remote egress
@@ -376,6 +401,12 @@ remote processes unless every target is ready.
 
 The edge readiness runbook expands the bootstrap and failure-recovery workflow:
 [AIWire Proxy Edge Readiness Runbook](aiwire_proxy_edge_readiness.md).
+
+Systemd service templates expose `AURA_PROXY_RESUME_ARGS` for optional
+`--resume-cache`, `--resume-peer-id`, `--resume-app-namespace`,
+`--resume-auth-key-file`, and `--require-resume` settings. Launchd templates
+include the same flags as commented ProgramArguments; add them directly to the
+argument array when enabling resume on macOS.
 
 The ready-target workflow has a public-safe 60-second validation report:
 [AIWire Proxy Ready-Targets Run](perf/aiwire_proxy_ready_targets_2026-07-07.md).

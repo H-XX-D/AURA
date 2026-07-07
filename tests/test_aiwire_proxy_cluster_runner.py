@@ -114,6 +114,89 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     assert "Run again with `--run`" in summary_text
 
 
+def test_proxy_cluster_dry_run_wires_session_resume(tmp_path: Path, capsys) -> None:
+    output = tmp_path / "plan.json"
+    summary = tmp_path / "plan.md"
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=edge-host.local",
+                "--seconds",
+                "60",
+                "--backend",
+                "python",
+                "--tunnel-codec",
+                "aiwire",
+                "--resume-cache",
+                str(tmp_path / "ingress-resume.json"),
+                "--remote-resume-cache",
+                "/var/lib/aura/egress-resume.json",
+                "--resume-peer-id",
+                "{coordinator}-to-{target}",
+                "--resume-app-namespace",
+                "aura-cluster",
+                "--resume-auth-key-file",
+                str(tmp_path / "resume.key"),
+                "--remote-resume-auth-key-file",
+                "/etc/aura/resume.key",
+                "--require-resume",
+                "--run-id",
+                "resume-test",
+                "--output-dir",
+                str(tmp_path / "artifacts"),
+                "--output",
+                str(output),
+                "--summary-output",
+                str(summary),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    start_egress = rendered["targets"][0]["commands"]["start_egress"]
+    session_resume = rendered["session_resume"]
+    target_resume = rendered["targets"][0]["session_resume"]
+    summary_text = summary.read_text()
+
+    assert session_resume["enabled"] is True
+    assert session_resume["required"] is True
+    assert session_resume["authenticated"] is True
+    assert session_resume["peer_id_template"] == "{coordinator}-to-{target}"
+    assert target_resume["peer_id"] == "z6-to-edge-1"
+    assert "--resume-cache /var/lib/aura/egress-resume.json" in start_egress
+    assert "--resume-peer-id z6-to-edge-1" in start_egress
+    assert "--resume-app-namespace aura-cluster" in start_egress
+    assert "--resume-auth-key-file /etc/aura/resume.key" in start_egress
+    assert "--require-resume" in start_egress
+    assert "Session resume: `required`, `authenticated`" in summary_text
+
+
+def test_proxy_cluster_rejects_resume_with_non_aiwire_codec(capsys) -> None:
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=edge-host.local",
+                "--tunnel-codec",
+                "zlib",
+                "--resume-cache",
+                "/tmp/ingress-resume.json",
+                "--remote-resume-cache",
+                "/tmp/egress-resume.json",
+                "--resume-peer-id",
+                "z6-to-edge-1",
+            ]
+        )
+        == 2
+    )
+
+    captured = capsys.readouterr()
+    assert "--resume-cache requires --tunnel-codec aiwire" in captured.err
+
+
 def test_proxy_cluster_dry_run_supports_inline_upstream_fixture(
     tmp_path: Path,
     capsys,

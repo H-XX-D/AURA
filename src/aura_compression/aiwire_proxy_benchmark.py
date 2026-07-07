@@ -23,6 +23,7 @@ from .ai_wire_fixtures import (
     load_aiwire_session_fixture_corpus,
 )
 from .aiwire_proxy import (
+    AIWireProxyResumeConfig,
     DEFAULT_MAX_FRAME_BYTES,
     TUNNEL_CODECS,
     BackendName,
@@ -891,6 +892,7 @@ def run_proxy_ingress_benchmark(
     output: str | Path | None = None,
     replay_log_output: str | Path | None = None,
     ingress_metrics_output: str | Path | None = None,
+    ingress_resume_config: AIWireProxyResumeConfig | None = None,
 ) -> dict[str, Any]:
     """Benchmark a local ingress/client against an already running egress proxy."""
 
@@ -944,6 +946,7 @@ def run_proxy_ingress_benchmark(
                 max_connections=connection_count,
                 tunnel_impairment_config=tunnel_impairment_config,
                 metrics_output=ingress_metrics_path,
+                resume_config=ingress_resume_config,
                 ready_callback=ingress_ready_callback,
             )
         )

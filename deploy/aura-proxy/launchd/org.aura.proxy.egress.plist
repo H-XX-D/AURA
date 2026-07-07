@@ -22,6 +22,12 @@
     <string>auto</string>
     <string>--metrics-output</string>
     <string>/tmp/aura-proxy-egress.metrics.json</string>
+    <!-- Optional session resume ProgramArguments:
+         resume-cache /var/lib/aura/aiwire-resume.json
+         resume-peer-id z6-to-nano
+         resume-app-namespace aura-cluster
+         resume-auth-key-file /etc/aura/aiwire-resume.key
+         require-resume -->
   </array>
   <key>RunAtLoad</key>
   <true/>

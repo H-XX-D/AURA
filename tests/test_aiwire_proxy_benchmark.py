@@ -372,11 +372,15 @@ def test_proxy_service_templates_reference_explicit_sidecar() -> None:
         text = path.read_text()
         assert "aura-proxy" in text
         assert "--metrics-output" in text
+        assert "AURA_PROXY_RESUME_ARGS" in text
+        assert "--resume-cache" in text
         assert "transparent" not in text.lower()
 
     for path in (launchd_ingress, launchd_egress):
+        text = path.read_text()
         payload = plistlib.loads(path.read_bytes())
         args = payload["ProgramArguments"]
         assert "aura-proxy" in args
         assert "--metrics-output" in args
+        assert "resume-cache" in text
         assert payload["KeepAlive"] is True

@@ -25,7 +25,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
-from aura_compression.aiwire_proxy import TUNNEL_CODECS
+from aura_compression.aiwire_proxy import AIWireProxyResumeConfig, TUNNEL_CODECS
 from aura_compression.aiwire_proxy_benchmark import (
     FIXTURE_VARIATION_PROFILES,
     UPSTREAM_AGENT_PROFILES,
@@ -80,6 +80,80 @@ def _tunnel_impairment_dict(args: argparse.Namespace) -> dict[str, float | int]:
         "tail_pause_ms": args.tunnel_tail_pause_ms,
         "seed": args.impairment_seed,
     }
+
+
+def _session_resume_enabled(args: argparse.Namespace) -> bool:
+    return any(
+        bool(value)
+        for value in (
+            args.resume_cache,
+            args.remote_resume_cache,
+            args.resume_peer_id,
+            args.resume_auth_key_file,
+            args.remote_resume_auth_key_file,
+            args.require_resume,
+        )
+    )
+
+
+def _target_resume_peer_id(args: argparse.Namespace, target: ProxyClusterTarget) -> str:
+    template = str(args.resume_peer_id)
+    return template.replace("{target}", target.label).replace(
+        "{coordinator}", args.coordinator_label
+    )
+
+
+def _session_resume_summary(args: argparse.Namespace) -> dict[str, Any]:
+    enabled = _session_resume_enabled(args)
+    return {
+        "enabled": enabled,
+        "required": bool(args.require_resume) if enabled else False,
+        "authenticated": bool(
+            enabled and args.resume_auth_key_file and args.remote_resume_auth_key_file
+        ),
+        "app_namespace": args.resume_app_namespace if enabled else None,
+        "peer_id_template": args.resume_peer_id if enabled else None,
+        "local_cache": args.resume_cache if enabled else None,
+        "remote_cache": args.remote_resume_cache if enabled else None,
+        "local_auth_key_file": args.resume_auth_key_file if enabled else None,
+        "remote_auth_key_file": args.remote_resume_auth_key_file if enabled else None,
+    }
+
+
+def _target_session_resume_summary(
+    args: argparse.Namespace,
+    target: ProxyClusterTarget,
+) -> dict[str, Any]:
+    if not _session_resume_enabled(args):
+        return {"enabled": False}
+    return {
+        **_session_resume_summary(args),
+        "peer_id": _target_resume_peer_id(args, target),
+    }
+
+
+def _read_resume_auth_key(path: str | None) -> bytes | None:
+    if not path:
+        return None
+    key = Path(path).expanduser().read_bytes().strip()
+    if not key:
+        raise ValueError(f"resume auth key file must not be empty: {path}")
+    return key
+
+
+def _ingress_resume_config(
+    args: argparse.Namespace,
+    target: ProxyClusterTarget,
+) -> AIWireProxyResumeConfig | None:
+    if not _session_resume_enabled(args):
+        return None
+    return AIWireProxyResumeConfig(
+        cache_path=Path(args.resume_cache).expanduser(),
+        peer_id=_target_resume_peer_id(args, target),
+        app_namespace=args.resume_app_namespace,
+        require_resume=args.require_resume,
+        auth_key=_read_resume_auth_key(args.resume_auth_key_file),
+    )
 
 
 def _quote_remote_path(value: str | Path) -> str:
@@ -288,6 +362,7 @@ def build_target_plan(
     remote_fixture_metrics = f"{remote_run_dir}/fixture.metrics.json"
     remote_egress_metrics = f"{remote_run_dir}/egress.metrics.json"
     remote_root = target.remote_root or args.remote_root
+    session_resume = _target_session_resume_summary(args, target)
 
     egress_args = [
         "egress",
@@ -318,6 +393,26 @@ def build_target_plan(
         "--metrics-output",
         remote_egress_metrics,
     ]
+    if session_resume["enabled"]:
+        egress_args.extend(
+            [
+                "--resume-cache",
+                str(args.remote_resume_cache),
+                "--resume-peer-id",
+                str(session_resume["peer_id"]),
+                "--resume-app-namespace",
+                args.resume_app_namespace,
+            ]
+        )
+        if args.remote_resume_auth_key_file:
+            egress_args.extend(
+                [
+                    "--resume-auth-key-file",
+                    args.remote_resume_auth_key_file,
+                ]
+            )
+        if args.require_resume:
+            egress_args.append("--require-resume")
     if args.inline_upstream_fixture:
         egress_args.extend(
             [
@@ -404,6 +499,7 @@ def build_target_plan(
             "remote_egress_metrics": remote_egress_metrics,
         },
         "commands": commands,
+        "session_resume": session_resume,
     }
 
 
@@ -424,6 +520,7 @@ def build_plan(args: argparse.Namespace, targets: list[ProxyClusterTarget]) -> d
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_impairment": _tunnel_impairment_dict(args),
+        "session_resume": _session_resume_summary(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "upstream_agent_profile": args.upstream_agent_profile,
@@ -888,6 +985,7 @@ def run_target(
             output=artifacts["local_benchmark"],
             replay_log_output=artifacts["local_replay_log"],
             ingress_metrics_output=artifacts["local_ingress_metrics"],
+            ingress_resume_config=_ingress_resume_config(args, target),
         )
         egress_metrics = json.loads(
             _ssh_capture(
@@ -1057,6 +1155,19 @@ def run_plan(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _session_resume_markdown_line(report: dict[str, Any]) -> str | None:
+    session_resume = report.get("session_resume") or {}
+    if not session_resume.get("enabled"):
+        return None
+    required = "required" if session_resume.get("required") else "optional"
+    auth = "authenticated" if session_resume.get("authenticated") else "unauthenticated"
+    return (
+        "Session resume: "
+        f"`{required}`, `{auth}`, peer `{session_resume.get('peer_id_template')}`, "
+        f"namespace `{session_resume.get('app_namespace')}`"
+    )
+
+
 def render_markdown(report: dict[str, Any]) -> str:
     lines = [
         "# AIWire Proxy Cluster Benchmark",
@@ -1072,6 +1183,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
         "",
     ]
+    resume_line = _session_resume_markdown_line(report)
+    if resume_line is not None:
+        lines.insert(-1, resume_line)
     if report.get("dry_run"):
         ssh_bootstrap = report.get("ssh_bootstrap")
         if ssh_bootstrap:
@@ -1340,6 +1454,7 @@ def run_connection_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_impairment": _tunnel_impairment_dict(args),
+        "session_resume": _session_resume_summary(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "upstream_agent_profile": args.upstream_agent_profile,
@@ -1418,6 +1533,9 @@ def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
         "## Sweep",
         "",
     ]
+    resume_line = _session_resume_markdown_line(report)
+    if resume_line is not None:
+        lines.insert(-3, resume_line)
     rows = report.get("aggregate", [])
     if rows and all("exchanges" in row for row in rows):
         lines.extend(
@@ -1506,6 +1624,7 @@ def run_codec_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_impairment": _tunnel_impairment_dict(args),
+        "session_resume": _session_resume_summary(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
         "upstream_agent_profile": args.upstream_agent_profile,
@@ -1597,6 +1716,9 @@ def render_codec_sweep_markdown(report: dict[str, Any]) -> str:
         "## Sweep",
         "",
     ]
+    resume_line = _session_resume_markdown_line(report)
+    if resume_line is not None:
+        lines.insert(-3, resume_line)
     rows = report.get("aggregate", [])
     if rows and all("exchanges" in row for row in rows):
         lines.extend(
@@ -1750,6 +1872,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=parse_tunnel_codec_sweep,
         help="comma-separated tunnel codecs to run sequentially, for example raw,zlib,aiwire",
     )
+    parser.add_argument(
+        "--resume-cache",
+        help="Coordinator-local AIWire resume-cache JSON path for ingress sidecars.",
+    )
+    parser.add_argument(
+        "--remote-resume-cache",
+        help="Target-side AIWire resume-cache JSON path for remote egress sidecars.",
+    )
+    parser.add_argument(
+        "--resume-peer-id",
+        help=(
+            "Resume peer/session relationship ID. Supports {coordinator} and {target} "
+            "placeholders, for example {coordinator}-to-{target}."
+        ),
+    )
+    parser.add_argument(
+        "--resume-app-namespace",
+        default="aura-cluster",
+        help="AIWire resume-cache application namespace for cluster sidecar sessions.",
+    )
+    parser.add_argument(
+        "--resume-auth-key-file",
+        help="Coordinator-local HMAC key file for authenticated resume handshakes.",
+    )
+    parser.add_argument(
+        "--remote-resume-auth-key-file",
+        help="Target-side HMAC key file for authenticated resume handshakes.",
+    )
+    parser.add_argument(
+        "--require-resume",
+        action="store_true",
+        help="Fail each sidecar handshake unless the peer selects a verified cached session state.",
+    )
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument("--modeled-link-mbps", type=float, default=10.0)
     parser.add_argument(
@@ -1792,6 +1947,35 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _validate_session_resume_args(args: argparse.Namespace) -> str | None:
+    if not _session_resume_enabled(args):
+        return None
+
+    missing = [
+        flag
+        for flag, value in (
+            ("--resume-cache", args.resume_cache),
+            ("--remote-resume-cache", args.remote_resume_cache),
+            ("--resume-peer-id", args.resume_peer_id),
+        )
+        if not value
+    ]
+    if missing:
+        return "session resume requires " + ", ".join(missing)
+
+    if bool(args.resume_auth_key_file) != bool(args.remote_resume_auth_key_file):
+        return "--resume-auth-key-file and --remote-resume-auth-key-file must be set together"
+
+    if args.tunnel_codec_sweep:
+        non_aiwire = [codec for codec in args.tunnel_codec_sweep if codec != "aiwire"]
+        if non_aiwire:
+            return "session resume requires AIWire-only codec sweeps"
+    elif args.tunnel_codec != "aiwire":
+        return "--resume-cache requires --tunnel-codec aiwire"
+
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.ready_targets_output and not args.preflight:
@@ -1817,6 +2001,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.tunnel_tail_pause_ms < 0:
         print("--tunnel-tail-pause-ms must be non-negative", file=sys.stderr)
+        return 2
+    session_resume_error = _validate_session_resume_args(args)
+    if session_resume_error is not None:
+        print(session_resume_error, file=sys.stderr)
         return 2
     if args.tunnel_codec_sweep:
         report, exit_code = run_codec_sweep(args)

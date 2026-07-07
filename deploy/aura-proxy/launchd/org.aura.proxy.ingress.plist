@@ -24,6 +24,12 @@
     <string>/tmp/aura-proxy-ingress.metrics.json</string>
     <string>--replay-log-output</string>
     <string>/tmp/aura-proxy-ingress.replay.jsonl</string>
+    <!-- Optional session resume ProgramArguments:
+         resume-cache /var/lib/aura/aiwire-resume.json
+         resume-peer-id z6-to-nano
+         resume-app-namespace aura-cluster
+         resume-auth-key-file /etc/aura/aiwire-resume.key
+         require-resume -->
   </array>
   <key>RunAtLoad</key>
   <true/>

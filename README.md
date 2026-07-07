@@ -573,6 +573,27 @@ python tools/run_aiwire_proxy_cluster.py \
   --run
 ```
 
+For sustained-handshake tests, seed matching resume-cache entries on the
+coordinator and each edge, then add the cluster resume flags. The peer id accepts
+`{coordinator}` and `{target}` placeholders so one command can address every
+edge with a distinct cache identity:
+
+```bash
+python tools/run_aiwire_proxy_cluster.py \
+  --targets-file /tmp/aura-ready-targets.txt \
+  --preflight --run --seconds 60 \
+  --connections 64 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --resume-cache ~/.cache/aura/aiwire-resume.json \
+  --remote-resume-cache /var/lib/aura/aiwire-resume.json \
+  --resume-peer-id '{coordinator}-to-{target}' \
+  --resume-app-namespace aura-cluster \
+  --resume-auth-key-file ~/.config/aura/aiwire-resume.key \
+  --remote-resume-auth-key-file /etc/aura/aiwire-resume.key \
+  --require-resume
+```
+
 Use `--ssh-bootstrap` only to generate the safe key-install report when targets
 are network-reachable but batch SSH auth fails. It emits `ssh-copy-id`, target
 console, and post-check commands; it does not modify hosts.
@@ -690,7 +711,9 @@ when you want a generated targets file containing only machines that passed
 readiness.
 
 Editable service templates live under `deploy/aura-proxy/` for systemd and
-launchd.
+launchd. The systemd templates expose `AURA_PROXY_RESUME_ARGS` for optional
+resume-cache flags; launchd templates include commented ProgramArguments because
+launchd does not split one environment string into multiple arguments.
 
 Details:
 [AIWire Explicit Sidecar Proxy](docs/aiwire_proxy.md)

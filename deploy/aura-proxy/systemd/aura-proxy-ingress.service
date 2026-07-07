@@ -13,7 +13,10 @@ Environment=AURA_PROXY_EGRESS_PORT=9102
 Environment=AURA_PROXY_BACKEND=auto
 Environment=AURA_PROXY_METRICS=/var/log/aura/aura-proxy-ingress.metrics.json
 Environment=AURA_PROXY_REPLAY_LOG=/var/log/aura/aura-proxy-ingress.replay.jsonl
-ExecStart=/usr/bin/env aura-proxy ingress --listen-host ${AURA_PROXY_LISTEN_HOST} --listen-port ${AURA_PROXY_LISTEN_PORT} --egress-host ${AURA_PROXY_EGRESS_HOST} --egress-port ${AURA_PROXY_EGRESS_PORT} --backend ${AURA_PROXY_BACKEND} --metrics-output ${AURA_PROXY_METRICS} --replay-log-output ${AURA_PROXY_REPLAY_LOG}
+Environment=AURA_PROXY_RESUME_ARGS=
+# Optional authenticated resume example:
+# Environment=AURA_PROXY_RESUME_ARGS=--resume-cache /var/lib/aura/aiwire-resume.json --resume-peer-id z6-to-nano --resume-app-namespace aura-cluster --resume-auth-key-file /etc/aura/aiwire-resume.key --require-resume
+ExecStart=/usr/bin/env aura-proxy ingress --listen-host ${AURA_PROXY_LISTEN_HOST} --listen-port ${AURA_PROXY_LISTEN_PORT} --egress-host ${AURA_PROXY_EGRESS_HOST} --egress-port ${AURA_PROXY_EGRESS_PORT} --backend ${AURA_PROXY_BACKEND} --metrics-output ${AURA_PROXY_METRICS} --replay-log-output ${AURA_PROXY_REPLAY_LOG} $AURA_PROXY_RESUME_ARGS
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true

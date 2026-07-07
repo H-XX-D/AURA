@@ -12,7 +12,10 @@ Environment=AURA_PROXY_UPSTREAM_HOST=127.0.0.1
 Environment=AURA_PROXY_UPSTREAM_PORT=8765
 Environment=AURA_PROXY_BACKEND=auto
 Environment=AURA_PROXY_METRICS=/var/log/aura/aura-proxy-egress.metrics.json
-ExecStart=/usr/bin/env aura-proxy egress --listen-host ${AURA_PROXY_LISTEN_HOST} --listen-port ${AURA_PROXY_LISTEN_PORT} --upstream-host ${AURA_PROXY_UPSTREAM_HOST} --upstream-port ${AURA_PROXY_UPSTREAM_PORT} --backend ${AURA_PROXY_BACKEND} --metrics-output ${AURA_PROXY_METRICS}
+Environment=AURA_PROXY_RESUME_ARGS=
+# Optional authenticated resume example:
+# Environment=AURA_PROXY_RESUME_ARGS=--resume-cache /var/lib/aura/aiwire-resume.json --resume-peer-id z6-to-nano --resume-app-namespace aura-cluster --resume-auth-key-file /etc/aura/aiwire-resume.key --require-resume
+ExecStart=/usr/bin/env aura-proxy egress --listen-host ${AURA_PROXY_LISTEN_HOST} --listen-port ${AURA_PROXY_LISTEN_PORT} --upstream-host ${AURA_PROXY_UPSTREAM_HOST} --upstream-port ${AURA_PROXY_UPSTREAM_PORT} --backend ${AURA_PROXY_BACKEND} --metrics-output ${AURA_PROXY_METRICS} $AURA_PROXY_RESUME_ARGS
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true

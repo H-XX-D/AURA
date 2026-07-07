@@ -579,7 +579,8 @@ For larger labs, start from the public-safe target file example at
 copy untracked.
 Use `--connections N` to run N parallel client/ingress/egress/fixture sessions
 per target. The default is `1`, matching the original single-session proxy
-measurements.
+measurements. Use `--connections-sweep 1,2,4,8,16,32` to run a repeatable
+sequential scaling sweep with one JSON artifact and one markdown summary.
 
 Latest LAN validation: after the single-session ready-target run, 60-second
 native proxy runs with `--connections 2`, `4`, and `8` across three ready edge
@@ -587,6 +588,13 @@ targets verified 8,150, 16,283, and 32,450 exchanges. Group rate scaled from
 67.9 ex/s at one connection per target to 540.3 ex/s at eight connections per
 target, a 7.96x gain, while AIWire stayed near 366.8 semantic bytes per
 exchange, 84.4% semantic-byte savings, and 48.16 ms max p95.
+
+A follow-up `--connections-sweep 16,32` saturation pass on the same ready edge
+shape verified 64,914 and 128,739 exchanges across 48 and 96 total sessions.
+Group rate reached 1,080.6 and 2,142.2 ex/s, about 15.9x and 31.6x the
+single-connection baseline, while AIWire stayed near 366.6 semantic bytes per
+exchange, 84.4% semantic-byte savings, 6.40x modeled capacity gain, and
+48.61 ms max p95.
 
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native

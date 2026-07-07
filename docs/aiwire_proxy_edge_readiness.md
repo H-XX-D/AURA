@@ -147,6 +147,13 @@ client/ingress/egress/fixture sessions. The 60-second runs verified 8,150,
 target, while AIWire stayed near 366.8 semantic bytes per exchange, 84.4%
 semantic-byte savings, and 48.16 ms max p95.
 
+The runner now also supports `--connections-sweep`, which writes a single
+combined sweep report. A 60-second saturation pass with `--connections-sweep
+16,32` on the same ready target shape verified 64,914 and 128,739 exchanges
+across 48 and 96 total sessions. Group throughput reached 1,080.6 and
+2,142.2 ex/s, with AIWire still near 366.6 semantic bytes per exchange,
+84.4% semantic-byte savings, 6.40x modeled capacity gain, and 48.61 ms max p95.
+
 The result is documented in
 [AIWire Proxy Ready-Targets Run](perf/aiwire_proxy_ready_targets_2026-07-07.md).
 The multi-connection scaling result is documented in

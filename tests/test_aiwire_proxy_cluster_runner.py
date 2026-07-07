@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -81,6 +82,110 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     summary_text = summary.read_text()
     assert "Connections per target: `3`" in summary_text
     assert "Run again with `--run`" in summary_text
+
+
+def test_proxy_cluster_connection_sweep_dry_run_outputs_plans(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    output = tmp_path / "sweep.json"
+    summary = tmp_path / "sweep.md"
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=edge-host.local",
+                "--connections-sweep",
+                "2,4",
+                "--seconds",
+                "60",
+                "--backend",
+                "python",
+                "--run-id",
+                "sweep-test",
+                "--output-dir",
+                str(tmp_path / "artifacts"),
+                "--output",
+                str(output),
+                "--summary-output",
+                str(summary),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    written = json.loads(output.read_text())
+    summary_text = summary.read_text()
+
+    assert rendered == written
+    assert rendered["schema"] == proxy_cluster.PROXY_CLUSTER_CONNECTION_SWEEP_SCHEMA
+    assert rendered["connections_sweep"] == [2, 4]
+    assert [run["connections_per_target"] for run in rendered["runs"]] == [2, 4]
+    assert rendered["runs"][0]["report"]["run_id"] == "sweep-test-2x"
+    assert rendered["runs"][1]["report"]["run_id"] == "sweep-test-4x"
+    assert rendered["runs"][0]["report"]["output_dir"].endswith("/artifacts/2x")
+    assert rendered["runs"][1]["report"]["output_dir"].endswith("/artifacts/4x")
+    assert "| 2 | 2 | `sweep-test-2x` | planned |" in summary_text
+    assert "| 4 | 4 | `sweep-test-4x` | planned |" in summary_text
+
+
+def test_connection_sweep_markdown_renders_aggregate_rows() -> None:
+    report = {
+        "run_id": "sweep-test",
+        "fixture_variation_profile": "cluster",
+        "backend": "native",
+        "seconds": 60.0,
+        "connections_sweep": [2, 4],
+        "aggregate": [
+            {
+                "connections_per_target": 2,
+                "total_sessions": 6,
+                "verified_targets": 3,
+                "targets": 3,
+                "exchanges": 8150,
+                "exchanges_per_second_group": 135.8,
+                "relative_to_baseline": 1.0,
+                "raw_framed_bytes_per_exchange": 2348.0,
+                "tunnel_semantic_framed_bytes_per_exchange": 366.7,
+                "tunnel_saved_percent": 84.4,
+                "bandwidth_capacity_gain": 6.4,
+                "roundtrip_ms_p95_max": 47.92,
+            },
+            {
+                "connections_per_target": 4,
+                "total_sessions": 12,
+                "verified_targets": 3,
+                "targets": 3,
+                "exchanges": 16283,
+                "exchanges_per_second_group": 271.2,
+                "relative_to_baseline": 1.997,
+                "raw_framed_bytes_per_exchange": 2348.1,
+                "tunnel_semantic_framed_bytes_per_exchange": 366.7,
+                "tunnel_saved_percent": 84.4,
+                "bandwidth_capacity_gain": 6.4,
+                "roundtrip_ms_p95_max": 47.92,
+            },
+        ],
+    }
+
+    rendered = proxy_cluster.render_connection_sweep_markdown(report)
+
+    assert "| 2 | 6 | 3/3 | 8,150 | 135.8 | 1.00x |" in rendered
+    assert "| 4 | 12 | 3/3 | 16,283 | 271.2 | 2.00x |" in rendered
+
+
+def test_connections_sweep_parser_rejects_invalid_values() -> None:
+    assert proxy_cluster.parse_connections_sweep("1,2,4") == [1, 2, 4]
+
+    for value in ["", "0", "-1", "2,2", "fast"]:
+        try:
+            proxy_cluster.parse_connections_sweep(value)
+        except argparse.ArgumentTypeError:
+            pass
+        else:
+            raise AssertionError(f"expected invalid sweep value: {value}")
 
 
 def test_proxy_cluster_target_remote_root_overrides_global_default(

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import copy
 import hashlib
 import json
 import math
@@ -31,6 +32,7 @@ from aura_compression.aiwire_proxy_benchmark import (
 
 DEFAULT_FIXTURE_CORPUS = "fixtures/aiwire_sessions/public_session_corpus_v1.json"
 PROXY_CLUSTER_SCHEMA = "aura.aiwire.proxy_cluster_benchmark.v1"
+PROXY_CLUSTER_CONNECTION_SWEEP_SCHEMA = "aura.aiwire.proxy_cluster_connection_sweep.v1"
 SSH_PUBLIC_KEY_PREFIXES = (
     "ssh-ed25519",
     "ssh-rsa",
@@ -154,6 +156,34 @@ def _target_to_spec(target: ProxyClusterTarget) -> str:
     if target.ssh_public_key:
         fields.append(f"ssh_public_key={target.ssh_public_key}")
     return ",".join(fields)
+
+
+def parse_connections_sweep(value: str) -> list[int]:
+    """Parse a comma-separated list of positive connection counts."""
+
+    connections: list[int] = []
+    seen: set[int] = set()
+    for raw_part in value.split(","):
+        part = raw_part.strip()
+        if not part:
+            continue
+        try:
+            parsed = int(part)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"connection sweep value must be an integer: {part!r}"
+            ) from exc
+        if parsed <= 0:
+            raise argparse.ArgumentTypeError("connection sweep values must be positive")
+        if parsed in seen:
+            raise argparse.ArgumentTypeError(
+                f"duplicate connection sweep value: {parsed}"
+            )
+        seen.add(parsed)
+        connections.append(parsed)
+    if not connections:
+        raise argparse.ArgumentTypeError("connection sweep must include at least one value")
+    return connections
 
 
 def collect_targets(args: argparse.Namespace) -> list[ProxyClusterTarget]:
@@ -1020,6 +1050,187 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _build_single_report(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
+    targets = collect_targets(args)
+    plan = build_plan(args, targets)
+    if args.ssh_bootstrap:
+        plan = {
+            **plan,
+            "mode": "ssh_bootstrap",
+            "ssh_bootstrap": build_ssh_bootstrap(plan, args),
+        }
+    if args.preflight:
+        plan = {**plan, "mode": "preflight", "preflight": run_preflight(plan, args)}
+        if args.ready_targets_output:
+            plan = {
+                **plan,
+                "ready_targets_output": write_ready_targets_output(
+                    plan["preflight"],
+                    run_id=plan["run_id"],
+                    output=args.ready_targets_output,
+                ),
+            }
+        if args.run and not plan["preflight"]["ok"]:
+            return {**plan, "dry_run": True}, 2
+        return (run_plan(plan, args) if args.run else plan), 0
+    return (run_plan(plan, args) if args.run else plan), 0
+
+
+def _sweep_output_dir(args: argparse.Namespace, sweep_run_id: str, connections: int) -> str:
+    base_output_dir = Path(args.output_dir or f"/tmp/aura-proxy-sweep-{sweep_run_id}")
+    return str(base_output_dir / f"{connections}x")
+
+
+def _sweep_run_id(sweep_run_id: str, connections: int) -> str:
+    return f"{sweep_run_id}-{connections}x"
+
+
+def run_connection_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
+    sweep_run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    started_at = _utc_now()
+    runs: list[dict[str, Any]] = []
+    exit_code = 0
+
+    for connections in args.connections_sweep:
+        run_args = copy.copy(args)
+        run_args.connections_sweep = None
+        run_args.connections = connections
+        run_args.run_id = _sweep_run_id(sweep_run_id, connections)
+        run_args.output_dir = _sweep_output_dir(args, sweep_run_id, connections)
+        report, code = _build_single_report(run_args)
+        runs.append(
+            {
+                "connections_per_target": connections,
+                "exit_code": code,
+                "report": report,
+            }
+        )
+        if code != 0:
+            exit_code = code
+            break
+
+    report = {
+        "schema": PROXY_CLUSTER_CONNECTION_SWEEP_SCHEMA,
+        "mode": "sweep",
+        "dry_run": not args.run,
+        "run_id": sweep_run_id,
+        "created_at_utc": started_at,
+        "ended_at_utc": _utc_now(),
+        "coordinator_label": args.coordinator_label,
+        "seconds": args.seconds,
+        "max_exchanges": args.max_exchanges,
+        "backend": args.backend,
+        "level": args.level,
+        "modeled_link_mbps": args.modeled_link_mbps,
+        "fixture_corpus": args.fixture_corpus,
+        "fixture_variation_profile": args.fixture_variation_profile,
+        "connections_sweep": args.connections_sweep,
+        "target_parallelism": args.target_parallelism,
+        "output_dir": args.output_dir or f"/tmp/aura-proxy-sweep-{sweep_run_id}",
+        "runs": runs,
+        "aggregate": _aggregate_connection_sweep(runs),
+    }
+    return report, exit_code
+
+
+def _aggregate_connection_sweep(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    baseline_rate = 0.0
+    for item in runs:
+        report = item["report"]
+        aggregate = report.get("aggregate")
+        if aggregate and not baseline_rate:
+            baseline_rate = float(aggregate["exchanges_per_second_group"])
+        if not aggregate:
+            target_count = len(report.get("targets", []))
+            rows.append(
+                {
+                    "connections_per_target": item["connections_per_target"],
+                    "total_sessions": target_count * item["connections_per_target"],
+                    "status": "planned" if report.get("dry_run") else "not-run",
+                    "run_id": report.get("run_id"),
+                    "exit_code": item["exit_code"],
+                }
+            )
+            continue
+        rate = float(aggregate["exchanges_per_second_group"])
+        rows.append(
+            {
+                "connections_per_target": item["connections_per_target"],
+                "total_sessions": aggregate["connections"],
+                "verified_targets": aggregate["verified_targets"],
+                "targets": aggregate["targets"],
+                "exchanges": aggregate["exchanges"],
+                "exchanges_per_second_group": rate,
+                "relative_to_baseline": rate / baseline_rate if baseline_rate else 0.0,
+                "raw_framed_bytes_per_exchange": aggregate["raw_framed_bytes_per_exchange"],
+                "tunnel_semantic_framed_bytes_per_exchange": aggregate[
+                    "tunnel_semantic_framed_bytes_per_exchange"
+                ],
+                "tunnel_saved_percent": aggregate["tunnel_saved_percent"],
+                "bandwidth_capacity_gain": aggregate["bandwidth_capacity_gain"],
+                "roundtrip_ms_p95_max": aggregate["roundtrip_ms_p95_max"],
+                "run_id": report.get("run_id"),
+                "status": "ok" if item["exit_code"] == 0 else "failed",
+                "exit_code": item["exit_code"],
+            }
+        )
+    return rows
+
+
+def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# AIWire Proxy Connection Sweep",
+        "",
+        f"Run ID: `{report['run_id']}`",
+        f"Fixture variation: `{report['fixture_variation_profile']}`",
+        f"Backend: `{report['backend']}`",
+        f"Seconds: `{report['seconds']}`",
+        f"Connections sweep: `{', '.join(str(item) for item in report['connections_sweep'])}`",
+        "",
+        "## Sweep",
+        "",
+    ]
+    rows = report.get("aggregate", [])
+    if rows and all("exchanges" in row for row in rows):
+        lines.extend(
+            [
+                "| Connections per target | Total sessions | Verified | Exchanges | Group ex/s | vs baseline | Raw B/ex | AIWire B/ex | Saved | Capacity gain | p95 max |",
+                "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for row in rows:
+            lines.append(
+                f"| {row['connections_per_target']} | "
+                f"{row['total_sessions']} | "
+                f"{row['verified_targets']}/{row['targets']} | "
+                f"{row['exchanges']:,} | "
+                f"{row['exchanges_per_second_group']:,.1f} | "
+                f"{row['relative_to_baseline']:.2f}x | "
+                f"{row['raw_framed_bytes_per_exchange']:,.1f} | "
+                f"{row['tunnel_semantic_framed_bytes_per_exchange']:,.1f} | "
+                f"{row['tunnel_saved_percent']:.1f}% | "
+                f"{row['bandwidth_capacity_gain']:.2f}x | "
+                f"{row['roundtrip_ms_p95_max']:.2f} ms |"
+            )
+    else:
+        lines.extend(
+            [
+                "| Connections per target | Total sessions | Run ID | Status |",
+                "|---:|---:|---|---|",
+            ]
+        )
+        for row in rows:
+            lines.append(
+                f"| {row['connections_per_target']} | "
+                f"{row['total_sessions']} | "
+                f"`{row['run_id']}` | "
+                f"{row['status']} |"
+            )
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1078,6 +1289,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=1,
         help="parallel proxy connections per target",
     )
+    parser.add_argument(
+        "--connections-sweep",
+        type=parse_connections_sweep,
+        help=(
+            "comma-separated connection counts to run sequentially, for example "
+            "1,2,4,8,16"
+        ),
+    )
     parser.add_argument("--backend", choices=("python", "native", "auto"), default="native")
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument("--modeled-link-mbps", type=float, default=10.0)
@@ -1098,37 +1317,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.connections <= 0:
         print("--connections must be positive", file=sys.stderr)
         return 2
-    targets = collect_targets(args)
-    plan = build_plan(args, targets)
-    if args.ssh_bootstrap:
-        plan = {**plan, "mode": "ssh_bootstrap", "ssh_bootstrap": build_ssh_bootstrap(plan, args)}
-    if args.preflight:
-        plan = {**plan, "mode": "preflight", "preflight": run_preflight(plan, args)}
-        if args.ready_targets_output:
-            plan = {
-                **plan,
-                "ready_targets_output": write_ready_targets_output(
-                    plan["preflight"],
-                    run_id=plan["run_id"],
-                    output=args.ready_targets_output,
-                ),
-            }
-        if args.run and not plan["preflight"]["ok"]:
-            report = {**plan, "dry_run": True}
-            exit_code = 2
-        else:
-            report = run_plan(plan, args) if args.run else plan
-            exit_code = 0
+    if args.connections_sweep:
+        report, exit_code = run_connection_sweep(args)
+        markdown = render_connection_sweep_markdown(report)
     else:
-        report = run_plan(plan, args) if args.run else plan
-        exit_code = 0
+        report, exit_code = _build_single_report(args)
+        markdown = render_markdown(report)
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     if args.summary_output:
         args.summary_output.parent.mkdir(parents=True, exist_ok=True)
-        args.summary_output.write_text(render_markdown(report), encoding="utf-8")
+        args.summary_output.write_text(markdown, encoding="utf-8")
     print(json.dumps(report, indent=2, sort_keys=True))
     return exit_code
 

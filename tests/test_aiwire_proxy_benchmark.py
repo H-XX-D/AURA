@@ -110,6 +110,13 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     assert result["ingress_metrics"]["accepted_connections"] == 2
     assert result["egress_metrics"]["accepted_connections"] == 2
     assert result["upstream"]["accepted_connections"] == 2
+    ingress_counts = result["ingress_metrics"]["stage_call_count"]
+    egress_counts = result["egress_metrics"]["stage_call_count"]
+    assert ingress_counts["request_encode"] == 6
+    assert ingress_counts["tunnel_response_read"] == 6
+    assert egress_counts["request_decode"] == 6
+    assert egress_counts["tunnel_response_write"] == 6
+    assert result["ingress_metrics"]["stage_mean_ms"]["request_encode"] >= 0.0
     assert json.loads(output.read_text())["exchanges"] == 6
 
     records = loads_replay_log(replay_log.read_text())
@@ -147,7 +154,7 @@ def test_proxy_benchmark_records_tunnel_impairment() -> None:
         connections=1,
         backend="python",
         tunnel_bandwidth_mbps=1000.0,
-        tunnel_one_way_delay_ms=0.01,
+        tunnel_one_way_delay_ms=0.1,
         tunnel_jitter_ms=0.0,
         impairment_seed=99,
     )
@@ -156,13 +163,15 @@ def test_proxy_benchmark_records_tunnel_impairment() -> None:
     assert result["exchanges"] == 2
     assert result["tunnel_impairment"] == {
         "bandwidth_mbps": 1000.0,
-        "one_way_delay_ms": 0.01,
+        "one_way_delay_ms": 0.1,
         "jitter_ms": 0.0,
         "tail_pause_probability": 0.0,
         "tail_pause_ms": 0.0,
         "seed": 99,
     }
     assert result["ingress_metrics"]["tunnel_impairment"] == result["tunnel_impairment"]
+    assert result["ingress_metrics"]["tunnel_impairment_wait_seconds"] > 0.0
+    assert result["egress_metrics"]["tunnel_impairment_wait_seconds"] > 0.0
 
 
 def test_proxy_ingress_benchmark_round_trips_remote_egress_shape(tmp_path: Path) -> None:

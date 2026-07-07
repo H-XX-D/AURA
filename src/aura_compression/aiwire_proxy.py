@@ -154,9 +154,9 @@ class TunnelImpairment:
         self._rng = random.Random(config.seed)
         self._next_serialized_ns = time.perf_counter_ns()
 
-    def wait_before_write(self, framed_bytes: int) -> None:
+    def wait_before_write(self, framed_bytes: int) -> int:
         if not self.config.enabled:
-            return
+            return 0
         with self._lock:
             now_ns = time.perf_counter_ns()
             serialized_start_ns = max(now_ns, self._next_serialized_ns)
@@ -182,7 +182,10 @@ class TunnelImpairment:
 
         wait_ns = due_ns - time.perf_counter_ns()
         if wait_ns > 0:
+            sleep_started_ns = time.perf_counter_ns()
             time.sleep(wait_ns / 1_000_000_000)
+            return time.perf_counter_ns() - sleep_started_ns
+        return 0
 
 
 def read_exact(sock: socket.socket, size: int) -> bytes:
@@ -251,11 +254,30 @@ def write_tunnel_frame(
 ) -> int:
     """Write a tagged proxy tunnel frame and return framed bytes sent."""
 
+    framed_bytes, _impairment_wait_ns = write_tunnel_frame_with_stats(
+        sock,
+        lane,
+        payload,
+        impairment=impairment,
+    )
+    return framed_bytes
+
+
+def write_tunnel_frame_with_stats(
+    sock: socket.socket,
+    lane: str,
+    payload: bytes,
+    *,
+    impairment: TunnelImpairment | None = None,
+) -> tuple[int, int]:
+    """Write a tagged proxy tunnel frame and return bytes plus impairment wait."""
+
     frame = encode_tunnel_frame(lane, payload)
     framed_bytes = _U32.size + len(frame)
+    impairment_wait_ns = 0
     if impairment is not None:
-        impairment.wait_before_write(framed_bytes)
-    return write_length_prefixed(sock, frame)
+        impairment_wait_ns = impairment.wait_before_write(framed_bytes)
+    return write_length_prefixed(sock, frame), impairment_wait_ns
 
 
 def read_tunnel_frame(
@@ -370,6 +392,9 @@ class AIWireProxyMetrics:
     negotiation_version: int | None = None
     negotiation_reason: str | None = None
     tunnel_impairment: dict[str, float | int] = field(default_factory=dict)
+    tunnel_impairment_wait_ns: int = 0
+    stage_time_ns: dict[str, int] = field(default_factory=dict)
+    stage_call_count: dict[str, int] = field(default_factory=dict)
     last_error: str | None = None
 
     @property
@@ -391,6 +416,32 @@ class AIWireProxyMetrics:
         if not self.raw_framed_bytes:
             return 0.0
         return 100.0 * (1.0 - (self.tunnel_semantic_framed_bytes / self.raw_framed_bytes))
+
+    @property
+    def tunnel_impairment_wait_seconds(self) -> float:
+        return self.tunnel_impairment_wait_ns / 1_000_000_000.0
+
+    @property
+    def stage_time_seconds(self) -> dict[str, float]:
+        return {
+            stage: elapsed_ns / 1_000_000_000.0
+            for stage, elapsed_ns in sorted(self.stage_time_ns.items())
+        }
+
+    @property
+    def stage_mean_ms(self) -> dict[str, float]:
+        return {
+            stage: (elapsed_ns / count / 1_000_000.0) if count else 0.0
+            for stage, elapsed_ns in sorted(self.stage_time_ns.items())
+            for count in (self.stage_call_count.get(stage, 0),)
+        }
+
+    def record_stage(self, stage: str, elapsed_ns: int) -> None:
+        self.stage_time_ns[stage] = self.stage_time_ns.get(stage, 0) + max(0, elapsed_ns)
+        self.stage_call_count[stage] = self.stage_call_count.get(stage, 0) + 1
+
+    def add_tunnel_impairment_wait(self, elapsed_ns: int) -> None:
+        self.tunnel_impairment_wait_ns += max(0, elapsed_ns)
 
     def finish(self) -> None:
         self.ended_at_utc = _utc_now()
@@ -414,6 +465,7 @@ class AIWireProxyMetrics:
             "raw_framed_bytes": self.raw_framed_bytes,
             "tunnel_control_framed_bytes": self.tunnel_control_framed_bytes,
             "bandwidth_capacity_gain": self.bandwidth_capacity_gain,
+            "tunnel_impairment_wait_seconds": self.tunnel_impairment_wait_seconds,
         }
 
     def to_dict(self) -> dict[str, Any]:
@@ -450,6 +502,12 @@ class AIWireProxyMetrics:
             "negotiation_version": self.negotiation_version,
             "negotiation_reason": self.negotiation_reason,
             "tunnel_impairment": self.tunnel_impairment,
+            "tunnel_impairment_wait_ns": self.tunnel_impairment_wait_ns,
+            "tunnel_impairment_wait_seconds": self.tunnel_impairment_wait_seconds,
+            "stage_time_ns": dict(sorted(self.stage_time_ns.items())),
+            "stage_call_count": dict(sorted(self.stage_call_count.items())),
+            "stage_time_seconds": self.stage_time_seconds,
+            "stage_mean_ms": self.stage_mean_ms,
             "last_error": self.last_error,
         }
 
@@ -506,6 +564,11 @@ def _merge_connection_metrics(
     metrics.tunnel_request_framed_bytes += connection_metrics.tunnel_request_framed_bytes
     metrics.tunnel_response_framed_bytes += connection_metrics.tunnel_response_framed_bytes
     metrics.tunnel_control_framed_bytes += connection_metrics.tunnel_control_framed_bytes
+    metrics.tunnel_impairment_wait_ns += connection_metrics.tunnel_impairment_wait_ns
+    for stage, elapsed_ns in connection_metrics.stage_time_ns.items():
+        metrics.stage_time_ns[stage] = metrics.stage_time_ns.get(stage, 0) + elapsed_ns
+    for stage, call_count in connection_metrics.stage_call_count.items():
+        metrics.stage_call_count[stage] = metrics.stage_call_count.get(stage, 0) + call_count
     if connection_metrics.encoder_backend:
         metrics.encoder_backend = connection_metrics.encoder_backend
     if connection_metrics.decoder_backend:
@@ -709,11 +772,16 @@ def _handle_ingress_connection(
         metrics.encoder_backend = tunnel_codec
         metrics.decoder_backend = tunnel_codec
 
-    with socket.create_connection(
+    started_ns = time.perf_counter_ns()
+    tunnel_socket = socket.create_connection(
         (egress_host, egress_port),
         timeout=connect_timeout,
-    ) as tunnel:
+    )
+    metrics.record_stage("connect_egress", time.perf_counter_ns() - started_ns)
+
+    with tunnel_socket as tunnel:
         _set_socket_options(tunnel)
+        started_ns = time.perf_counter_ns()
         metrics.tunnel_control_framed_bytes += _write_proxy_client_hello(
             tunnel,
             level=level,
@@ -721,11 +789,14 @@ def _handle_ingress_connection(
             tunnel_codec=tunnel_codec,
             impairment=tunnel_impairment,
         )
+        metrics.record_stage("handshake_write_hello", time.perf_counter_ns() - started_ns)
+        started_ns = time.perf_counter_ns()
         ack, ack_bytes = _read_proxy_server_ack(
             tunnel,
             max_frame_bytes=max_frame_bytes,
             tunnel_codec=tunnel_codec,
         )
+        metrics.record_stage("handshake_read_ack", time.perf_counter_ns() - started_ns)
         metrics.tunnel_control_framed_bytes += ack_bytes
         metrics.handshakes_accepted += 1
         metrics.negotiation_codec = str(ack.get("codec") or "")
@@ -736,41 +807,57 @@ def _handle_ingress_connection(
         )
 
         while True:
+            started_ns = time.perf_counter_ns()
             try:
                 raw_request = read_length_prefixed(client, max_frame_bytes=max_frame_bytes)
             except EOFError:
                 break
+            metrics.record_stage("client_read", time.perf_counter_ns() - started_ns)
 
             metrics.raw_request_payload_bytes += len(raw_request)
             metrics.raw_framed_bytes += _U32.size + len(raw_request)
 
+            started_ns = time.perf_counter_ns()
             tunneled_request = _encode_semantic_payload(
                 tunnel_codec,
                 raw_request,
                 encoder=request_encoder,
                 level=level,
             )
-            metrics.tunnel_request_framed_bytes += write_tunnel_frame(
+            metrics.record_stage("request_encode", time.perf_counter_ns() - started_ns)
+
+            started_ns = time.perf_counter_ns()
+            framed_bytes, impairment_wait_ns = write_tunnel_frame_with_stats(
                 tunnel,
                 AIWIRE_PROXY_SEMANTIC_LANE,
                 tunneled_request,
                 impairment=tunnel_impairment,
             )
+            metrics.record_stage("tunnel_request_write", time.perf_counter_ns() - started_ns)
+            metrics.add_tunnel_impairment_wait(impairment_wait_ns)
+            metrics.tunnel_request_framed_bytes += framed_bytes
 
-            lane, tunneled_response = read_tunnel_frame(
+            started_ns = time.perf_counter_ns()
+            lane, tunneled_response, framed_bytes = read_tunnel_frame_with_size(
                 tunnel,
                 max_frame_bytes=max_frame_bytes,
             )
+            metrics.record_stage("tunnel_response_read", time.perf_counter_ns() - started_ns)
             if lane != AIWIRE_PROXY_SEMANTIC_LANE:
                 raise AIWireProxyProtocolError("expected semantic response frame")
-            metrics.tunnel_response_framed_bytes += _U32.size + 1 + len(tunneled_response)
+            metrics.tunnel_response_framed_bytes += framed_bytes
 
+            started_ns = time.perf_counter_ns()
             raw_response = _decode_semantic_payload(
                 tunnel_codec,
                 tunneled_response,
                 decoder=response_decoder,
             )
+            metrics.record_stage("response_decode", time.perf_counter_ns() - started_ns)
+
+            started_ns = time.perf_counter_ns()
             write_length_prefixed(client, raw_response)
+            metrics.record_stage("client_response_write", time.perf_counter_ns() - started_ns)
             metrics.raw_response_payload_bytes += len(raw_response)
             metrics.raw_framed_bytes += _U32.size + len(raw_response)
             metrics.exchanges += 1
@@ -790,6 +877,7 @@ def _handle_egress_connection(
     metrics: AIWireProxyMetrics,
 ) -> None:
     _set_socket_options(tunnel)
+    started_ns = time.perf_counter_ns()
     control_bytes, ack = _accept_proxy_handshake(
         tunnel,
         level=level,
@@ -798,6 +886,7 @@ def _handle_egress_connection(
         max_frame_bytes=max_frame_bytes,
         impairment=tunnel_impairment,
     )
+    metrics.record_stage("handshake_accept", time.perf_counter_ns() - started_ns)
     metrics.tunnel_control_framed_bytes += control_bytes
     metrics.handshakes_accepted += 1
     metrics.negotiation_codec = str(ack.get("codec") or "")
@@ -817,48 +906,68 @@ def _handle_egress_connection(
         metrics.encoder_backend = tunnel_codec
         metrics.decoder_backend = tunnel_codec
 
-    with socket.create_connection(
+    started_ns = time.perf_counter_ns()
+    upstream_socket = socket.create_connection(
         (upstream_host, upstream_port),
         timeout=connect_timeout,
-    ) as upstream:
+    )
+    metrics.record_stage("connect_upstream", time.perf_counter_ns() - started_ns)
+
+    with upstream_socket as upstream:
         _set_socket_options(upstream)
         while True:
+            started_ns = time.perf_counter_ns()
             try:
-                lane, tunneled_request = read_tunnel_frame(
+                lane, tunneled_request, framed_bytes = read_tunnel_frame_with_size(
                     tunnel,
                     max_frame_bytes=max_frame_bytes,
                 )
             except EOFError:
                 break
+            metrics.record_stage("tunnel_request_read", time.perf_counter_ns() - started_ns)
             if lane != AIWIRE_PROXY_SEMANTIC_LANE:
                 raise AIWireProxyProtocolError("expected semantic request frame")
-            metrics.tunnel_request_framed_bytes += _U32.size + 1 + len(tunneled_request)
+            metrics.tunnel_request_framed_bytes += framed_bytes
 
+            started_ns = time.perf_counter_ns()
             raw_request = _decode_semantic_payload(
                 tunnel_codec,
                 tunneled_request,
                 decoder=request_decoder,
             )
+            metrics.record_stage("request_decode", time.perf_counter_ns() - started_ns)
+
+            started_ns = time.perf_counter_ns()
             write_length_prefixed(upstream, raw_request)
+            metrics.record_stage("upstream_request_write", time.perf_counter_ns() - started_ns)
             metrics.raw_request_payload_bytes += len(raw_request)
             metrics.raw_framed_bytes += _U32.size + len(raw_request)
 
+            started_ns = time.perf_counter_ns()
             raw_response = read_length_prefixed(upstream, max_frame_bytes=max_frame_bytes)
+            metrics.record_stage("upstream_response_read", time.perf_counter_ns() - started_ns)
             metrics.raw_response_payload_bytes += len(raw_response)
             metrics.raw_framed_bytes += _U32.size + len(raw_response)
 
+            started_ns = time.perf_counter_ns()
             tunneled_response = _encode_semantic_payload(
                 tunnel_codec,
                 raw_response,
                 encoder=response_encoder,
                 level=level,
             )
-            metrics.tunnel_response_framed_bytes += write_tunnel_frame(
+            metrics.record_stage("response_encode", time.perf_counter_ns() - started_ns)
+
+            started_ns = time.perf_counter_ns()
+            framed_bytes, impairment_wait_ns = write_tunnel_frame_with_stats(
                 tunnel,
                 AIWIRE_PROXY_SEMANTIC_LANE,
                 tunneled_response,
                 impairment=tunnel_impairment,
             )
+            metrics.record_stage("tunnel_response_write", time.perf_counter_ns() - started_ns)
+            metrics.add_tunnel_impairment_wait(impairment_wait_ns)
+            metrics.tunnel_response_framed_bytes += framed_bytes
             metrics.exchanges += 1
 
 

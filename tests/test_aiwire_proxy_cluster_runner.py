@@ -308,6 +308,22 @@ def test_codec_sweep_markdown_renders_aggregate_rows() -> None:
                 "tunnel_saved_percent": 84.4,
                 "bandwidth_capacity_gain": 6.40,
                 "roundtrip_ms_p95_max": 86.1,
+                "stage_profile": [
+                    {
+                        "role": "ingress",
+                        "stage": "tunnel_response_read",
+                        "calls": 164000,
+                        "total_seconds": 42.5,
+                        "mean_ms": 0.259,
+                    },
+                    {
+                        "role": "egress",
+                        "stage": "response_encode",
+                        "calls": 164000,
+                        "total_seconds": 3.2,
+                        "mean_ms": 0.020,
+                    },
+                ],
             },
         ],
     }
@@ -317,6 +333,7 @@ def test_codec_sweep_markdown_renders_aggregate_rows() -> None:
     assert "| `raw` | 192 | 3/3 | 48,000 | 800.0 | 1.00x |" in rendered
     assert "| `zlib` | 192 | 3/3 | 96,000 | 1,600.0 | 2.00x |" in rendered
     assert "| `aiwire` | 192 | 3/3 | 164,000 | 2,730.0 | 3.41x |" in rendered
+    assert "| `aiwire` | ingress | `tunnel_response_read` | 164,000 | 42.500 | 0.259 |" in rendered
 
 
 def test_connections_sweep_parser_rejects_invalid_values() -> None:

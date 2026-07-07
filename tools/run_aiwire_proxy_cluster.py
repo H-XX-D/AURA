@@ -620,7 +620,11 @@ def _remote_environment_probe(
         result["stdout"] = _tail(completed.stdout)
         result["error"] = f"remote preflight returned invalid JSON: {exc}"
         return result
-    return parsed
+    if not isinstance(parsed, dict):
+        result["stdout"] = _tail(completed.stdout)
+        result["error"] = "remote preflight returned JSON that is not an object"
+        return result
+    return dict(parsed)
 
 
 def _preflight_target(target_plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
@@ -918,6 +922,72 @@ def _aggregate_results(results: list[dict[str, Any]]) -> dict[str, Any]:
             (float(row["benchmark"]["roundtrip_ms_p99"]) for row in results),
             default=0.0,
         ),
+        "stage_profile": _aggregate_stage_profile(results),
+        "tunnel_impairment_wait_seconds_by_role": _aggregate_impairment_wait(results),
+    }
+
+
+def _aggregate_stage_profile(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    stages: dict[tuple[str, str], dict[str, int]] = {}
+    for row in results:
+        benchmark = row.get("benchmark", {})
+        payloads = [
+            ("ingress", benchmark.get("ingress_metrics", {})),
+            ("egress", row.get("remote_egress_metrics") or benchmark.get("egress_metrics", {})),
+        ]
+        for role, payload in payloads:
+            if not isinstance(payload, dict):
+                continue
+            stage_time_ns = payload.get("stage_time_ns") or {}
+            stage_call_count = payload.get("stage_call_count") or {}
+            if not isinstance(stage_time_ns, dict) or not isinstance(stage_call_count, dict):
+                continue
+            for stage, elapsed in stage_time_ns.items():
+                try:
+                    elapsed_ns = int(elapsed)
+                    calls = int(stage_call_count.get(stage, 0))
+                except (TypeError, ValueError):
+                    continue
+                bucket = stages.setdefault((role, str(stage)), {"elapsed_ns": 0, "calls": 0})
+                bucket["elapsed_ns"] += max(0, elapsed_ns)
+                bucket["calls"] += max(0, calls)
+
+    rows: list[dict[str, Any]] = [
+        {
+            "role": role,
+            "stage": stage,
+            "calls": bucket["calls"],
+            "total_seconds": bucket["elapsed_ns"] / 1_000_000_000.0,
+            "mean_ms": (
+                bucket["elapsed_ns"] / bucket["calls"] / 1_000_000.0 if bucket["calls"] else 0.0
+            ),
+        }
+        for (role, stage), bucket in stages.items()
+    ]
+    rows.sort(key=lambda item: float(item["total_seconds"]), reverse=True)
+    return rows
+
+
+def _aggregate_impairment_wait(results: list[dict[str, Any]]) -> dict[str, float]:
+    waited_by_role: dict[str, int] = {}
+    for row in results:
+        benchmark = row.get("benchmark", {})
+        payloads = [
+            ("ingress", benchmark.get("ingress_metrics", {})),
+            ("egress", row.get("remote_egress_metrics") or benchmark.get("egress_metrics", {})),
+        ]
+        for role, payload in payloads:
+            if not isinstance(payload, dict):
+                continue
+            try:
+                waited_ns = int(payload.get("tunnel_impairment_wait_ns") or 0)
+            except (TypeError, ValueError):
+                continue
+            waited_by_role[role] = waited_by_role.get(role, 0) + max(0, waited_ns)
+    return {
+        role: waited_ns / 1_000_000_000.0
+        for role, waited_ns in sorted(waited_by_role.items())
+        if waited_ns > 0
     }
 
 
@@ -1087,6 +1157,36 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"{aggregate['roundtrip_ms_p95_max']:.2f} ms |"
             ),
             "",
+        ]
+    )
+    stage_profile = aggregate.get("stage_profile", [])
+    if stage_profile:
+        lines.extend(
+            [
+                "## Stage Profile",
+                "",
+                "| Role | Stage | Calls | Total s | Mean ms |",
+                "|---|---|---:|---:|---:|",
+            ]
+        )
+        for row in stage_profile[:12]:
+            lines.append(
+                f"| {row['role']} | `{row['stage']}` | "
+                f"{row['calls']:,} | "
+                f"{row['total_seconds']:.3f} | "
+                f"{row['mean_ms']:.3f} |"
+            )
+        impairment_wait = aggregate.get("tunnel_impairment_wait_seconds_by_role", {})
+        if impairment_wait:
+            waits = ", ".join(
+                f"{role}: {seconds:.3f}s" for role, seconds in impairment_wait.items()
+            )
+            lines.append("")
+            lines.append(f"Tunnel impairment wait inside write stages: {waits}.")
+        lines.append("")
+
+    lines.extend(
+        [
             "## Targets",
             "",
             "| Target | Conn | Exchanges | Ex/s | Raw B/ex | Tunnel B/ex | Saved | p95 | Verified |",
@@ -1403,6 +1503,10 @@ def _aggregate_codec_sweep(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "bandwidth_capacity_gain": aggregate["bandwidth_capacity_gain"],
                 "roundtrip_ms_p95_max": aggregate["roundtrip_ms_p95_max"],
                 "roundtrip_ms_p99_max": aggregate["roundtrip_ms_p99_max"],
+                "stage_profile": list(aggregate.get("stage_profile", [])),
+                "tunnel_impairment_wait_seconds_by_role": dict(
+                    aggregate.get("tunnel_impairment_wait_seconds_by_role", {})
+                ),
                 "run_id": report.get("run_id"),
                 "status": "ok" if item["exit_code"] == 0 else "failed",
                 "exit_code": item["exit_code"],
@@ -1448,6 +1552,29 @@ def render_codec_sweep_markdown(report: dict[str, Any]) -> str:
                 f"{row['bandwidth_capacity_gain']:.2f}x | "
                 f"{row['roundtrip_ms_p95_max']:.2f} ms |"
             )
+        profile_rows = [
+            (row["tunnel_codec"], profile_row)
+            for row in rows
+            for profile_row in row.get("stage_profile", [])[:6]
+        ]
+        if profile_rows:
+            lines.extend(
+                [
+                    "",
+                    "## Stage Profile",
+                    "",
+                    "| Codec | Role | Stage | Calls | Total s | Mean ms |",
+                    "|---|---|---|---:|---:|---:|",
+                ]
+            )
+            for codec, profile_row in profile_rows:
+                lines.append(
+                    f"| `{codec}` | {profile_row['role']} | "
+                    f"`{profile_row['stage']}` | "
+                    f"{profile_row['calls']:,} | "
+                    f"{profile_row['total_seconds']:.3f} | "
+                    f"{profile_row['mean_ms']:.3f} |"
+                )
     else:
         lines.extend(
             [

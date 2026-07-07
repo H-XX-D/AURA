@@ -660,6 +660,19 @@ per-exchange byte savings. The old benchmark ceiling was therefore partly the
 local fixture TCP hop; the sustained-handshake AIWire path had more headroom
 than the raw fixture service exposed.
 
+A follow-up added deterministic upstream-agent work with
+`--upstream-agent-profile edge-mixed` to make the responder less ideal:
+
+| Upstream mode | Exchanges | Group ex/s | Tunnel B/ex | Saved | p95 max | Raw-equivalent Mbps | Tunnel Mbps |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| TCP fixture + `edge-mixed` | 155,577 | 2,583.3 | 367.2 | 84.4% | 98.22 ms | 48.70 | 7.62 |
+| Inline fixture + `edge-mixed` | 256,567 | 4,259.6 | 366.7 | 84.4% | 70.49 ms | 80.31 | 12.54 |
+
+The byte savings held under upstream work. The TCP fixture path still paid a
+large response-read cost, while inline `edge-mixed` made the modeled agent work
+visible at about 3.9 ms per response and kept the constrained tunnel
+bandwidth-proportional.
+
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native
 backend readiness before any remote sidecars are launched.
@@ -680,6 +693,8 @@ The raw/zlib/AIWire sidecar comparison is captured in
 [AIWire Proxy Codec Sweep](docs/perf/aiwire_proxy_codec_sweep_2026-07-07.md).
 The fixture isolation follow-up is captured in
 [AIWire Proxy Inline Fixture Isolation](docs/perf/aiwire_proxy_inline_fixture_2026-07-07.md).
+The upstream-agent profile follow-up is captured in
+[AIWire Proxy Upstream Agent Profile](docs/perf/aiwire_proxy_upstream_agent_profile_2026-07-07.md).
 
 ## Benchmarking AIWire
 
@@ -1023,6 +1038,7 @@ delta streams.
 - [AIWire n-ary Z6-to-Nano benchmark](docs/perf/aiwire_nary_z6_to_nano_2026-07-05.md)
 - [AIWire proxy codec sweep](docs/perf/aiwire_proxy_codec_sweep_2026-07-07.md)
 - [AIWire proxy inline fixture isolation](docs/perf/aiwire_proxy_inline_fixture_2026-07-07.md)
+- [AIWire proxy upstream agent profile](docs/perf/aiwire_proxy_upstream_agent_profile_2026-07-07.md)
 - [AIWire fixture saturation benchmark](docs/perf/aiwire_fixture_saturation_2026-07-04.md)
 - [Transport examples](examples/README.md)
 - [Large-file and API notes](docs/api/compressor.md)

@@ -132,6 +132,11 @@ egress sidecar answer from the same fixture corpus in process instead of
 starting the raw upstream fixture TCP server. This removes the fixture service
 from the hot path without changing the normal proxy service mode.
 
+Add `--upstream-agent-profile edge-light` or
+`--upstream-agent-profile edge-mixed` when the fixture should simulate local
+agent work before responding. The default `none` preserves the instant fixture
+responder. The profile is deterministic with `--upstream-agent-seed`.
+
 ## Cross-Machine Benchmark
 
 The cross-machine shape keeps the proxy path explicit:
@@ -251,6 +256,11 @@ sidecar and pass `--inline-fixture-corpus`,
 egress process. Omit this flag for the normal explicit path through a real raw
 upstream socket.
 
+Use `--upstream-agent-profile none|edge-light|edge-mixed` to simulate upstream
+local-agent response work in both normal fixture-server mode and inline fixture
+mode. This is useful for checking whether AIWire's byte savings still matter
+when the upstream is not an instant responder.
+
 Use the tunnel impairment flags when the benchmark should apply pressure to the
 actual sidecar hop instead of only reporting a modeled link budget:
 
@@ -314,6 +324,8 @@ The matching raw/zlib/AIWire tunnel payload comparison is here:
 [AIWire Proxy Codec Sweep](perf/aiwire_proxy_codec_sweep_2026-07-07.md).
 The fixture TCP-hop isolation follow-up is here:
 [AIWire Proxy Inline Fixture Isolation](perf/aiwire_proxy_inline_fixture_2026-07-07.md).
+The upstream-agent profile follow-up is here:
+[AIWire Proxy Upstream Agent Profile](perf/aiwire_proxy_upstream_agent_profile_2026-07-07.md).
 
 The cluster variation profile deterministically changes role, workload, route,
 epoch, queue depth, token window, telemetry, and trace identifiers per peer.

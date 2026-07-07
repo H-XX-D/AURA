@@ -156,7 +156,10 @@ native token paths on each machine before cluster runs.
   fixture TCP hop and raised the same impaired 192-session AIWire pass from
   2,731.5 to 3,909.9 exchanges/s with byte savings unchanged at 84.4%, so the
   next sidecar target is realistic upstream-agent behavior and socket scheduling
-  rather than the codec hot path.
+  rather than the codec hot path. The first `edge-mixed` upstream-agent profile
+  pass kept AIWire at 84.4% byte savings; TCP fixture mode moved 2,583.3
+  exchanges/s and inline fixture mode moved 4,259.6 exchanges/s, confirming the
+  constrained-hop byte advantage persists when responses are not instant.
 
 Definition of done:
 

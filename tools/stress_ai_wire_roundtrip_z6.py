@@ -1228,6 +1228,13 @@ def run_server(args: argparse.Namespace) -> None:
         process_workers = max(0, int(args.connection_processes))
         connection_workers = max(1, int(args.connection_workers))
         server.listen(max(8, connection_workers, process_workers))
+        if args.ready_file:
+            ready_file = Path(args.ready_file)
+            ready_file.parent.mkdir(parents=True, exist_ok=True)
+            ready_file.write_text(
+                json.dumps({"host": args.host, "port": args.port}, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
         if process_workers > 0:
             if "fork" not in mp.get_all_start_methods():
                 raise RuntimeError("--connection-processes requires multiprocessing fork support")
@@ -2652,6 +2659,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     server = sub.add_parser("server")
     server.add_argument("--host", default="0.0.0.0")
     server.add_argument("--port", type=int, default=8910)
+    server.add_argument(
+        "--ready-file",
+        help="Optional path written after the server socket is listening.",
+    )
     server.add_argument("--runs", type=int, default=1)
     server.add_argument(
         "--connection-workers",

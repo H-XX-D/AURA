@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -86,7 +88,11 @@ def _start_servers(
     stress_tool = TOOLS / "stress_ai_wire_roundtrip_z6.py"
     runs = 1 + _codec_count(codecs) * max(1, args.session_shards)
     servers = []
+    ready_dir = Path(tempfile.mkdtemp(prefix="aura-aiwire-coordinator-ready-"))
+    ready_files: list[Path] = []
     for target in target_specs:
+        ready_file = ready_dir / f"{target['label']}.ready.json"
+        ready_files.append(ready_file)
         server_cmd = [
             sys.executable,
             str(stress_tool),
@@ -95,6 +101,8 @@ def _start_servers(
             str(target["host"]),
             "--port",
             str(target["port"]),
+            "--ready-file",
+            str(ready_file),
             "--runs",
             str(runs),
             "--connection-workers",
@@ -126,12 +134,43 @@ def _start_servers(
             text=True,
         )
         servers.append(server)
-    startup_delay = max(
+    startup_timeout = max(
         float(args.server_start_delay),
-        2.0 if sys.platform == "win32" else 0.0,
+        10.0 if sys.platform == "win32" else 3.0,
     )
-    time.sleep(startup_delay)
+    try:
+        _wait_for_server_ready_files(
+            servers=servers,
+            ready_files=ready_files,
+            timeout=startup_timeout,
+        )
+    finally:
+        shutil.rmtree(ready_dir, ignore_errors=True)
     return servers
+
+
+def _wait_for_server_ready_files(
+    *,
+    servers: Sequence[subprocess.Popen[str]],
+    ready_files: Sequence[Path],
+    timeout: float,
+) -> None:
+    deadline = time.monotonic() + timeout
+    while True:
+        if all(path.exists() for path in ready_files):
+            return
+        failed = [server for server in servers if server.poll() is not None]
+        if failed:
+            outputs = _collect_servers(servers, force_terminate=True)
+            raise RuntimeError(f"server exited before readiness: {outputs!r}")
+        if time.monotonic() >= deadline:
+            outputs = _collect_servers(servers, force_terminate=True)
+            missing = [str(path) for path in ready_files if not path.exists()]
+            raise RuntimeError(
+                f"server readiness timed out after {timeout:.1f}s; missing={missing!r}; "
+                f"outputs={outputs!r}"
+            )
+        time.sleep(0.05)
 
 
 def _looks_like_startup_refusal(stderr: str | None) -> bool:

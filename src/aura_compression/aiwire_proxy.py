@@ -46,6 +46,7 @@ _TAG_TO_LANE = {tag: lane for lane, tag in _LANE_TO_TAG.items()}
 BackendName = Literal["python", "native", "auto"]
 TunnelCodec = Literal["raw", "zlib", "aiwire"]
 ProxyMode = Literal["ingress", "egress"]
+EgressUpstreamResponder = Callable[[bytes, int], bytes]
 TUNNEL_CODECS: tuple[TunnelCodec, ...] = ("raw", "zlib", "aiwire")
 
 
@@ -868,6 +869,7 @@ def _handle_egress_connection(
     *,
     upstream_host: str,
     upstream_port: int,
+    upstream_responder: EgressUpstreamResponder | None,
     level: int,
     backend: BackendName,
     tunnel_codec: TunnelCodec,
@@ -905,6 +907,61 @@ def _handle_egress_connection(
     else:
         metrics.encoder_backend = tunnel_codec
         metrics.decoder_backend = tunnel_codec
+
+    if upstream_responder is not None:
+        exchange_index = 0
+        while True:
+            started_ns = time.perf_counter_ns()
+            try:
+                lane, tunneled_request, framed_bytes = read_tunnel_frame_with_size(
+                    tunnel,
+                    max_frame_bytes=max_frame_bytes,
+                )
+            except EOFError:
+                break
+            metrics.record_stage("tunnel_request_read", time.perf_counter_ns() - started_ns)
+            if lane != AIWIRE_PROXY_SEMANTIC_LANE:
+                raise AIWireProxyProtocolError("expected semantic request frame")
+            metrics.tunnel_request_framed_bytes += framed_bytes
+
+            started_ns = time.perf_counter_ns()
+            raw_request = _decode_semantic_payload(
+                tunnel_codec,
+                tunneled_request,
+                decoder=request_decoder,
+            )
+            metrics.record_stage("request_decode", time.perf_counter_ns() - started_ns)
+            metrics.raw_request_payload_bytes += len(raw_request)
+            metrics.raw_framed_bytes += _U32.size + len(raw_request)
+
+            started_ns = time.perf_counter_ns()
+            raw_response = upstream_responder(raw_request, exchange_index)
+            metrics.record_stage("upstream_response_inline", time.perf_counter_ns() - started_ns)
+            metrics.raw_response_payload_bytes += len(raw_response)
+            metrics.raw_framed_bytes += _U32.size + len(raw_response)
+
+            started_ns = time.perf_counter_ns()
+            tunneled_response = _encode_semantic_payload(
+                tunnel_codec,
+                raw_response,
+                encoder=response_encoder,
+                level=level,
+            )
+            metrics.record_stage("response_encode", time.perf_counter_ns() - started_ns)
+
+            started_ns = time.perf_counter_ns()
+            framed_bytes, impairment_wait_ns = write_tunnel_frame_with_stats(
+                tunnel,
+                AIWIRE_PROXY_SEMANTIC_LANE,
+                tunneled_response,
+                impairment=tunnel_impairment,
+            )
+            metrics.record_stage("tunnel_response_write", time.perf_counter_ns() - started_ns)
+            metrics.add_tunnel_impairment_wait(impairment_wait_ns)
+            metrics.tunnel_response_framed_bytes += framed_bytes
+            metrics.exchanges += 1
+            exchange_index += 1
+        return
 
     started_ns = time.perf_counter_ns()
     upstream_socket = socket.create_connection(
@@ -988,6 +1045,7 @@ def _run_listener(
     metrics_output: str | Path | None,
     replay_log_output: str | Path | None,
     ready_callback: Callable[[int], None] | None,
+    upstream_responder: EgressUpstreamResponder | None = None,
 ) -> AIWireProxyMetrics:
     metrics = AIWireProxyMetrics(
         mode=mode,
@@ -1031,6 +1089,7 @@ def _run_listener(
                             conn,
                             upstream_host=target_host,
                             upstream_port=target_port,
+                            upstream_responder=upstream_responder,
                             level=level,
                             backend=backend,
                             tunnel_codec=tunnel_codec,
@@ -1128,8 +1187,9 @@ def run_egress_proxy(
     *,
     listen_host: str,
     listen_port: int,
-    upstream_host: str,
-    upstream_port: int,
+    upstream_host: str = "",
+    upstream_port: int = 0,
+    upstream_responder: EgressUpstreamResponder | None = None,
     level: int = AI_WIRE_DEFAULT_LEVEL,
     backend: BackendName = "auto",
     tunnel_codec: TunnelCodec = "aiwire",
@@ -1144,6 +1204,8 @@ def run_egress_proxy(
     """Run an egress sidecar from an AIWire tunnel to raw upstream frames."""
 
     tunnel_codec = _validate_tunnel_codec(tunnel_codec)
+    if upstream_responder is None and (not upstream_host or upstream_port <= 0):
+        raise ValueError("upstream_host and upstream_port are required without a responder")
     return _run_listener(
         mode="egress",
         listen_host=listen_host,
@@ -1160,6 +1222,7 @@ def run_egress_proxy(
         metrics_output=metrics_output,
         replay_log_output=replay_log_output,
         ready_callback=ready_callback,
+        upstream_responder=upstream_responder,
     )
 
 
@@ -1172,6 +1235,7 @@ __all__ = [
     "AIWireProxyMetrics",
     "AIWireProxyProtocolError",
     "DEFAULT_MAX_FRAME_BYTES",
+    "EgressUpstreamResponder",
     "TUNNEL_CODECS",
     "TunnelImpairment",
     "TunnelImpairmentConfig",

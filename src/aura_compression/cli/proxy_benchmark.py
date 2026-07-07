@@ -90,6 +90,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--ingress-metrics-output",
         help="optional metrics JSON path for the local ingress sidecar in remote-egress mode",
     )
+    parser.add_argument(
+        "--inline-upstream-fixture",
+        action="store_true",
+        help=(
+            "Benchmark-only local mode: have the egress sidecar answer fixture "
+            "requests in-process instead of starting a raw upstream fixture TCP server."
+        ),
+    )
     parser.add_argument("--output")
     parser.add_argument("--replay-log-output")
     return parser
@@ -102,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--egress-host and --egress-port must be provided together")
     if args.ingress_metrics_output and not args.egress_host:
         parser.error("--ingress-metrics-output only applies with --egress-host/--egress-port")
+    if args.inline_upstream_fixture and args.egress_host:
+        parser.error("--inline-upstream-fixture only applies to local benchmark mode")
     if args.connections <= 0:
         parser.error("--connections must be positive")
     common = {
@@ -132,7 +142,10 @@ def main(argv: list[str] | None = None) -> int:
             **common,
         )
     else:
-        result = run_proxy_benchmark(**common)
+        result = run_proxy_benchmark(
+            inline_upstream_fixture=args.inline_upstream_fixture,
+            **common,
+        )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 

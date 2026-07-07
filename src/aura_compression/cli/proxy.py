@@ -15,6 +15,12 @@ from aura_compression.aiwire_proxy import (
     run_egress_proxy,
     run_ingress_proxy,
 )
+from aura_compression.aiwire_proxy_benchmark import (
+    DEFAULT_PROXY_FIXTURE_PATH,
+    FIXTURE_VARIATION_PROFILES,
+    build_proxy_fixture_responder,
+    load_proxy_fixture_pairs,
+)
 
 
 def _add_common_options(parser: argparse.ArgumentParser) -> None:
@@ -109,8 +115,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Accept an AIWire tunnel and forward raw frames to an upstream service.",
     )
     _add_common_options(egress)
-    egress.add_argument("--upstream-host", required=True)
-    egress.add_argument("--upstream-port", type=int, required=True)
+    egress.add_argument("--upstream-host")
+    egress.add_argument("--upstream-port", type=int)
+    egress.add_argument(
+        "--inline-fixture-corpus",
+        default=None,
+        help=(
+            "Benchmark-only: answer upstream requests in-process from this fixture "
+            "corpus instead of opening an upstream TCP socket."
+        ),
+    )
+    egress.add_argument(
+        "--inline-fixture-variation-profile",
+        choices=FIXTURE_VARIATION_PROFILES,
+        default="none",
+    )
+    egress.add_argument("--inline-fixture-peer-label", default="proxy-fixture")
 
     return parser
 
@@ -154,11 +174,27 @@ def main(argv: list[str] | None = None) -> int:
                 replay_log_output=args.replay_log_output,
             )
         else:
+            upstream_responder = None
+            upstream_host = args.upstream_host or ""
+            upstream_port = int(args.upstream_port or 0)
+            if args.inline_fixture_corpus:
+                pairs, _fixture_path, _fixture_source = load_proxy_fixture_pairs(
+                    args.inline_fixture_corpus or DEFAULT_PROXY_FIXTURE_PATH,
+                    fixture_variation_profile=args.inline_fixture_variation_profile,
+                    fixture_peer_label=args.inline_fixture_peer_label,
+                )
+                upstream_responder = build_proxy_fixture_responder(pairs)
+            elif not args.upstream_host or args.upstream_port is None:
+                parser.error(
+                    "egress requires --upstream-host/--upstream-port unless "
+                    "--inline-fixture-corpus is set"
+                )
             metrics = run_egress_proxy(
                 listen_host=args.listen_host,
                 listen_port=args.listen_port,
-                upstream_host=args.upstream_host,
-                upstream_port=args.upstream_port,
+                upstream_host=upstream_host,
+                upstream_port=upstream_port,
+                upstream_responder=upstream_responder,
                 level=args.level,
                 backend=backend,
                 tunnel_codec=tunnel_codec,

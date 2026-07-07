@@ -288,32 +288,12 @@ def build_target_plan(
     remote_egress_metrics = f"{remote_run_dir}/egress.metrics.json"
     remote_root = target.remote_root or args.remote_root
 
-    fixture_args = [
-        "--listen-host",
-        "127.0.0.1",
-        "--listen-port",
-        str(target.upstream_port),
-        "--fixture-corpus",
-        args.fixture_corpus,
-        "--fixture-variation-profile",
-        args.fixture_variation_profile,
-        "--fixture-peer-label",
-        target.label,
-        "--connections",
-        str(args.connections),
-        "--metrics-output",
-        remote_fixture_metrics,
-    ]
     egress_args = [
         "egress",
         "--listen-host",
         "0.0.0.0",
         "--listen-port",
         str(target.egress_port),
-        "--upstream-host",
-        "127.0.0.1",
-        "--upstream-port",
-        str(target.upstream_port),
         "--backend",
         args.backend,
         "--tunnel-codec",
@@ -337,18 +317,70 @@ def build_target_plan(
         "--metrics-output",
         remote_egress_metrics,
     ]
-    fixture_inner = _remote_module_command(
-        remote_root=remote_root,
-        remote_python=args.remote_python,
-        module="aura_compression.cli.proxy_fixture_server",
-        args=fixture_args,
-    )
+    if args.inline_upstream_fixture:
+        egress_args.extend(
+            [
+                "--inline-fixture-corpus",
+                args.fixture_corpus,
+                "--inline-fixture-variation-profile",
+                args.fixture_variation_profile,
+                "--inline-fixture-peer-label",
+                target.label,
+            ]
+        )
+    else:
+        egress_args.extend(
+            [
+                "--upstream-host",
+                "127.0.0.1",
+                "--upstream-port",
+                str(target.upstream_port),
+            ]
+        )
     egress_inner = _remote_module_command(
         remote_root=remote_root,
         remote_python=args.remote_python,
         module="aura_compression.cli.proxy",
         args=egress_args,
     )
+    commands = {
+        "start_egress": _background_command(
+            run_dir=remote_run_dir,
+            name="egress",
+            inner=egress_inner,
+        ),
+        "fetch_egress_metrics": _fetch_json_command(remote_egress_metrics),
+        "cleanup": _cleanup_command(remote_run_dir),
+    }
+    if not args.inline_upstream_fixture:
+        fixture_args = [
+            "--listen-host",
+            "127.0.0.1",
+            "--listen-port",
+            str(target.upstream_port),
+            "--fixture-corpus",
+            args.fixture_corpus,
+            "--fixture-variation-profile",
+            args.fixture_variation_profile,
+            "--fixture-peer-label",
+            target.label,
+            "--connections",
+            str(args.connections),
+            "--metrics-output",
+            remote_fixture_metrics,
+        ]
+        fixture_inner = _remote_module_command(
+            remote_root=remote_root,
+            remote_python=args.remote_python,
+            module="aura_compression.cli.proxy_fixture_server",
+            args=fixture_args,
+        )
+        commands["start_fixture"] = _background_command(
+            run_dir=remote_run_dir,
+            name="fixture",
+            inner=fixture_inner,
+        )
+        commands["fetch_fixture_metrics"] = _fetch_json_command(remote_fixture_metrics)
     return {
         "target": asdict(target),
         "remote_run_dir": remote_run_dir,
@@ -357,24 +389,12 @@ def build_target_plan(
             "local_benchmark": str(local_benchmark),
             "local_ingress_metrics": str(local_ingress_metrics),
             "local_replay_log": str(local_replay),
-            "remote_fixture_metrics": remote_fixture_metrics,
+            "remote_fixture_metrics": (
+                None if args.inline_upstream_fixture else remote_fixture_metrics
+            ),
             "remote_egress_metrics": remote_egress_metrics,
         },
-        "commands": {
-            "start_fixture": _background_command(
-                run_dir=remote_run_dir,
-                name="fixture",
-                inner=fixture_inner,
-            ),
-            "start_egress": _background_command(
-                run_dir=remote_run_dir,
-                name="egress",
-                inner=egress_inner,
-            ),
-            "fetch_fixture_metrics": _fetch_json_command(remote_fixture_metrics),
-            "fetch_egress_metrics": _fetch_json_command(remote_egress_metrics),
-            "cleanup": _cleanup_command(remote_run_dir),
-        },
+        "commands": commands,
     }
 
 
@@ -397,6 +417,7 @@ def build_plan(args: argparse.Namespace, targets: list[ProxyClusterTarget]) -> d
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
+        "inline_upstream_fixture": bool(args.inline_upstream_fixture),
         "connections": args.connections,
         "target_parallelism": args.target_parallelism,
         "output_dir": str(output_dir),
@@ -828,7 +849,8 @@ def run_target(
     artifacts = target_plan["artifacts"]
     started_at = _utc_now()
     try:
-        _ssh_run(target, args, commands["start_fixture"], timeout=args.ssh_timeout)
+        if not args.inline_upstream_fixture:
+            _ssh_run(target, args, commands["start_fixture"], timeout=args.ssh_timeout)
         _ssh_run(target, args, commands["start_egress"], timeout=args.ssh_timeout)
         time.sleep(args.server_start_delay)
         benchmark = run_proxy_ingress_benchmark(
@@ -854,14 +876,6 @@ def run_target(
             replay_log_output=artifacts["local_replay_log"],
             ingress_metrics_output=artifacts["local_ingress_metrics"],
         )
-        fixture_metrics = json.loads(
-            _ssh_capture(
-                target,
-                args,
-                commands["fetch_fixture_metrics"],
-                timeout=args.ssh_timeout,
-            )
-        )
         egress_metrics = json.loads(
             _ssh_capture(
                 target,
@@ -870,6 +884,23 @@ def run_target(
                 timeout=args.ssh_timeout,
             )
         )
+        if args.inline_upstream_fixture:
+            fixture_metrics = {
+                "mode": "inline_fixture",
+                "accepted_connections": egress_metrics.get("accepted_connections", 0),
+                "exchanges": egress_metrics.get("exchanges", 0),
+                "raw_request_payload_bytes": egress_metrics.get("raw_request_payload_bytes", 0),
+                "raw_response_payload_bytes": egress_metrics.get("raw_response_payload_bytes", 0),
+            }
+        else:
+            fixture_metrics = json.loads(
+                _ssh_capture(
+                    target,
+                    args,
+                    commands["fetch_fixture_metrics"],
+                    timeout=args.ssh_timeout,
+                )
+            )
     except BaseException:
         try:
             _ssh_run(target, args, commands["cleanup"], timeout=args.ssh_timeout)
@@ -881,7 +912,10 @@ def run_target(
         "started_at_utc": started_at,
         "ended_at_utc": _utc_now(),
         "verified": bool(benchmark.get("verified"))
-        and fixture_metrics.get("exchanges") == benchmark.get("exchanges")
+        and (
+            bool(args.inline_upstream_fixture)
+            or fixture_metrics.get("exchanges") == benchmark.get("exchanges")
+        )
         and egress_metrics.get("exchanges") == benchmark.get("exchanges"),
         "benchmark": benchmark,
         "remote_fixture_metrics": fixture_metrics,
@@ -1020,6 +1054,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"Tunnel codec: `{report.get('tunnel_codec', 'aiwire')}`",
         f"Seconds: `{report['seconds']}`",
         f"Connections per target: `{report.get('connections', 1)}`",
+        f"Inline upstream fixture: `{bool(report.get('inline_upstream_fixture'))}`",
         f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
         "",
     ]
@@ -1131,12 +1166,20 @@ def render_markdown(report: dict[str, Any]) -> str:
         )
         for item in report["targets"]:
             target = item["target"]
+            upstream = (
+                "inline" if report.get("inline_upstream_fixture") else str(target["upstream_port"])
+            )
             lines.append(
                 f"| {target['label']} | `{target['ssh_host']}` | `{target['proxy_host']}` | "
-                f"{target['egress_port']} | {target['upstream_port']} |"
+                f"{target['egress_port']} | {upstream} |"
             )
         lines.append("")
-        lines.append("Run again with `--run` to start remote fixture and egress sidecars.")
+        sidecars = (
+            "remote egress sidecars"
+            if report.get("inline_upstream_fixture")
+            else "remote fixture and egress sidecars"
+        )
+        lines.append(f"Run again with `--run` to start {sidecars}.")
         return "\n".join(lines) + "\n"
 
     aggregate = report["aggregate"]
@@ -1285,6 +1328,7 @@ def run_connection_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
+        "inline_upstream_fixture": bool(args.inline_upstream_fixture),
         "connections_sweep": args.connections_sweep,
         "target_parallelism": args.target_parallelism,
         "output_dir": args.output_dir or f"/tmp/aura-proxy-sweep-{sweep_run_id}",
@@ -1351,6 +1395,7 @@ def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
         f"Tunnel codec: `{report.get('tunnel_codec', 'aiwire')}`",
         f"Seconds: `{report['seconds']}`",
         f"Connections sweep: `{', '.join(str(item) for item in report['connections_sweep'])}`",
+        f"Inline upstream fixture: `{bool(report.get('inline_upstream_fixture'))}`",
         f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
         "",
         "## Sweep",
@@ -1446,6 +1491,7 @@ def run_codec_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "tunnel_impairment": _tunnel_impairment_dict(args),
         "fixture_corpus": args.fixture_corpus,
         "fixture_variation_profile": args.fixture_variation_profile,
+        "inline_upstream_fixture": bool(args.inline_upstream_fixture),
         "connections": args.connections,
         "tunnel_codec_sweep": args.tunnel_codec_sweep,
         "target_parallelism": args.target_parallelism,
@@ -1525,6 +1571,7 @@ def render_codec_sweep_markdown(report: dict[str, Any]) -> str:
         f"Seconds: `{report['seconds']}`",
         f"Connections per target: `{report['connections']}`",
         f"Tunnel codecs: `{', '.join(report['tunnel_codec_sweep'])}`",
+        f"Inline upstream fixture: `{bool(report.get('inline_upstream_fixture'))}`",
         f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
         "",
         "## Sweep",
@@ -1642,6 +1689,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--fixture-variation-profile",
         choices=FIXTURE_VARIATION_PROFILES,
         default="cluster",
+    )
+    parser.add_argument(
+        "--inline-upstream-fixture",
+        action="store_true",
+        help=(
+            "Benchmark-only: run remote egress with an in-process fixture responder "
+            "instead of starting a separate remote raw fixture TCP server."
+        ),
     )
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--max-exchanges", type=int)

@@ -25,6 +25,7 @@ from .aiwire_proxy import (
     DEFAULT_MAX_FRAME_BYTES,
     TUNNEL_CODECS,
     BackendName,
+    EgressUpstreamResponder,
     TunnelCodec,
     TunnelImpairmentConfig,
     read_length_prefixed,
@@ -336,6 +337,44 @@ def _load_fixture_corpus(path: Path) -> tuple[dict[str, Any], str]:
     raise FileNotFoundError(path)
 
 
+def load_proxy_fixture_pairs(
+    fixture_corpus_path: str | Path = DEFAULT_PROXY_FIXTURE_PATH,
+    *,
+    fixture_variation_profile: str = "none",
+    fixture_peer_label: str = "proxy-fixture",
+) -> tuple[list[ProxyFixturePair], Path, str]:
+    """Load replayable proxy request/response pairs plus corpus metadata."""
+
+    fixture_path = Path(fixture_corpus_path)
+    corpus, fixture_corpus_source = _load_fixture_corpus(fixture_path)
+    return (
+        build_proxy_fixture_pairs(
+            corpus,
+            fixture_variation_profile=fixture_variation_profile,
+            fixture_peer_label=fixture_peer_label,
+        ),
+        fixture_path,
+        fixture_corpus_source,
+    )
+
+
+def build_proxy_fixture_responder(
+    pairs: Sequence[ProxyFixturePair],
+) -> EgressUpstreamResponder:
+    """Build a benchmark-only in-process responder for egress fixture isolation."""
+
+    def responder(request: bytes, exchange_index: int) -> bytes:
+        pair = pairs[exchange_index % len(pairs)]
+        if request != pair.request:
+            raise AssertionError(
+                f"request payload mismatch at inline exchange {exchange_index}; "
+                f"fixture={pair.session_id}:{pair.exchange_index}"
+            )
+        return pair.response
+
+    return responder
+
+
 def _fixture_responder(
     listener: socket.socket,
     *,
@@ -427,10 +466,8 @@ def run_proxy_fixture_server(
     if max_connections is not None and max_connections <= 0:
         raise ValueError("max_connections must be positive when provided")
     started_at_utc = _utc_now()
-    fixture_path = Path(fixture_corpus_path)
-    corpus, fixture_corpus_source = _load_fixture_corpus(fixture_path)
-    pairs = build_proxy_fixture_pairs(
-        corpus,
+    pairs, fixture_path, fixture_corpus_source = load_proxy_fixture_pairs(
+        fixture_corpus_path,
         fixture_variation_profile=fixture_variation_profile,
         fixture_peer_label=fixture_peer_label,
     )
@@ -793,10 +830,8 @@ def run_proxy_ingress_benchmark(
         max_exchanges=max_exchanges,
     )
 
-    fixture_path = Path(fixture_corpus_path)
-    corpus, fixture_corpus_source = _load_fixture_corpus(fixture_path)
-    pairs = build_proxy_fixture_pairs(
-        corpus,
+    pairs, fixture_path, fixture_corpus_source = load_proxy_fixture_pairs(
+        fixture_corpus_path,
         fixture_variation_profile=fixture_variation_profile,
         fixture_peer_label=fixture_peer_label,
     )
@@ -891,6 +926,7 @@ def run_proxy_benchmark(
     impairment_seed: int = 1729,
     output: str | Path | None = None,
     replay_log_output: str | Path | None = None,
+    inline_upstream_fixture: bool = False,
 ) -> dict[str, Any]:
     """Run a local ingress -> AIWire tunnel -> egress proxy benchmark."""
 
@@ -905,10 +941,8 @@ def run_proxy_benchmark(
         max_exchanges=max_exchanges,
     )
 
-    fixture_path = Path(fixture_corpus_path)
-    corpus, fixture_corpus_source = _load_fixture_corpus(fixture_path)
-    pairs = build_proxy_fixture_pairs(
-        corpus,
+    pairs, fixture_path, fixture_corpus_source = load_proxy_fixture_pairs(
+        fixture_corpus_path,
         fixture_variation_profile=fixture_variation_profile,
         fixture_peer_label=fixture_peer_label,
     )
@@ -921,14 +955,21 @@ def run_proxy_benchmark(
         seed=impairment_seed,
     )
 
-    upstream_listener, upstream_port = _bound_listener()
-    upstream_thread, upstream_results = _run_background(
-        lambda: _fixture_responder(
-            upstream_listener,
-            pairs=pairs,
-            max_connections=connection_count,
+    upstream_port = 0
+    upstream_thread: threading.Thread | None = None
+    upstream_results: queue.Queue[dict[str, Any] | BaseException] | None = None
+    upstream_responder: EgressUpstreamResponder | None = None
+    if inline_upstream_fixture:
+        upstream_responder = build_proxy_fixture_responder(pairs)
+    else:
+        upstream_listener, upstream_port = _bound_listener()
+        upstream_thread, upstream_results = _run_background(
+            lambda: _fixture_responder(
+                upstream_listener,
+                pairs=pairs,
+                max_connections=connection_count,
+            )
         )
-    )
 
     with tempfile.TemporaryDirectory(prefix="aura-proxy-benchmark-") as tmpdir:
         tmp = Path(tmpdir)
@@ -946,8 +987,9 @@ def run_proxy_benchmark(
             lambda: run_egress_proxy(
                 listen_host=HOST,
                 listen_port=0,
-                upstream_host=HOST,
+                upstream_host=HOST if not inline_upstream_fixture else "",
                 upstream_port=upstream_port,
+                upstream_responder=upstream_responder,
                 backend=backend,
                 tunnel_codec=tunnel_codec,
                 level=level,
@@ -996,7 +1038,25 @@ def run_proxy_benchmark(
 
         ingress_metrics = _background_result(ingress_thread, ingress_results)
         egress_metrics = _background_result(egress_thread, egress_results)
-        upstream = _background_result(upstream_thread, upstream_results)
+        if inline_upstream_fixture:
+            upstream = {
+                "mode": "inline_fixture",
+                "accepted_connections": egress_metrics.accepted_connections,
+                "exchanges": egress_metrics.exchanges,
+                "raw_request_payload_bytes": egress_metrics.raw_request_payload_bytes,
+                "raw_response_payload_bytes": egress_metrics.raw_response_payload_bytes,
+            }
+        else:
+            if upstream_thread is None or upstream_results is None:
+                raise RuntimeError("fixture responder did not start")
+            upstream_payload: dict[str, Any] = _background_result(
+                upstream_thread,
+                upstream_results,
+            )
+            upstream = {
+                "mode": "tcp_fixture",
+                **upstream_payload,
+            }
 
         ingress_payload = ingress_metrics.to_dict()
         egress_payload = egress_metrics.to_dict()
@@ -1018,6 +1078,8 @@ def run_proxy_benchmark(
         egress_payload=egress_payload,
         upstream=upstream,
     )
+    result["inline_upstream_fixture"] = inline_upstream_fixture
+    result["upstream_mode"] = "inline_fixture" if inline_upstream_fixture else "tcp_fixture"
     _write_benchmark_outputs(result, output=output, replay_log_output=replay_log_output)
     return result
 
@@ -1029,7 +1091,9 @@ __all__ = [
     "FIXTURE_VARIATION_PROFILES",
     "ProxyFixturePair",
     "ProxyFixtureServerMetrics",
+    "build_proxy_fixture_responder",
     "build_proxy_fixture_pairs",
+    "load_proxy_fixture_pairs",
     "run_proxy_benchmark",
     "run_proxy_fixture_server",
     "run_proxy_ingress_benchmark",

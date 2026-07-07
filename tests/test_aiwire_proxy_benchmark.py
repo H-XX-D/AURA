@@ -125,6 +125,29 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     assert records[1]["payload"]["row"]["codec"] == "aiwire"
 
 
+def test_proxy_benchmark_supports_inline_fixture_upstream() -> None:
+    result = run_proxy_benchmark(
+        seconds=0,
+        max_exchanges=6,
+        connections=2,
+        backend="python",
+        inline_upstream_fixture=True,
+    )
+
+    assert result["verified"] is True
+    assert result["inline_upstream_fixture"] is True
+    assert result["upstream_mode"] == "inline_fixture"
+    assert result["upstream"]["mode"] == "inline_fixture"
+    assert result["upstream"]["accepted_connections"] == 2
+    assert result["upstream"]["exchanges"] == 6
+    assert result["exchanges"] == 6
+    egress_counts = result["egress_metrics"]["stage_call_count"]
+    assert egress_counts["upstream_response_inline"] == 6
+    assert "connect_upstream" not in egress_counts
+    assert "upstream_request_write" not in egress_counts
+    assert "upstream_response_read" not in egress_counts
+
+
 def test_proxy_benchmark_supports_raw_and_zlib_tunnel_codecs() -> None:
     for codec in ("raw", "zlib"):
         result = run_proxy_benchmark(
@@ -250,6 +273,28 @@ def test_proxy_benchmark_cli_outputs_json(capsys) -> None:
     assert result["connections"] == 2
     assert result["exchanges"] == 4
     assert result["verified"] is True
+
+
+def test_proxy_benchmark_cli_supports_inline_upstream_fixture(capsys) -> None:
+    assert (
+        proxy_benchmark_main(
+            [
+                "--seconds",
+                "0",
+                "--max-exchanges",
+                "4",
+                "--connections",
+                "2",
+                "--inline-upstream-fixture",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+
+    assert result["inline_upstream_fixture"] is True
+    assert result["upstream_mode"] == "inline_fixture"
+    assert result["exchanges"] == 4
 
 
 def test_proxy_fixture_server_cli_parser_accepts_cluster_variation() -> None:

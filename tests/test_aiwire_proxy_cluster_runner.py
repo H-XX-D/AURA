@@ -112,6 +112,56 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     assert "Run again with `--run`" in summary_text
 
 
+def test_proxy_cluster_dry_run_supports_inline_upstream_fixture(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    output = tmp_path / "plan.json"
+    summary = tmp_path / "plan.md"
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=edge-host.local",
+                "--inline-upstream-fixture",
+                "--seconds",
+                "60",
+                "--backend",
+                "python",
+                "--connections",
+                "3",
+                "--run-id",
+                "test-run",
+                "--output-dir",
+                str(tmp_path / "artifacts"),
+                "--output",
+                str(output),
+                "--summary-output",
+                str(summary),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    commands = rendered["targets"][0]["commands"]
+    start_egress = commands["start_egress"]
+    summary_text = summary.read_text()
+
+    assert rendered["inline_upstream_fixture"] is True
+    assert "start_fixture" not in commands
+    assert "fetch_fixture_metrics" not in commands
+    assert rendered["targets"][0]["artifacts"]["remote_fixture_metrics"] is None
+    assert "--inline-fixture-corpus" in start_egress
+    assert "--inline-fixture-variation-profile cluster" in start_egress
+    assert "--inline-fixture-peer-label edge-1" in start_egress
+    assert "--upstream-host" not in start_egress
+    assert "--upstream-port" not in start_egress
+    assert "Inline upstream fixture: `True`" in summary_text
+    assert "| edge-1 | `edge-host.local` | `edge-host.local` | 9200 | inline |" in summary_text
+
+
 def test_proxy_cluster_connection_sweep_dry_run_outputs_plans(
     tmp_path: Path,
     capsys,

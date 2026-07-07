@@ -13,6 +13,7 @@ import socket
 import struct
 import threading
 import time
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -43,7 +44,9 @@ _LANE_TO_TAG = {
 _TAG_TO_LANE = {tag: lane for lane, tag in _LANE_TO_TAG.items()}
 
 BackendName = Literal["python", "native", "auto"]
+TunnelCodec = Literal["raw", "zlib", "aiwire"]
 ProxyMode = Literal["ingress", "egress"]
+TUNNEL_CODECS: tuple[TunnelCodec, ...] = ("raw", "zlib", "aiwire")
 
 
 class AIWireProxyError(RuntimeError):
@@ -70,6 +73,21 @@ def _backend_flag(backend: BackendName) -> bool | None:
     if backend == "auto":
         return None
     raise ValueError(f"unsupported AIWire backend: {backend}")
+
+
+def _validate_tunnel_codec(tunnel_codec: str) -> TunnelCodec:
+    if tunnel_codec not in TUNNEL_CODECS:
+        raise ValueError(
+            "unsupported tunnel codec: "
+            f"{tunnel_codec!r}; expected one of {', '.join(TUNNEL_CODECS)}"
+        )
+    return tunnel_codec  # type: ignore[return-value]
+
+
+def _zlib_level(level: int) -> int:
+    if level == -1:
+        return level
+    return min(max(level, 0), 9)
 
 
 def _canonical_json_bytes(value: Mapping[str, Any]) -> bytes:
@@ -329,6 +347,7 @@ class AIWireProxyMetrics:
     listen_host: str
     listen_port: int
     requested_backend: BackendName = "auto"
+    tunnel_codec: TunnelCodec = "aiwire"
     level: int = AI_WIRE_DEFAULT_LEVEL
     max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES
     target_host: str = ""
@@ -380,7 +399,7 @@ class AIWireProxyMetrics:
         backend = self.encoder_backend or self.decoder_backend or self.requested_backend
         return {
             "target_label": f"{self.target_host}:{self.target_port}",
-            "codec": "aiwire",
+            "codec": self.tunnel_codec,
             "backend": backend,
             "client_requested_backend": self.requested_backend,
             "server_requested_backend": self.requested_backend,
@@ -406,6 +425,7 @@ class AIWireProxyMetrics:
             "target_host": self.target_host,
             "target_port": self.target_port,
             "requested_backend": self.requested_backend,
+            "tunnel_codec": self.tunnel_codec,
             "level": self.level,
             "max_frame_bytes": self.max_frame_bytes,
             "started_at_utc": self.started_at_utc,
@@ -464,6 +484,7 @@ def _connection_metrics_from(metrics: AIWireProxyMetrics) -> AIWireProxyMetrics:
         listen_host=metrics.listen_host,
         listen_port=metrics.listen_port,
         requested_backend=metrics.requested_backend,
+        tunnel_codec=metrics.tunnel_codec,
         level=metrics.level,
         max_frame_bytes=metrics.max_frame_bytes,
         target_host=metrics.target_host,
@@ -503,19 +524,22 @@ def _proxy_client_hello(
     *,
     level: int,
     backend: BackendName,
+    tunnel_codec: TunnelCodec,
 ) -> dict[str, Any]:
-    handshake = build_aiwire_handshake(
-        level=level,
-        use_native=_backend_flag(backend),
-        fallback_codecs=(),
-    )
-    return {
+    hello: dict[str, Any] = {
         "schema": AIWIRE_PROXY_SCHEMA,
         "role": "ingress",
-        "codec": "aiwire",
+        "codec": tunnel_codec,
         "requested_backend": backend,
-        "aiwire_handshake": handshake.to_dict(),
     }
+    if tunnel_codec == "aiwire":
+        handshake = build_aiwire_handshake(
+            level=level,
+            use_native=_backend_flag(backend),
+            fallback_codecs=(),
+        )
+        hello["aiwire_handshake"] = handshake.to_dict()
+    return hello
 
 
 def _write_proxy_client_hello(
@@ -523,11 +547,12 @@ def _write_proxy_client_hello(
     *,
     level: int,
     backend: BackendName,
+    tunnel_codec: TunnelCodec,
     impairment: TunnelImpairment | None = None,
 ) -> int:
     return _write_control_frame(
         sock,
-        _proxy_client_hello(level=level, backend=backend),
+        _proxy_client_hello(level=level, backend=backend, tunnel_codec=tunnel_codec),
         impairment=impairment,
     )
 
@@ -536,6 +561,7 @@ def _read_proxy_server_ack(
     sock: socket.socket,
     *,
     max_frame_bytes: int,
+    tunnel_codec: TunnelCodec,
 ) -> tuple[dict[str, Any], int]:
     ack, framed_bytes = _read_control_frame_with_size(sock, max_frame_bytes=max_frame_bytes)
     if ack.get("role") != "egress":
@@ -543,8 +569,10 @@ def _read_proxy_server_ack(
     if not ack.get("accepted"):
         reason = ack.get("reason") or "rejected"
         raise AIWireProxyHandshakeError(f"AIWire proxy handshake rejected: {reason}")
-    if ack.get("codec") != "aiwire":
-        raise AIWireProxyHandshakeError("AIWire proxy requires aiwire codec")
+    if ack.get("codec") != tunnel_codec:
+        raise AIWireProxyHandshakeError(
+            f"proxy codec mismatch: expected {tunnel_codec}, got {ack.get('codec')!r}"
+        )
     return ack, framed_bytes
 
 
@@ -553,6 +581,7 @@ def _accept_proxy_handshake(
     *,
     level: int,
     backend: BackendName,
+    tunnel_codec: TunnelCodec,
     max_frame_bytes: int,
     impairment: TunnelImpairment | None = None,
 ) -> tuple[int, dict[str, Any]]:
@@ -561,8 +590,40 @@ def _accept_proxy_handshake(
     control_bytes += hello_bytes
     if hello.get("role") != "ingress":
         raise AIWireProxyHandshakeError("proxy handshake hello came from unexpected role")
-    if hello.get("codec") != "aiwire":
-        raise AIWireProxyHandshakeError("AIWire proxy requires aiwire codec")
+    if hello.get("codec") != tunnel_codec:
+        reason = f"codec mismatch: expected {tunnel_codec}, got {hello.get('codec')!r}"
+        control_bytes += _write_control_frame(
+            sock,
+            {
+                "schema": AIWIRE_PROXY_SCHEMA,
+                "role": "egress",
+                "accepted": False,
+                "codec": tunnel_codec,
+                "version": 1,
+                "reason": reason,
+                "requested_backend": backend,
+            },
+            impairment=impairment,
+        )
+        raise AIWireProxyHandshakeError(reason)
+    if tunnel_codec != "aiwire":
+        ack = {
+            "schema": AIWIRE_PROXY_SCHEMA,
+            "role": "egress",
+            "accepted": True,
+            "codec": tunnel_codec,
+            "version": 1,
+            "reason": None,
+            "requested_backend": backend,
+            "negotiation": {
+                "accepted": True,
+                "codec": tunnel_codec,
+                "version": 1,
+                "reason": None,
+            },
+        }
+        control_bytes += _write_control_frame(sock, ack, impairment=impairment)
+        return control_bytes, ack
     peer_handshake = hello.get("aiwire_handshake")
     if not isinstance(peer_handshake, Mapping):
         raise AIWireProxyHandshakeError("proxy hello is missing AIWire handshake")
@@ -591,6 +652,37 @@ def _accept_proxy_handshake(
     return control_bytes, ack
 
 
+def _encode_semantic_payload(
+    tunnel_codec: TunnelCodec,
+    payload: bytes,
+    *,
+    encoder: AIWireSessionEncoder | None,
+    level: int,
+) -> bytes:
+    if tunnel_codec == "raw":
+        return payload
+    if tunnel_codec == "zlib":
+        return zlib.compress(payload, _zlib_level(level))
+    if encoder is None:
+        raise AIWireProxyProtocolError("AIWire encoder is not initialized")
+    return encoder.compress_frame(payload)
+
+
+def _decode_semantic_payload(
+    tunnel_codec: TunnelCodec,
+    payload: bytes,
+    *,
+    decoder: AIWireSessionDecoder | None,
+) -> bytes:
+    if tunnel_codec == "raw":
+        return payload
+    if tunnel_codec == "zlib":
+        return zlib.decompress(payload)
+    if decoder is None:
+        raise AIWireProxyProtocolError("AIWire decoder is not initialized")
+    return decoder.decompress_frame(payload)
+
+
 def _handle_ingress_connection(
     client: socket.socket,
     *,
@@ -598,6 +690,7 @@ def _handle_ingress_connection(
     egress_port: int,
     level: int,
     backend: BackendName,
+    tunnel_codec: TunnelCodec,
     max_frame_bytes: int,
     connect_timeout: float,
     tunnel_impairment: TunnelImpairment | None,
@@ -605,10 +698,16 @@ def _handle_ingress_connection(
 ) -> None:
     _set_socket_options(client)
     use_native = _backend_flag(backend)
-    request_encoder = AIWireSessionEncoder(level=level, use_native=use_native)
-    response_decoder = AIWireSessionDecoder(use_native=use_native)
-    metrics.encoder_backend = request_encoder.backend
-    metrics.decoder_backend = response_decoder.backend
+    request_encoder: AIWireSessionEncoder | None = None
+    response_decoder: AIWireSessionDecoder | None = None
+    if tunnel_codec == "aiwire":
+        request_encoder = AIWireSessionEncoder(level=level, use_native=use_native)
+        response_decoder = AIWireSessionDecoder(use_native=use_native)
+        metrics.encoder_backend = request_encoder.backend
+        metrics.decoder_backend = response_decoder.backend
+    else:
+        metrics.encoder_backend = tunnel_codec
+        metrics.decoder_backend = tunnel_codec
 
     with socket.create_connection(
         (egress_host, egress_port),
@@ -619,9 +718,14 @@ def _handle_ingress_connection(
             tunnel,
             level=level,
             backend=backend,
+            tunnel_codec=tunnel_codec,
             impairment=tunnel_impairment,
         )
-        ack, ack_bytes = _read_proxy_server_ack(tunnel, max_frame_bytes=max_frame_bytes)
+        ack, ack_bytes = _read_proxy_server_ack(
+            tunnel,
+            max_frame_bytes=max_frame_bytes,
+            tunnel_codec=tunnel_codec,
+        )
         metrics.tunnel_control_framed_bytes += ack_bytes
         metrics.handshakes_accepted += 1
         metrics.negotiation_codec = str(ack.get("codec") or "")
@@ -640,23 +744,32 @@ def _handle_ingress_connection(
             metrics.raw_request_payload_bytes += len(raw_request)
             metrics.raw_framed_bytes += _U32.size + len(raw_request)
 
-            compressed_request = request_encoder.compress_frame(raw_request)
+            tunneled_request = _encode_semantic_payload(
+                tunnel_codec,
+                raw_request,
+                encoder=request_encoder,
+                level=level,
+            )
             metrics.tunnel_request_framed_bytes += write_tunnel_frame(
                 tunnel,
                 AIWIRE_PROXY_SEMANTIC_LANE,
-                compressed_request,
+                tunneled_request,
                 impairment=tunnel_impairment,
             )
 
-            lane, compressed_response = read_tunnel_frame(
+            lane, tunneled_response = read_tunnel_frame(
                 tunnel,
                 max_frame_bytes=max_frame_bytes,
             )
             if lane != AIWIRE_PROXY_SEMANTIC_LANE:
                 raise AIWireProxyProtocolError("expected semantic response frame")
-            metrics.tunnel_response_framed_bytes += _U32.size + 1 + len(compressed_response)
+            metrics.tunnel_response_framed_bytes += _U32.size + 1 + len(tunneled_response)
 
-            raw_response = response_decoder.decompress_frame(compressed_response)
+            raw_response = _decode_semantic_payload(
+                tunnel_codec,
+                tunneled_response,
+                decoder=response_decoder,
+            )
             write_length_prefixed(client, raw_response)
             metrics.raw_response_payload_bytes += len(raw_response)
             metrics.raw_framed_bytes += _U32.size + len(raw_response)
@@ -670,6 +783,7 @@ def _handle_egress_connection(
     upstream_port: int,
     level: int,
     backend: BackendName,
+    tunnel_codec: TunnelCodec,
     max_frame_bytes: int,
     connect_timeout: float,
     tunnel_impairment: TunnelImpairment | None,
@@ -680,6 +794,7 @@ def _handle_egress_connection(
         tunnel,
         level=level,
         backend=backend,
+        tunnel_codec=tunnel_codec,
         max_frame_bytes=max_frame_bytes,
         impairment=tunnel_impairment,
     )
@@ -691,10 +806,16 @@ def _handle_egress_connection(
     metrics.negotiation_reason = str(ack.get("reason")) if ack.get("reason") else None
 
     use_native = _backend_flag(backend)
-    request_decoder = AIWireSessionDecoder(use_native=use_native)
-    response_encoder = AIWireSessionEncoder(level=level, use_native=use_native)
-    metrics.encoder_backend = response_encoder.backend
-    metrics.decoder_backend = request_decoder.backend
+    request_decoder: AIWireSessionDecoder | None = None
+    response_encoder: AIWireSessionEncoder | None = None
+    if tunnel_codec == "aiwire":
+        request_decoder = AIWireSessionDecoder(use_native=use_native)
+        response_encoder = AIWireSessionEncoder(level=level, use_native=use_native)
+        metrics.encoder_backend = response_encoder.backend
+        metrics.decoder_backend = request_decoder.backend
+    else:
+        metrics.encoder_backend = tunnel_codec
+        metrics.decoder_backend = tunnel_codec
 
     with socket.create_connection(
         (upstream_host, upstream_port),
@@ -703,7 +824,7 @@ def _handle_egress_connection(
         _set_socket_options(upstream)
         while True:
             try:
-                lane, compressed_request = read_tunnel_frame(
+                lane, tunneled_request = read_tunnel_frame(
                     tunnel,
                     max_frame_bytes=max_frame_bytes,
                 )
@@ -711,9 +832,13 @@ def _handle_egress_connection(
                 break
             if lane != AIWIRE_PROXY_SEMANTIC_LANE:
                 raise AIWireProxyProtocolError("expected semantic request frame")
-            metrics.tunnel_request_framed_bytes += _U32.size + 1 + len(compressed_request)
+            metrics.tunnel_request_framed_bytes += _U32.size + 1 + len(tunneled_request)
 
-            raw_request = request_decoder.decompress_frame(compressed_request)
+            raw_request = _decode_semantic_payload(
+                tunnel_codec,
+                tunneled_request,
+                decoder=request_decoder,
+            )
             write_length_prefixed(upstream, raw_request)
             metrics.raw_request_payload_bytes += len(raw_request)
             metrics.raw_framed_bytes += _U32.size + len(raw_request)
@@ -722,11 +847,16 @@ def _handle_egress_connection(
             metrics.raw_response_payload_bytes += len(raw_response)
             metrics.raw_framed_bytes += _U32.size + len(raw_response)
 
-            compressed_response = response_encoder.compress_frame(raw_response)
+            tunneled_response = _encode_semantic_payload(
+                tunnel_codec,
+                raw_response,
+                encoder=response_encoder,
+                level=level,
+            )
             metrics.tunnel_response_framed_bytes += write_tunnel_frame(
                 tunnel,
                 AIWIRE_PROXY_SEMANTIC_LANE,
-                compressed_response,
+                tunneled_response,
                 impairment=tunnel_impairment,
             )
             metrics.exchanges += 1
@@ -741,6 +871,7 @@ def _run_listener(
     target_port: int,
     level: int,
     backend: BackendName,
+    tunnel_codec: TunnelCodec,
     max_frame_bytes: int,
     max_connections: int | None,
     connect_timeout: float,
@@ -754,6 +885,7 @@ def _run_listener(
         listen_host=listen_host,
         listen_port=listen_port,
         requested_backend=backend,
+        tunnel_codec=tunnel_codec,
         level=level,
         max_frame_bytes=max_frame_bytes,
         target_host=target_host,
@@ -779,6 +911,7 @@ def _run_listener(
                             egress_port=target_port,
                             level=level,
                             backend=backend,
+                            tunnel_codec=tunnel_codec,
                             max_frame_bytes=max_frame_bytes,
                             connect_timeout=connect_timeout,
                             tunnel_impairment=tunnel_impairment,
@@ -791,6 +924,7 @@ def _run_listener(
                             upstream_port=target_port,
                             level=level,
                             backend=backend,
+                            tunnel_codec=tunnel_codec,
                             max_frame_bytes=max_frame_bytes,
                             connect_timeout=connect_timeout,
                             tunnel_impairment=tunnel_impairment,
@@ -850,6 +984,7 @@ def run_ingress_proxy(
     egress_port: int,
     level: int = AI_WIRE_DEFAULT_LEVEL,
     backend: BackendName = "auto",
+    tunnel_codec: TunnelCodec = "aiwire",
     max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES,
     max_connections: int | None = None,
     connect_timeout: float = 5.0,
@@ -860,6 +995,7 @@ def run_ingress_proxy(
 ) -> AIWireProxyMetrics:
     """Run an ingress sidecar from raw local frames to an AIWire tunnel."""
 
+    tunnel_codec = _validate_tunnel_codec(tunnel_codec)
     return _run_listener(
         mode="ingress",
         listen_host=listen_host,
@@ -868,6 +1004,7 @@ def run_ingress_proxy(
         target_port=egress_port,
         level=level,
         backend=backend,
+        tunnel_codec=tunnel_codec,
         max_frame_bytes=max_frame_bytes,
         max_connections=max_connections,
         connect_timeout=connect_timeout,
@@ -886,6 +1023,7 @@ def run_egress_proxy(
     upstream_port: int,
     level: int = AI_WIRE_DEFAULT_LEVEL,
     backend: BackendName = "auto",
+    tunnel_codec: TunnelCodec = "aiwire",
     max_frame_bytes: int = DEFAULT_MAX_FRAME_BYTES,
     max_connections: int | None = None,
     connect_timeout: float = 5.0,
@@ -896,6 +1034,7 @@ def run_egress_proxy(
 ) -> AIWireProxyMetrics:
     """Run an egress sidecar from an AIWire tunnel to raw upstream frames."""
 
+    tunnel_codec = _validate_tunnel_codec(tunnel_codec)
     return _run_listener(
         mode="egress",
         listen_host=listen_host,
@@ -904,6 +1043,7 @@ def run_egress_proxy(
         target_port=upstream_port,
         level=level,
         backend=backend,
+        tunnel_codec=tunnel_codec,
         max_frame_bytes=max_frame_bytes,
         max_connections=max_connections,
         connect_timeout=connect_timeout,
@@ -923,8 +1063,10 @@ __all__ = [
     "AIWireProxyMetrics",
     "AIWireProxyProtocolError",
     "DEFAULT_MAX_FRAME_BYTES",
+    "TUNNEL_CODECS",
     "TunnelImpairment",
     "TunnelImpairmentConfig",
+    "TunnelCodec",
     "decode_tunnel_frame",
     "encode_tunnel_frame",
     "read_exact",

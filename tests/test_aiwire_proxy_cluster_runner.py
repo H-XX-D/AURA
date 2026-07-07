@@ -46,6 +46,8 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
                 "60",
                 "--backend",
                 "python",
+                "--tunnel-codec",
+                "zlib",
                 "--connections",
                 "3",
                 "--tunnel-bandwidth-mbps",
@@ -80,6 +82,7 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     assert rendered == written
     assert rendered["dry_run"] is True
     assert rendered["connections"] == 3
+    assert rendered["tunnel_codec"] == "zlib"
     assert rendered["tunnel_impairment"] == {
         "bandwidth_mbps": 8.0,
         "one_way_delay_ms": 18.0,
@@ -99,10 +102,12 @@ def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) 
     start_egress = rendered["targets"][0]["commands"]["start_egress"]
     assert "aura_compression.cli.proxy" in start_egress
     assert "--connections 3" in start_egress
+    assert "--tunnel-codec zlib" in start_egress
     assert "--tunnel-bandwidth-mbps 8.0" in start_egress
     assert "--tunnel-one-way-delay-ms 18.0" in start_egress
     summary_text = summary.read_text()
     assert "Connections per target: `3`" in summary_text
+    assert "Tunnel codec: `zlib`" in summary_text
     assert "Tunnel impairment:" in summary_text
     assert "Run again with `--run`" in summary_text
 
@@ -201,6 +206,119 @@ def test_connection_sweep_markdown_renders_aggregate_rows() -> None:
     assert "| 4 | 12 | 3/3 | 16,283 | 271.2 | 2.00x |" in rendered
 
 
+def test_proxy_cluster_codec_sweep_dry_run_outputs_plans(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    output = tmp_path / "codec-sweep.json"
+    summary = tmp_path / "codec-sweep.md"
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                "edge-1=edge-host.local",
+                "--tunnel-codec-sweep",
+                "raw,zlib,aiwire",
+                "--connections",
+                "4",
+                "--seconds",
+                "60",
+                "--backend",
+                "python",
+                "--run-id",
+                "codec-sweep-test",
+                "--output-dir",
+                str(tmp_path / "artifacts"),
+                "--output",
+                str(output),
+                "--summary-output",
+                str(summary),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    written = json.loads(output.read_text())
+    summary_text = summary.read_text()
+
+    assert rendered == written
+    assert rendered["schema"] == proxy_cluster.PROXY_CLUSTER_CODEC_SWEEP_SCHEMA
+    assert rendered["tunnel_codec_sweep"] == ["raw", "zlib", "aiwire"]
+    assert [run["tunnel_codec"] for run in rendered["runs"]] == ["raw", "zlib", "aiwire"]
+    assert rendered["runs"][0]["report"]["run_id"] == "codec-sweep-test-raw"
+    assert rendered["runs"][1]["report"]["run_id"] == "codec-sweep-test-zlib"
+    assert rendered["runs"][2]["report"]["run_id"] == "codec-sweep-test-aiwire"
+    assert rendered["runs"][0]["report"]["tunnel_codec"] == "raw"
+    assert rendered["runs"][1]["report"]["tunnel_codec"] == "zlib"
+    assert rendered["runs"][2]["report"]["tunnel_codec"] == "aiwire"
+    assert "| `raw` | 4 | `codec-sweep-test-raw` | planned |" in summary_text
+    assert "| `zlib` | 4 | `codec-sweep-test-zlib` | planned |" in summary_text
+    assert "| `aiwire` | 4 | `codec-sweep-test-aiwire` | planned |" in summary_text
+
+
+def test_codec_sweep_markdown_renders_aggregate_rows() -> None:
+    report = {
+        "run_id": "codec-sweep-test",
+        "fixture_variation_profile": "cluster",
+        "backend": "native",
+        "seconds": 60.0,
+        "connections": 64,
+        "tunnel_codec_sweep": ["raw", "zlib", "aiwire"],
+        "aggregate": [
+            {
+                "tunnel_codec": "raw",
+                "total_sessions": 192,
+                "verified_targets": 3,
+                "targets": 3,
+                "exchanges": 48000,
+                "exchanges_per_second_group": 800.0,
+                "relative_to_raw": 1.0,
+                "raw_framed_bytes_per_exchange": 2348.0,
+                "tunnel_semantic_framed_bytes_per_exchange": 2350.0,
+                "tunnel_saved_percent": -0.1,
+                "bandwidth_capacity_gain": 1.0,
+                "roundtrip_ms_p95_max": 95.0,
+            },
+            {
+                "tunnel_codec": "zlib",
+                "total_sessions": 192,
+                "verified_targets": 3,
+                "targets": 3,
+                "exchanges": 96000,
+                "exchanges_per_second_group": 1600.0,
+                "relative_to_raw": 2.0,
+                "raw_framed_bytes_per_exchange": 2348.0,
+                "tunnel_semantic_framed_bytes_per_exchange": 760.0,
+                "tunnel_saved_percent": 67.6,
+                "bandwidth_capacity_gain": 3.09,
+                "roundtrip_ms_p95_max": 88.0,
+            },
+            {
+                "tunnel_codec": "aiwire",
+                "total_sessions": 192,
+                "verified_targets": 3,
+                "targets": 3,
+                "exchanges": 164000,
+                "exchanges_per_second_group": 2730.0,
+                "relative_to_raw": 3.41,
+                "raw_framed_bytes_per_exchange": 2348.0,
+                "tunnel_semantic_framed_bytes_per_exchange": 367.0,
+                "tunnel_saved_percent": 84.4,
+                "bandwidth_capacity_gain": 6.40,
+                "roundtrip_ms_p95_max": 86.1,
+            },
+        ],
+    }
+
+    rendered = proxy_cluster.render_codec_sweep_markdown(report)
+
+    assert "| `raw` | 192 | 3/3 | 48,000 | 800.0 | 1.00x |" in rendered
+    assert "| `zlib` | 192 | 3/3 | 96,000 | 1,600.0 | 2.00x |" in rendered
+    assert "| `aiwire` | 192 | 3/3 | 164,000 | 2,730.0 | 3.41x |" in rendered
+
+
 def test_connections_sweep_parser_rejects_invalid_values() -> None:
     assert proxy_cluster.parse_connections_sweep("1,2,4") == [1, 2, 4]
 
@@ -211,6 +329,22 @@ def test_connections_sweep_parser_rejects_invalid_values() -> None:
             pass
         else:
             raise AssertionError(f"expected invalid sweep value: {value}")
+
+
+def test_tunnel_codec_sweep_parser_rejects_invalid_values() -> None:
+    assert proxy_cluster.parse_tunnel_codec_sweep("raw,zlib,aiwire") == [
+        "raw",
+        "zlib",
+        "aiwire",
+    ]
+
+    for value in ["", "gzip", "raw,raw"]:
+        try:
+            proxy_cluster.parse_tunnel_codec_sweep(value)
+        except argparse.ArgumentTypeError:
+            pass
+        else:
+            raise AssertionError(f"expected invalid codec sweep value: {value}")
 
 
 def test_proxy_cluster_target_remote_root_overrides_global_default(

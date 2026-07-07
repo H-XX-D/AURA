@@ -23,7 +23,9 @@ from .ai_wire_fixtures import (
 )
 from .aiwire_proxy import (
     DEFAULT_MAX_FRAME_BYTES,
+    TUNNEL_CODECS,
     BackendName,
+    TunnelCodec,
     TunnelImpairmentConfig,
     read_length_prefixed,
     run_egress_proxy,
@@ -495,7 +497,7 @@ def _tunnel_impairment_config(
 
 def _benchmark_result_row(result: Mapping[str, Any]) -> dict[str, Any]:
     return {
-        "codec": "aiwire",
+        "codec": result.get("tunnel_codec", "aiwire"),
         "backend": result["actual_backend"],
         "verified": result["verified"],
         "exchanges": result["exchanges"],
@@ -663,6 +665,9 @@ def _result_from_ingress_metrics(
     raw_capacity = _capacity_eps(modeled_link_mbps, raw_bpe)
     tunnel_capacity = _capacity_eps(modeled_link_mbps, tunnel_semantic_bpe)
     tunnel_total_capacity = _capacity_eps(modeled_link_mbps, tunnel_total_bpe)
+    tunnel_codec = str(ingress_payload.get("tunnel_codec") or "aiwire")
+    if tunnel_codec not in TUNNEL_CODECS:
+        raise ValueError(f"unsupported tunnel codec in ingress metrics: {tunnel_codec!r}")
     actual_backend = str(ingress_payload["encoder_backend"])
     result: dict[str, Any] = {
         "schema": AIWIRE_PROXY_BENCHMARK_SCHEMA,
@@ -680,6 +685,7 @@ def _result_from_ingress_metrics(
         "connections": client_run.get("connections", 1),
         "elapsed_seconds": elapsed,
         "requested_backend": backend,
+        "tunnel_codec": tunnel_codec,
         "actual_backend": actual_backend,
         "level": level,
         "verified": True,
@@ -736,6 +742,7 @@ def _write_benchmark_outputs(
         artifact = {
             "suite": "aura-aiwire-proxy-benchmark",
             "mode": result["mode"],
+            "tunnel_codec": result.get("tunnel_codec", "aiwire"),
             "seconds": result["seconds"],
             "exchanges": result["exchanges"],
             "requested_backend": result["requested_backend"],
@@ -760,6 +767,7 @@ def run_proxy_ingress_benchmark(
     max_exchanges: int | None = None,
     connections: int = 1,
     backend: BackendName = "python",
+    tunnel_codec: TunnelCodec = "aiwire",
     level: int = AI_WIRE_DEFAULT_LEVEL,
     modeled_link_mbps: float = 10.0,
     tunnel_bandwidth_mbps: float = 0.0,
@@ -774,6 +782,8 @@ def run_proxy_ingress_benchmark(
 ) -> dict[str, Any]:
     """Benchmark a local ingress/client against an already running egress proxy."""
 
+    if tunnel_codec not in TUNNEL_CODECS:
+        raise ValueError("tunnel_codec must be one of: " + ", ".join(TUNNEL_CODECS))
     if seconds <= 0 and max_exchanges is None:
         raise ValueError("seconds must be positive unless max_exchanges is set")
     if max_exchanges is not None and max_exchanges <= 0:
@@ -818,6 +828,7 @@ def run_proxy_ingress_benchmark(
                 egress_host=egress_host,
                 egress_port=egress_port,
                 backend=backend,
+                tunnel_codec=tunnel_codec,
                 level=level,
                 max_connections=connection_count,
                 tunnel_impairment_config=tunnel_impairment_config,
@@ -869,6 +880,7 @@ def run_proxy_benchmark(
     max_exchanges: int | None = None,
     connections: int = 1,
     backend: BackendName = "python",
+    tunnel_codec: TunnelCodec = "aiwire",
     level: int = AI_WIRE_DEFAULT_LEVEL,
     modeled_link_mbps: float = 10.0,
     tunnel_bandwidth_mbps: float = 0.0,
@@ -882,6 +894,8 @@ def run_proxy_benchmark(
 ) -> dict[str, Any]:
     """Run a local ingress -> AIWire tunnel -> egress proxy benchmark."""
 
+    if tunnel_codec not in TUNNEL_CODECS:
+        raise ValueError("tunnel_codec must be one of: " + ", ".join(TUNNEL_CODECS))
     if seconds <= 0 and max_exchanges is None:
         raise ValueError("seconds must be positive unless max_exchanges is set")
     if max_exchanges is not None and max_exchanges <= 0:
@@ -935,6 +949,7 @@ def run_proxy_benchmark(
                 upstream_host=HOST,
                 upstream_port=upstream_port,
                 backend=backend,
+                tunnel_codec=tunnel_codec,
                 level=level,
                 max_connections=connection_count,
                 tunnel_impairment_config=tunnel_impairment_config,
@@ -959,6 +974,7 @@ def run_proxy_benchmark(
                 egress_host=HOST,
                 egress_port=egress_port_holder[0],
                 backend=backend,
+                tunnel_codec=tunnel_codec,
                 level=level,
                 max_connections=connection_count,
                 tunnel_impairment_config=tunnel_impairment_config,

@@ -6,6 +6,7 @@ import argparse
 import json
 
 from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
+from aura_compression.aiwire_proxy import TUNNEL_CODECS
 from aura_compression.aiwire_proxy_benchmark import (
     DEFAULT_PROXY_FIXTURE_PATH,
     FIXTURE_VARIATION_PROFILES,
@@ -43,6 +44,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--backend",
         choices=("python", "native", "auto"),
         default="python",
+    )
+    parser.add_argument(
+        "--tunnel-codec",
+        choices=TUNNEL_CODECS,
+        default="aiwire",
+        help="semantic payload codec used inside the sidecar tunnel",
     )
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument("--modeled-link-mbps", type=float, default=10.0)
@@ -105,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         "max_exchanges": args.max_exchanges,
         "connections": args.connections,
         "backend": args.backend,
+        "tunnel_codec": args.tunnel_codec,
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_bandwidth_mbps": args.tunnel_bandwidth_mbps,

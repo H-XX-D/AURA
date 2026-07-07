@@ -25,6 +25,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
+from aura_compression.aiwire_proxy import TUNNEL_CODECS
 from aura_compression.aiwire_proxy_benchmark import (
     FIXTURE_VARIATION_PROFILES,
     run_proxy_ingress_benchmark,
@@ -33,6 +34,7 @@ from aura_compression.aiwire_proxy_benchmark import (
 DEFAULT_FIXTURE_CORPUS = "fixtures/aiwire_sessions/public_session_corpus_v1.json"
 PROXY_CLUSTER_SCHEMA = "aura.aiwire.proxy_cluster_benchmark.v1"
 PROXY_CLUSTER_CONNECTION_SWEEP_SCHEMA = "aura.aiwire.proxy_cluster_connection_sweep.v1"
+PROXY_CLUSTER_CODEC_SWEEP_SCHEMA = "aura.aiwire.proxy_cluster_codec_sweep.v1"
 SSH_PUBLIC_KEY_PREFIXES = (
     "ssh-ed25519",
     "ssh-rsa",
@@ -195,6 +197,28 @@ def parse_connections_sweep(value: str) -> list[int]:
     return connections
 
 
+def parse_tunnel_codec_sweep(value: str) -> list[str]:
+    """Parse a comma-separated list of tunnel codecs."""
+
+    codecs: list[str] = []
+    seen: set[str] = set()
+    for raw_part in value.split(","):
+        part = raw_part.strip()
+        if not part:
+            continue
+        if part not in TUNNEL_CODECS:
+            raise argparse.ArgumentTypeError(
+                f"tunnel codec sweep value must be one of {', '.join(TUNNEL_CODECS)}: {part!r}"
+            )
+        if part in seen:
+            raise argparse.ArgumentTypeError(f"duplicate tunnel codec sweep value: {part}")
+        seen.add(part)
+        codecs.append(part)
+    if not codecs:
+        raise argparse.ArgumentTypeError("tunnel codec sweep must include at least one value")
+    return codecs
+
+
 def collect_targets(args: argparse.Namespace) -> list[ProxyClusterTarget]:
     specs = list(args.target or [])
     if args.targets_file:
@@ -292,6 +316,8 @@ def build_target_plan(
         str(target.upstream_port),
         "--backend",
         args.backend,
+        "--tunnel-codec",
+        args.tunnel_codec,
         "--level",
         str(args.level),
         "--connections",
@@ -365,6 +391,7 @@ def build_plan(args: argparse.Namespace, targets: list[ProxyClusterTarget]) -> d
         "seconds": args.seconds,
         "max_exchanges": args.max_exchanges,
         "backend": args.backend,
+        "tunnel_codec": args.tunnel_codec,
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_impairment": _tunnel_impairment_dict(args),
@@ -810,6 +837,7 @@ def run_target(
             max_exchanges=args.max_exchanges,
             connections=args.connections,
             backend=args.backend,
+            tunnel_codec=args.tunnel_codec,
             level=args.level,
             modeled_link_mbps=args.modeled_link_mbps,
             tunnel_bandwidth_mbps=args.tunnel_bandwidth_mbps,
@@ -919,6 +947,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"Run ID: `{report['run_id']}`",
         f"Fixture variation: `{report['fixture_variation_profile']}`",
         f"Backend: `{report['backend']}`",
+        f"Tunnel codec: `{report.get('tunnel_codec', 'aiwire')}`",
         f"Seconds: `{report['seconds']}`",
         f"Connections per target: `{report.get('connections', 1)}`",
         f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
@@ -1045,7 +1074,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         [
             "## Aggregate",
             "",
-            "| Targets | Connections | Exchanges | Group ex/s | Raw B/ex | AIWire B/ex | Saved | p95 max |",
+            "| Targets | Connections | Exchanges | Group ex/s | Raw B/ex | Tunnel B/ex | Saved | p95 max |",
             "|---:|---:|---:|---:|---:|---:|---:|---:|",
             (
                 f"| {aggregate['verified_targets']}/{aggregate['targets']} | "
@@ -1060,7 +1089,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
             "## Targets",
             "",
-            "| Target | Conn | Exchanges | Ex/s | Raw B/ex | AIWire B/ex | Saved | p95 | Verified |",
+            "| Target | Conn | Exchanges | Ex/s | Raw B/ex | Tunnel B/ex | Saved | p95 | Verified |",
             "|---|---:|---:|---:|---:|---:|---:|---:|---|",
         ]
     )
@@ -1123,6 +1152,7 @@ def run_connection_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]
     for connections in args.connections_sweep:
         run_args = copy.copy(args)
         run_args.connections_sweep = None
+        run_args.tunnel_codec_sweep = None
         run_args.connections = connections
         run_args.run_id = _sweep_run_id(sweep_run_id, connections)
         run_args.output_dir = _sweep_output_dir(args, sweep_run_id, connections)
@@ -1149,6 +1179,7 @@ def run_connection_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]
         "seconds": args.seconds,
         "max_exchanges": args.max_exchanges,
         "backend": args.backend,
+        "tunnel_codec": args.tunnel_codec,
         "level": args.level,
         "modeled_link_mbps": args.modeled_link_mbps,
         "tunnel_impairment": _tunnel_impairment_dict(args),
@@ -1176,6 +1207,7 @@ def _aggregate_connection_sweep(runs: list[dict[str, Any]]) -> list[dict[str, An
             rows.append(
                 {
                     "connections_per_target": item["connections_per_target"],
+                    "tunnel_codec": report.get("tunnel_codec", "aiwire"),
                     "total_sessions": target_count * item["connections_per_target"],
                     "status": "planned" if report.get("dry_run") else "not-run",
                     "run_id": report.get("run_id"),
@@ -1187,6 +1219,7 @@ def _aggregate_connection_sweep(runs: list[dict[str, Any]]) -> list[dict[str, An
         rows.append(
             {
                 "connections_per_target": item["connections_per_target"],
+                "tunnel_codec": report.get("tunnel_codec", "aiwire"),
                 "total_sessions": aggregate["connections"],
                 "verified_targets": aggregate["verified_targets"],
                 "targets": aggregate["targets"],
@@ -1215,6 +1248,7 @@ def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
         f"Run ID: `{report['run_id']}`",
         f"Fixture variation: `{report['fixture_variation_profile']}`",
         f"Backend: `{report['backend']}`",
+        f"Tunnel codec: `{report.get('tunnel_codec', 'aiwire')}`",
         f"Seconds: `{report['seconds']}`",
         f"Connections sweep: `{', '.join(str(item) for item in report['connections_sweep'])}`",
         f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
@@ -1226,7 +1260,7 @@ def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
     if rows and all("exchanges" in row for row in rows):
         lines.extend(
             [
-                "| Connections per target | Total sessions | Verified | Exchanges | Group ex/s | vs baseline | Raw B/ex | AIWire B/ex | Saved | Capacity gain | p95 max |",
+                "| Connections per target | Total sessions | Verified | Exchanges | Group ex/s | vs baseline | Raw B/ex | Tunnel B/ex | Saved | Capacity gain | p95 max |",
                 "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
             ]
         )
@@ -1254,6 +1288,176 @@ def render_connection_sweep_markdown(report: dict[str, Any]) -> str:
         for row in rows:
             lines.append(
                 f"| {row['connections_per_target']} | "
+                f"{row['total_sessions']} | "
+                f"`{row['run_id']}` | "
+                f"{row['status']} |"
+            )
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _codec_sweep_output_dir(args: argparse.Namespace, sweep_run_id: str, codec: str) -> str:
+    base_output_dir = Path(args.output_dir or f"/tmp/aura-proxy-codec-sweep-{sweep_run_id}")
+    return str(base_output_dir / codec)
+
+
+def _codec_sweep_run_id(sweep_run_id: str, codec: str) -> str:
+    return f"{sweep_run_id}-{codec}"
+
+
+def run_codec_sweep(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
+    sweep_run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    started_at = _utc_now()
+    runs: list[dict[str, Any]] = []
+    exit_code = 0
+
+    for codec in args.tunnel_codec_sweep:
+        run_args = copy.copy(args)
+        run_args.connections_sweep = None
+        run_args.tunnel_codec_sweep = None
+        run_args.tunnel_codec = codec
+        run_args.run_id = _codec_sweep_run_id(sweep_run_id, codec)
+        run_args.output_dir = _codec_sweep_output_dir(args, sweep_run_id, codec)
+        report, code = _build_single_report(run_args)
+        runs.append(
+            {
+                "tunnel_codec": codec,
+                "exit_code": code,
+                "report": report,
+            }
+        )
+        if code != 0:
+            exit_code = code
+            break
+
+    report = {
+        "schema": PROXY_CLUSTER_CODEC_SWEEP_SCHEMA,
+        "mode": "codec_sweep",
+        "dry_run": not args.run,
+        "run_id": sweep_run_id,
+        "created_at_utc": started_at,
+        "ended_at_utc": _utc_now(),
+        "coordinator_label": args.coordinator_label,
+        "seconds": args.seconds,
+        "max_exchanges": args.max_exchanges,
+        "backend": args.backend,
+        "level": args.level,
+        "modeled_link_mbps": args.modeled_link_mbps,
+        "tunnel_impairment": _tunnel_impairment_dict(args),
+        "fixture_corpus": args.fixture_corpus,
+        "fixture_variation_profile": args.fixture_variation_profile,
+        "connections": args.connections,
+        "tunnel_codec_sweep": args.tunnel_codec_sweep,
+        "target_parallelism": args.target_parallelism,
+        "output_dir": args.output_dir or f"/tmp/aura-proxy-codec-sweep-{sweep_run_id}",
+        "runs": runs,
+        "aggregate": _aggregate_codec_sweep(runs),
+    }
+    return report, exit_code
+
+
+def _aggregate_codec_sweep(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    raw_rate = 0.0
+    for item in runs:
+        if item["tunnel_codec"] != "raw":
+            continue
+        aggregate = item["report"].get("aggregate")
+        if aggregate:
+            raw_rate = float(aggregate["exchanges_per_second_group"])
+            break
+
+    for item in runs:
+        codec = item["tunnel_codec"]
+        report = item["report"]
+        aggregate = report.get("aggregate")
+        if not aggregate:
+            target_count = len(report.get("targets", []))
+            rows.append(
+                {
+                    "tunnel_codec": codec,
+                    "connections_per_target": report.get("connections", 1),
+                    "total_sessions": target_count * int(report.get("connections", 1)),
+                    "status": "planned" if report.get("dry_run") else "not-run",
+                    "run_id": report.get("run_id"),
+                    "exit_code": item["exit_code"],
+                }
+            )
+            continue
+        rate = float(aggregate["exchanges_per_second_group"])
+        rows.append(
+            {
+                "tunnel_codec": codec,
+                "connections_per_target": report.get("connections", 1),
+                "total_sessions": aggregate["connections"],
+                "verified_targets": aggregate["verified_targets"],
+                "targets": aggregate["targets"],
+                "exchanges": aggregate["exchanges"],
+                "exchanges_per_second_group": rate,
+                "relative_to_raw": rate / raw_rate if raw_rate else 0.0,
+                "raw_framed_bytes_per_exchange": aggregate["raw_framed_bytes_per_exchange"],
+                "tunnel_semantic_framed_bytes_per_exchange": aggregate[
+                    "tunnel_semantic_framed_bytes_per_exchange"
+                ],
+                "tunnel_saved_percent": aggregate["tunnel_saved_percent"],
+                "bandwidth_capacity_gain": aggregate["bandwidth_capacity_gain"],
+                "roundtrip_ms_p95_max": aggregate["roundtrip_ms_p95_max"],
+                "roundtrip_ms_p99_max": aggregate["roundtrip_ms_p99_max"],
+                "run_id": report.get("run_id"),
+                "status": "ok" if item["exit_code"] == 0 else "failed",
+                "exit_code": item["exit_code"],
+            }
+        )
+    return rows
+
+
+def render_codec_sweep_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# AIWire Proxy Codec Sweep",
+        "",
+        f"Run ID: `{report['run_id']}`",
+        f"Fixture variation: `{report['fixture_variation_profile']}`",
+        f"Backend: `{report['backend']}`",
+        f"Seconds: `{report['seconds']}`",
+        f"Connections per target: `{report['connections']}`",
+        f"Tunnel codecs: `{', '.join(report['tunnel_codec_sweep'])}`",
+        f"Tunnel impairment: `{report.get('tunnel_impairment', {})}`",
+        "",
+        "## Sweep",
+        "",
+    ]
+    rows = report.get("aggregate", [])
+    if rows and all("exchanges" in row for row in rows):
+        lines.extend(
+            [
+                "| Codec | Total sessions | Verified | Exchanges | Group ex/s | vs raw | Raw B/ex | Tunnel B/ex | Saved | Capacity gain | p95 max |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for row in rows:
+            lines.append(
+                f"| `{row['tunnel_codec']}` | "
+                f"{row['total_sessions']} | "
+                f"{row['verified_targets']}/{row['targets']} | "
+                f"{row['exchanges']:,} | "
+                f"{row['exchanges_per_second_group']:,.1f} | "
+                f"{row['relative_to_raw']:.2f}x | "
+                f"{row['raw_framed_bytes_per_exchange']:,.1f} | "
+                f"{row['tunnel_semantic_framed_bytes_per_exchange']:,.1f} | "
+                f"{row['tunnel_saved_percent']:.1f}% | "
+                f"{row['bandwidth_capacity_gain']:.2f}x | "
+                f"{row['roundtrip_ms_p95_max']:.2f} ms |"
+            )
+    else:
+        lines.extend(
+            [
+                "| Codec | Total sessions | Run ID | Status |",
+                "|---|---:|---|---|",
+            ]
+        )
+        for row in rows:
+            lines.append(
+                f"| `{row['tunnel_codec']}` | "
                 f"{row['total_sessions']} | "
                 f"`{row['run_id']}` | "
                 f"{row['status']} |"
@@ -1326,6 +1530,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=("comma-separated connection counts to run sequentially, for example " "1,2,4,8,16"),
     )
     parser.add_argument("--backend", choices=("python", "native", "auto"), default="native")
+    parser.add_argument(
+        "--tunnel-codec",
+        choices=TUNNEL_CODECS,
+        default="aiwire",
+        help="semantic payload codec used inside the sidecar tunnel",
+    )
+    parser.add_argument(
+        "--tunnel-codec-sweep",
+        type=parse_tunnel_codec_sweep,
+        help="comma-separated tunnel codecs to run sequentially, for example raw,zlib,aiwire",
+    )
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument("--modeled-link-mbps", type=float, default=10.0)
     parser.add_argument(
@@ -1376,6 +1591,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.connections <= 0:
         print("--connections must be positive", file=sys.stderr)
         return 2
+    if args.connections_sweep and args.tunnel_codec_sweep:
+        print("--connections-sweep and --tunnel-codec-sweep cannot be combined", file=sys.stderr)
+        return 2
     if args.tunnel_bandwidth_mbps < 0:
         print("--tunnel-bandwidth-mbps must be non-negative", file=sys.stderr)
         return 2
@@ -1391,7 +1609,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.tunnel_tail_pause_ms < 0:
         print("--tunnel-tail-pause-ms must be non-negative", file=sys.stderr)
         return 2
-    if args.connections_sweep:
+    if args.tunnel_codec_sweep:
+        report, exit_code = run_codec_sweep(args)
+        markdown = render_codec_sweep_markdown(report)
+    elif args.connections_sweep:
         report, exit_code = run_connection_sweep(args)
         markdown = render_connection_sweep_markdown(report)
     else:

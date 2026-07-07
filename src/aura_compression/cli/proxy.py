@@ -8,7 +8,9 @@ import json
 from aura_compression.ai_wire import AI_WIRE_DEFAULT_LEVEL
 from aura_compression.aiwire_proxy import (
     DEFAULT_MAX_FRAME_BYTES,
+    TUNNEL_CODECS,
     BackendName,
+    TunnelCodec,
     TunnelImpairmentConfig,
     run_egress_proxy,
     run_ingress_proxy,
@@ -23,6 +25,12 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
         choices=("python", "native", "auto"),
         default="auto",
         help="AIWire backend request for this sidecar.",
+    )
+    parser.add_argument(
+        "--tunnel-codec",
+        choices=TUNNEL_CODECS,
+        default="aiwire",
+        help="Semantic payload codec used inside the sidecar tunnel.",
     )
     parser.add_argument("--level", type=int, default=AI_WIRE_DEFAULT_LEVEL)
     parser.add_argument(
@@ -118,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     backend: BackendName = args.backend
+    tunnel_codec: TunnelCodec = args.tunnel_codec
     tunnel_impairment_config = TunnelImpairmentConfig(
         bandwidth_mbps=args.tunnel_bandwidth_mbps,
         one_way_delay_ms=args.tunnel_one_way_delay_ms,
@@ -136,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
                 egress_port=args.egress_port,
                 level=args.level,
                 backend=backend,
+                tunnel_codec=tunnel_codec,
                 max_frame_bytes=args.max_frame_bytes,
                 max_connections=_max_connections(args),
                 connect_timeout=args.connect_timeout,
@@ -151,6 +161,7 @@ def main(argv: list[str] | None = None) -> int:
                 upstream_port=args.upstream_port,
                 level=args.level,
                 backend=backend,
+                tunnel_codec=tunnel_codec,
                 max_frame_bytes=args.max_frame_bytes,
                 max_connections=_max_connections(args),
                 connect_timeout=args.connect_timeout,

@@ -100,6 +100,7 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     assert result["requested_connections"] == 2
     assert result["connections"] == 2
     assert result["exchanges"] == 6
+    assert result["tunnel_codec"] == "aiwire"
     assert result["actual_backend"] == "python"
     assert result["fixture_corpus_source"] == "file"
     assert result["raw_framed_bytes"] > result["tunnel_semantic_framed_bytes"]
@@ -114,6 +115,29 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     records = loads_replay_log(replay_log.read_text())
     assert [record["record_type"] for record in records] == ["header", "result"]
     assert records[1]["payload"]["row"]["exchanges"] == 6
+    assert records[1]["payload"]["row"]["codec"] == "aiwire"
+
+
+def test_proxy_benchmark_supports_raw_and_zlib_tunnel_codecs() -> None:
+    for codec in ("raw", "zlib"):
+        result = run_proxy_benchmark(
+            seconds=0,
+            max_exchanges=4,
+            connections=2,
+            backend="python",
+            tunnel_codec=codec,
+        )
+
+        assert result["verified"] is True
+        assert result["tunnel_codec"] == codec
+        assert result["actual_backend"] == codec
+        assert result["exchanges"] == 4
+        assert result["ingress_metrics"]["negotiation_codec"] == codec
+        assert result["egress_metrics"]["negotiation_codec"] == codec
+        assert result["ingress_metrics"]["tunnel_codec"] == codec
+        assert result["egress_metrics"]["tunnel_codec"] == codec
+        assert result["raw_framed_bytes"] > 0
+        assert result["tunnel_semantic_framed_bytes"] > 0
 
 
 def test_proxy_benchmark_records_tunnel_impairment() -> None:

@@ -16,7 +16,7 @@ def test_proxy_cluster_target_parser_supports_public_labels() -> None:
     target = proxy_cluster.parse_target(
         (
             "edge-1=edge-host.local,proxy_host=10.0.0.10,egress_port=9510,"
-            "upstream_port=9610,remote_root=/srv/aura"
+            "upstream_port=9610,remote_root=/srv/aura,ssh_public_key=/keys/edge-1.pub"
         ),
         index=2,
         default_egress_port=9200,
@@ -29,6 +29,7 @@ def test_proxy_cluster_target_parser_supports_public_labels() -> None:
     assert target.egress_port == 9510
     assert target.upstream_port == 9610
     assert target.remote_root == "/srv/aura"
+    assert target.ssh_public_key == "/keys/edge-1.pub"
 
 
 def test_proxy_cluster_dry_run_outputs_plan_and_summary(tmp_path: Path, capsys) -> None:
@@ -153,6 +154,58 @@ def test_proxy_cluster_ssh_bootstrap_outputs_dry_run_commands(
     assert "ssh -o BatchMode=yes -o ConnectTimeout=5 -p 2222" in target["post_check_command"]
     assert "## SSH Bootstrap" in summary_text
     assert "Target console path" in summary_text
+
+
+def test_proxy_cluster_ssh_bootstrap_supports_per_target_public_keys(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    default_key = tmp_path / "id_default.pub"
+    first_key = tmp_path / "id_first.pub"
+    second_key = tmp_path / "id_second.pub"
+    default_key.write_text("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAADefault aura-default\n")
+    first_key.write_text("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFirstKey aura-first\n")
+    second_key.write_text("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecondKey aura-second\n")
+    output = tmp_path / "bootstrap.json"
+    summary = tmp_path / "bootstrap.md"
+
+    assert (
+        proxy_cluster.main(
+            [
+                "--target",
+                f"edge-1=agent@192.0.2.10,ssh_public_key={first_key}",
+                "--target",
+                f"edge-2=agent@192.0.2.11,ssh_public_key={second_key}",
+                "--ssh-bootstrap",
+                "--ssh-public-key",
+                str(default_key),
+                "--output",
+                str(output),
+                "--summary-output",
+                str(summary),
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    targets = rendered["ssh_bootstrap"]["targets"]
+    summary_text = summary.read_text()
+
+    assert rendered == json.loads(output.read_text())
+    assert rendered["ssh_bootstrap"]["public_key_path"] == str(default_key)
+    assert targets[0]["public_key_path"] == str(first_key)
+    assert targets[1]["public_key_path"] == str(second_key)
+    assert targets[0]["ssh_copy_id_command"] == proxy_cluster._shell_command(
+        ["ssh-copy-id", "-i", str(first_key), "agent@192.0.2.10"]
+    )
+    assert targets[1]["ssh_copy_id_command"] == proxy_cluster._shell_command(
+        ["ssh-copy-id", "-i", str(second_key), "agent@192.0.2.11"]
+    )
+    assert "aura-first" in targets[0]["console_authorized_keys_command"]
+    assert "aura-second" in targets[1]["console_authorized_keys_command"]
+    assert f"Public key path: `{first_key}`" in summary_text
+    assert f"Public key path: `{second_key}`" in summary_text
 
 
 def test_proxy_cluster_preflight_reports_ssh_auth_failure(monkeypatch, tmp_path: Path) -> None:

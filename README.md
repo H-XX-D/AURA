@@ -555,7 +555,9 @@ console, and post-check commands; it does not modify hosts.
 Target lines can include `proxy_host`, `egress_port`, `upstream_port`, and
 `remote_root` overrides. The global `--remote-root` still defaults to `~/AURA`;
 use per-target `remote_root=/home/<user>/AURA` when different edge machines use
-different SSH users or checkout paths.
+different SSH users or checkout paths. For bootstrap reports, target lines can
+also include `ssh_public_key=/path/to/key.pub` so labs with dedicated per-target
+keys do not accidentally emit the same authorized-key command for every edge.
 
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native

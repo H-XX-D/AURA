@@ -51,6 +51,7 @@ class ProxyClusterTarget:
     upstream_port: int
     ssh_port: int | None = None
     remote_root: str | None = None
+    ssh_public_key: str | None = None
 
 
 def _utc_now() -> str:
@@ -89,7 +90,7 @@ def parse_target(
     default_egress_port: int = 9200,
     default_upstream_port: int = 9300,
 ) -> ProxyClusterTarget:
-    """Parse label=ssh-host[,proxy_host=host,egress_port=N,upstream_port=N,remote_root=PATH]."""
+    """Parse label=ssh-host[,proxy_host=host,egress_port=N,remote_root=PATH,ssh_public_key=PATH]."""
 
     fields = [field.strip() for field in spec.split(",") if field.strip()]
     if not fields:
@@ -126,6 +127,7 @@ def parse_target(
         upstream_port=upstream_port,
         ssh_port=ssh_port,
         remote_root=options.get("remote_root"),
+        ssh_public_key=options.get("ssh_public_key") or options.get("public_key"),
     )
 
 
@@ -604,32 +606,49 @@ def _authorized_keys_console_command(public_key: str) -> str:
     )
 
 
-def build_ssh_bootstrap(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
-    public_key_path, public_key = _read_public_key(args.ssh_public_key)
-    public_key_sha256 = hashlib.sha256(public_key.encode("utf-8")).hexdigest()
+def _public_key_sha256(public_key: str) -> str:
+    return hashlib.sha256(public_key.encode("utf-8")).hexdigest()
+
+
+def _default_public_key_summary(path: str | Path) -> tuple[Path, str | None]:
+    public_key_path = Path(path).expanduser()
+    try:
+        _, public_key = _read_public_key(public_key_path)
+    except FileNotFoundError:
+        return public_key_path, None
+    return public_key_path, _public_key_sha256(public_key)
+
+
+def _bootstrap_target(item: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    target = ProxyClusterTarget(**item["target"])
+    public_key_path, public_key = _read_public_key(target.ssh_public_key or args.ssh_public_key)
+    public_key_sha256 = _public_key_sha256(public_key)
     return {
-        "schema": "aura.aiwire.proxy_cluster_ssh_bootstrap.v1",
+        "target": item["target"],
         "public_key_path": str(public_key_path),
         "public_key_sha256": public_key_sha256,
+        "ssh_copy_id_command": _ssh_copy_id_command(target, public_key_path),
+        "console_authorized_keys_command": _authorized_keys_console_command(public_key),
+        "post_check_command": _shell_command(
+            [
+                *_ssh_command_prefix(target, args),
+                "printf AURA_PROXY_PREFLIGHT_OK",
+            ]
+        ),
+    }
+
+
+def build_ssh_bootstrap(plan: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    default_public_key_path, default_public_key_sha256 = _default_public_key_summary(
+        args.ssh_public_key
+    )
+    return {
+        "schema": "aura.aiwire.proxy_cluster_ssh_bootstrap.v1",
+        "public_key_path": str(default_public_key_path),
+        "public_key_sha256": default_public_key_sha256,
         "created_at_utc": _utc_now(),
         "dry_run": True,
-        "targets": [
-            {
-                "target": item["target"],
-                "ssh_copy_id_command": _ssh_copy_id_command(
-                    ProxyClusterTarget(**item["target"]),
-                    public_key_path,
-                ),
-                "console_authorized_keys_command": _authorized_keys_console_command(public_key),
-                "post_check_command": _shell_command(
-                    [
-                        *_ssh_command_prefix(ProxyClusterTarget(**item["target"]), args),
-                        "printf AURA_PROXY_PREFLIGHT_OK",
-                    ]
-                ),
-            }
-            for item in plan["targets"]
-        ],
+        "targets": [_bootstrap_target(item, args) for item in plan["targets"]],
     }
 
 
@@ -805,8 +824,12 @@ def render_markdown(report: dict[str, Any]) -> str:
                 [
                     "## SSH Bootstrap",
                     "",
-                    f"Public key path: `{ssh_bootstrap['public_key_path']}`",
-                    f"Public key SHA256: `{ssh_bootstrap['public_key_sha256']}`",
+                    f"Default public key path: `{ssh_bootstrap['public_key_path']}`",
+                    (
+                        f"Default public key SHA256: `{ssh_bootstrap['public_key_sha256']}`"
+                        if ssh_bootstrap.get("public_key_sha256")
+                        else "Default public key SHA256: `<not found; target overrides required>`"
+                    ),
                     "",
                     (
                         "Use `ssh-copy-id` when password SSH is available. "
@@ -821,6 +844,9 @@ def render_markdown(report: dict[str, Any]) -> str:
                 lines.extend(
                     [
                         f"### {target['label']}",
+                        "",
+                        f"Public key path: `{item['public_key_path']}`",
+                        f"Public key SHA256: `{item['public_key_sha256']}`",
                         "",
                         "Password SSH path:",
                         "",
@@ -934,7 +960,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="append",
         help=(
             "target as label=ssh-host[,proxy_host=host,egress_port=N,"
-            "upstream_port=N,remote_root=PATH]; "
+            "upstream_port=N,remote_root=PATH,ssh_public_key=PATH]; "
             "repeat for each edge"
         ),
     )

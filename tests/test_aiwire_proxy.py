@@ -10,9 +10,13 @@ from typing import Any, TypeVar
 
 import pytest
 
+from aura_compression import aiwire_proxy as proxy_module
+from aura_compression.ai_wire import build_aiwire_compatibility_manifest, build_aiwire_handshake
 from aura_compression.aiwire_proxy import (
     AIWIRE_PROXY_CONTROL_LANE,
+    AIWIRE_PROXY_SCHEMA,
     AIWIRE_PROXY_SEMANTIC_LANE,
+    AIWireProxyHandshakeError,
     AIWireProxyMetrics,
     AIWireProxyProtocolError,
     decode_tunnel_frame,
@@ -150,6 +154,46 @@ def test_length_prefixed_reader_rejects_oversized_frame() -> None:
             read_length_prefixed(right, max_frame_bytes=3)
 
 
+def test_proxy_aiwire_handshake_rejects_tampered_compatibility_manifest() -> None:
+    left, right = socket.socketpair()
+    with left, right:
+        manifest = build_aiwire_compatibility_manifest(fallback_codecs=()).to_dict()
+        manifest["static_dictionary_sha256"] = "0" * 64
+        hello = {
+            "schema": AIWIRE_PROXY_SCHEMA,
+            "role": "ingress",
+            "codec": "aiwire",
+            "requested_backend": "python",
+            "aiwire_compatibility_manifest": manifest,
+            "aiwire_compatibility_manifest_sha256": proxy_module.aiwire_compatibility_manifest_sha256(
+                manifest
+            ),
+            "aiwire_handshake": build_aiwire_handshake(
+                level=3,
+                use_native=False,
+                fallback_codecs=(),
+            ).to_dict(),
+        }
+        proxy_module._write_control_frame(left, hello)  # type: ignore[attr-defined]
+
+        with pytest.raises(AIWireProxyHandshakeError, match="dictionary_sha256_mismatch"):
+            proxy_module._accept_proxy_handshake(  # type: ignore[attr-defined]
+                right,
+                level=3,
+                backend="python",
+                tunnel_codec="aiwire",
+                max_frame_bytes=1024 * 1024,
+            )
+
+        ack = proxy_module._read_control_frame(  # type: ignore[attr-defined]
+            left,
+            max_frame_bytes=1024 * 1024,
+        )
+        assert ack["accepted"] is False
+        assert ack["reason"] == "dictionary_sha256_mismatch"
+        assert "aiwire_compatibility_manifest" in ack
+
+
 def test_aiwire_proxy_round_trips_raw_agent_frames(tmp_path: Path) -> None:
     messages = _sample_messages(8)
     upstream_listener, upstream_port = _bound_listener()
@@ -213,6 +257,11 @@ def test_aiwire_proxy_round_trips_raw_agent_frames(tmp_path: Path) -> None:
         assert metrics.exchanges == len(messages)
         assert metrics.handshakes_accepted == 1
         assert metrics.negotiation_codec == "aiwire"
+        assert metrics.compatibility_codec == "aiwire"
+        assert metrics.compatibility_delta_version == 1
+        assert metrics.compatibility_reason is None
+        assert len(metrics.compatibility_local_manifest_sha256) == 64
+        assert len(metrics.compatibility_peer_manifest_sha256) == 64
         assert metrics.raw_framed_bytes > 0
         assert metrics.tunnel_semantic_framed_bytes > 0
         assert metrics.encoder_backend == "python"
@@ -222,6 +271,7 @@ def test_aiwire_proxy_round_trips_raw_agent_frames(tmp_path: Path) -> None:
     rendered_metrics = json.loads(ingress_metrics_path.read_text())
     assert rendered_metrics["mode"] == "ingress"
     assert rendered_metrics["exchanges"] == len(messages)
+    assert rendered_metrics["compatibility_codec"] == "aiwire"
     assert json.loads(egress_metrics_path.read_text())["mode"] == "egress"
 
     replay_records = loads_replay_log(ingress_replay_path.read_text())

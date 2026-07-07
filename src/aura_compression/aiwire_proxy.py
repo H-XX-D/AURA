@@ -22,10 +22,16 @@ from typing import Any, Literal, Mapping
 
 from .ai_wire import (
     AI_WIRE_DEFAULT_LEVEL,
+    AIWireCompatibilityCheck,
+    AIWireCompatibilityManifest,
+    AIWireHandshakeError,
     AIWireSessionDecoder,
     AIWireSessionEncoder,
+    aiwire_compatibility_manifest_sha256,
+    build_aiwire_compatibility_manifest,
     build_aiwire_handshake,
     negotiate_aiwire_handshake,
+    verify_aiwire_compatibility_manifest,
 )
 from .aiwire_replay_log import dumps_replay_log
 
@@ -392,6 +398,11 @@ class AIWireProxyMetrics:
     negotiation_codec: str = ""
     negotiation_version: int | None = None
     negotiation_reason: str | None = None
+    compatibility_codec: str = ""
+    compatibility_delta_version: int | None = None
+    compatibility_reason: str | None = None
+    compatibility_local_manifest_sha256: str = ""
+    compatibility_peer_manifest_sha256: str = ""
     tunnel_impairment: dict[str, float | int] = field(default_factory=dict)
     tunnel_impairment_wait_ns: int = 0
     stage_time_ns: dict[str, int] = field(default_factory=dict)
@@ -502,6 +513,11 @@ class AIWireProxyMetrics:
             "negotiation_codec": self.negotiation_codec,
             "negotiation_version": self.negotiation_version,
             "negotiation_reason": self.negotiation_reason,
+            "compatibility_codec": self.compatibility_codec,
+            "compatibility_delta_version": self.compatibility_delta_version,
+            "compatibility_reason": self.compatibility_reason,
+            "compatibility_local_manifest_sha256": self.compatibility_local_manifest_sha256,
+            "compatibility_peer_manifest_sha256": self.compatibility_peer_manifest_sha256,
             "tunnel_impairment": self.tunnel_impairment,
             "tunnel_impairment_wait_ns": self.tunnel_impairment_wait_ns,
             "tunnel_impairment_wait_seconds": self.tunnel_impairment_wait_seconds,
@@ -580,8 +596,65 @@ def _merge_connection_metrics(
         metrics.negotiation_version = connection_metrics.negotiation_version
     if connection_metrics.negotiation_reason is not None:
         metrics.negotiation_reason = connection_metrics.negotiation_reason
+    if connection_metrics.compatibility_codec:
+        metrics.compatibility_codec = connection_metrics.compatibility_codec
+    if connection_metrics.compatibility_delta_version is not None:
+        metrics.compatibility_delta_version = connection_metrics.compatibility_delta_version
+    if connection_metrics.compatibility_reason is not None:
+        metrics.compatibility_reason = connection_metrics.compatibility_reason
+    if connection_metrics.compatibility_local_manifest_sha256:
+        metrics.compatibility_local_manifest_sha256 = (
+            connection_metrics.compatibility_local_manifest_sha256
+        )
+    if connection_metrics.compatibility_peer_manifest_sha256:
+        metrics.compatibility_peer_manifest_sha256 = (
+            connection_metrics.compatibility_peer_manifest_sha256
+        )
     if connection_metrics.last_error:
         metrics.last_error = connection_metrics.last_error
+
+
+def _proxy_aiwire_compatibility_manifest() -> AIWireCompatibilityManifest:
+    return build_aiwire_compatibility_manifest(fallback_codecs=())
+
+
+def _add_proxy_compatibility_payload(
+    payload: dict[str, Any],
+    manifest: AIWireCompatibilityManifest,
+) -> None:
+    payload["aiwire_compatibility_manifest"] = manifest.to_dict()
+    payload["aiwire_compatibility_manifest_sha256"] = aiwire_compatibility_manifest_sha256(manifest)
+
+
+def _proxy_compatibility_manifest_from_payload(
+    payload: Mapping[str, Any],
+) -> AIWireCompatibilityManifest:
+    value = payload.get("aiwire_compatibility_manifest")
+    if not isinstance(value, Mapping):
+        raise AIWireProxyHandshakeError("proxy hello is missing AIWire compatibility manifest")
+    try:
+        manifest = AIWireCompatibilityManifest.from_dict(value)
+    except AIWireHandshakeError as exc:
+        raise AIWireProxyHandshakeError(str(exc)) from exc
+
+    actual_hash = aiwire_compatibility_manifest_sha256(manifest)
+    advertised_hash = payload.get("aiwire_compatibility_manifest_sha256")
+    if advertised_hash is not None and str(advertised_hash) != actual_hash:
+        raise AIWireProxyHandshakeError("AIWire compatibility manifest hash mismatch")
+    return manifest
+
+
+def _record_proxy_compatibility(
+    metrics: AIWireProxyMetrics,
+    check: AIWireCompatibilityCheck | None,
+) -> None:
+    if check is None:
+        return
+    metrics.compatibility_codec = check.codec
+    metrics.compatibility_delta_version = check.selected_delta_version
+    metrics.compatibility_reason = check.reason
+    metrics.compatibility_local_manifest_sha256 = check.local_manifest_sha256
+    metrics.compatibility_peer_manifest_sha256 = check.peer_manifest_sha256
 
 
 def _proxy_client_hello(
@@ -589,6 +662,7 @@ def _proxy_client_hello(
     level: int,
     backend: BackendName,
     tunnel_codec: TunnelCodec,
+    compatibility_manifest: AIWireCompatibilityManifest | None = None,
 ) -> dict[str, Any]:
     hello: dict[str, Any] = {
         "schema": AIWIRE_PROXY_SCHEMA,
@@ -597,6 +671,8 @@ def _proxy_client_hello(
         "requested_backend": backend,
     }
     if tunnel_codec == "aiwire":
+        manifest = compatibility_manifest or _proxy_aiwire_compatibility_manifest()
+        _add_proxy_compatibility_payload(hello, manifest)
         handshake = build_aiwire_handshake(
             level=level,
             use_native=_backend_flag(backend),
@@ -612,11 +688,17 @@ def _write_proxy_client_hello(
     level: int,
     backend: BackendName,
     tunnel_codec: TunnelCodec,
+    compatibility_manifest: AIWireCompatibilityManifest | None = None,
     impairment: TunnelImpairment | None = None,
 ) -> int:
     return _write_control_frame(
         sock,
-        _proxy_client_hello(level=level, backend=backend, tunnel_codec=tunnel_codec),
+        _proxy_client_hello(
+            level=level,
+            backend=backend,
+            tunnel_codec=tunnel_codec,
+            compatibility_manifest=compatibility_manifest,
+        ),
         impairment=impairment,
     )
 
@@ -626,7 +708,8 @@ def _read_proxy_server_ack(
     *,
     max_frame_bytes: int,
     tunnel_codec: TunnelCodec,
-) -> tuple[dict[str, Any], int]:
+    compatibility_manifest: AIWireCompatibilityManifest | None = None,
+) -> tuple[dict[str, Any], int, AIWireCompatibilityCheck | None]:
     ack, framed_bytes = _read_control_frame_with_size(sock, max_frame_bytes=max_frame_bytes)
     if ack.get("role") != "egress":
         raise AIWireProxyHandshakeError("proxy handshake ack came from unexpected role")
@@ -637,7 +720,63 @@ def _read_proxy_server_ack(
         raise AIWireProxyHandshakeError(
             f"proxy codec mismatch: expected {tunnel_codec}, got {ack.get('codec')!r}"
         )
-    return ack, framed_bytes
+    compatibility_check = None
+    if tunnel_codec == "aiwire":
+        if compatibility_manifest is None:
+            raise AIWireProxyHandshakeError("local AIWire compatibility manifest is missing")
+        peer_manifest = _proxy_compatibility_manifest_from_payload(ack)
+        try:
+            compatibility_check = verify_aiwire_compatibility_manifest(
+                peer_manifest,
+                local_manifest=compatibility_manifest,
+                allow_fallback=False,
+            )
+        except AIWireHandshakeError as exc:
+            raise AIWireProxyHandshakeError(str(exc)) from exc
+        if not compatibility_check.accepted or compatibility_check.codec != "aiwire":
+            reason = compatibility_check.reason or "AIWire compatibility rejected"
+            raise AIWireProxyHandshakeError(f"AIWire proxy compatibility rejected: {reason}")
+
+        peer_check = ack.get("aiwire_compatibility_check")
+        if isinstance(peer_check, Mapping):
+            if str(peer_check.get("local_manifest_sha256", "")) != (
+                compatibility_check.peer_manifest_sha256
+            ):
+                raise AIWireProxyHandshakeError("AIWire peer compatibility hash mismatch")
+            if str(peer_check.get("peer_manifest_sha256", "")) != (
+                compatibility_check.local_manifest_sha256
+            ):
+                raise AIWireProxyHandshakeError("AIWire local compatibility hash mismatch")
+    return ack, framed_bytes, compatibility_check
+
+
+def _proxy_server_ack(
+    *,
+    accepted: bool,
+    codec: str,
+    version: int | None,
+    reason: str | None,
+    backend: BackendName,
+    negotiation: Mapping[str, Any] | None = None,
+    compatibility_manifest: AIWireCompatibilityManifest | None = None,
+    compatibility_check: AIWireCompatibilityCheck | None = None,
+) -> dict[str, Any]:
+    ack: dict[str, Any] = {
+        "schema": AIWIRE_PROXY_SCHEMA,
+        "role": "egress",
+        "accepted": accepted,
+        "codec": codec,
+        "version": version,
+        "reason": reason,
+        "requested_backend": backend,
+    }
+    if negotiation is not None:
+        ack["negotiation"] = dict(negotiation)
+    if compatibility_manifest is not None:
+        _add_proxy_compatibility_payload(ack, compatibility_manifest)
+    if compatibility_check is not None:
+        ack["aiwire_compatibility_check"] = compatibility_check.to_dict()
+    return ack
 
 
 def _accept_proxy_handshake(
@@ -648,7 +787,7 @@ def _accept_proxy_handshake(
     tunnel_codec: TunnelCodec,
     max_frame_bytes: int,
     impairment: TunnelImpairment | None = None,
-) -> tuple[int, dict[str, Any]]:
+) -> tuple[int, dict[str, Any], AIWireCompatibilityCheck | None]:
     control_bytes = 0
     hello, hello_bytes = _read_control_frame_with_size(sock, max_frame_bytes=max_frame_bytes)
     control_bytes += hello_bytes
@@ -658,39 +797,91 @@ def _accept_proxy_handshake(
         reason = f"codec mismatch: expected {tunnel_codec}, got {hello.get('codec')!r}"
         control_bytes += _write_control_frame(
             sock,
-            {
-                "schema": AIWIRE_PROXY_SCHEMA,
-                "role": "egress",
-                "accepted": False,
-                "codec": tunnel_codec,
-                "version": 1,
-                "reason": reason,
-                "requested_backend": backend,
-            },
+            _proxy_server_ack(
+                accepted=False,
+                codec=tunnel_codec,
+                version=1,
+                reason=reason,
+                backend=backend,
+            ),
             impairment=impairment,
         )
         raise AIWireProxyHandshakeError(reason)
     if tunnel_codec != "aiwire":
-        ack = {
-            "schema": AIWIRE_PROXY_SCHEMA,
-            "role": "egress",
-            "accepted": True,
-            "codec": tunnel_codec,
-            "version": 1,
-            "reason": None,
-            "requested_backend": backend,
-            "negotiation": {
+        ack = _proxy_server_ack(
+            accepted=True,
+            codec=tunnel_codec,
+            version=1,
+            reason=None,
+            backend=backend,
+            negotiation={
                 "accepted": True,
                 "codec": tunnel_codec,
                 "version": 1,
                 "reason": None,
             },
-        }
+        )
         control_bytes += _write_control_frame(sock, ack, impairment=impairment)
-        return control_bytes, ack
+        return control_bytes, ack, None
+
+    local_manifest = _proxy_aiwire_compatibility_manifest()
+    try:
+        peer_manifest = _proxy_compatibility_manifest_from_payload(hello)
+        compatibility_check = verify_aiwire_compatibility_manifest(
+            peer_manifest,
+            local_manifest=local_manifest,
+            allow_fallback=False,
+        )
+    except (AIWireHandshakeError, AIWireProxyHandshakeError) as exc:
+        reason = str(exc)
+        control_bytes += _write_control_frame(
+            sock,
+            _proxy_server_ack(
+                accepted=False,
+                codec="aiwire",
+                version=None,
+                reason=reason,
+                backend=backend,
+                compatibility_manifest=local_manifest,
+            ),
+            impairment=impairment,
+        )
+        raise AIWireProxyHandshakeError(reason) from exc
+
+    if not compatibility_check.accepted or compatibility_check.codec != "aiwire":
+        reason = compatibility_check.reason or "AIWire compatibility rejected"
+        control_bytes += _write_control_frame(
+            sock,
+            _proxy_server_ack(
+                accepted=False,
+                codec="aiwire",
+                version=None,
+                reason=reason,
+                backend=backend,
+                compatibility_manifest=local_manifest,
+                compatibility_check=compatibility_check,
+            ),
+            impairment=impairment,
+        )
+        raise AIWireProxyHandshakeError(f"AIWire proxy compatibility rejected: {reason}")
+
     peer_handshake = hello.get("aiwire_handshake")
     if not isinstance(peer_handshake, Mapping):
-        raise AIWireProxyHandshakeError("proxy hello is missing AIWire handshake")
+        reason = "proxy hello is missing AIWire handshake"
+        control_bytes += _write_control_frame(
+            sock,
+            _proxy_server_ack(
+                accepted=False,
+                codec="aiwire",
+                version=None,
+                reason=reason,
+                backend=backend,
+                compatibility_manifest=local_manifest,
+                compatibility_check=compatibility_check,
+            ),
+            impairment=impairment,
+        )
+        raise AIWireProxyHandshakeError(reason)
 
     negotiation = negotiate_aiwire_handshake(
         dict(peer_handshake),
@@ -699,21 +890,21 @@ def _accept_proxy_handshake(
         fallback_codecs=(),
         allow_fallback=False,
     )
-    ack = {
-        "schema": AIWIRE_PROXY_SCHEMA,
-        "role": "egress",
-        "accepted": negotiation.accepted,
-        "codec": negotiation.codec,
-        "version": negotiation.version,
-        "reason": negotiation.reason,
-        "requested_backend": backend,
-        "negotiation": negotiation.to_dict(),
-    }
+    ack = _proxy_server_ack(
+        accepted=negotiation.accepted,
+        codec=negotiation.codec,
+        version=negotiation.version,
+        reason=negotiation.reason,
+        backend=backend,
+        negotiation=negotiation.to_dict(),
+        compatibility_manifest=local_manifest,
+        compatibility_check=compatibility_check,
+    )
     control_bytes += _write_control_frame(sock, ack, impairment=impairment)
     if not negotiation.accepted:
         reason = negotiation.reason or "rejected"
         raise AIWireProxyHandshakeError(f"AIWire proxy handshake rejected: {reason}")
-    return control_bytes, ack
+    return control_bytes, ack, compatibility_check
 
 
 def _encode_semantic_payload(
@@ -782,24 +973,30 @@ def _handle_ingress_connection(
 
     with tunnel_socket as tunnel:
         _set_socket_options(tunnel)
+        compatibility_manifest = (
+            _proxy_aiwire_compatibility_manifest() if tunnel_codec == "aiwire" else None
+        )
         started_ns = time.perf_counter_ns()
         metrics.tunnel_control_framed_bytes += _write_proxy_client_hello(
             tunnel,
             level=level,
             backend=backend,
             tunnel_codec=tunnel_codec,
+            compatibility_manifest=compatibility_manifest,
             impairment=tunnel_impairment,
         )
         metrics.record_stage("handshake_write_hello", time.perf_counter_ns() - started_ns)
         started_ns = time.perf_counter_ns()
-        ack, ack_bytes = _read_proxy_server_ack(
+        ack, ack_bytes, compatibility_check = _read_proxy_server_ack(
             tunnel,
             max_frame_bytes=max_frame_bytes,
             tunnel_codec=tunnel_codec,
+            compatibility_manifest=compatibility_manifest,
         )
         metrics.record_stage("handshake_read_ack", time.perf_counter_ns() - started_ns)
         metrics.tunnel_control_framed_bytes += ack_bytes
         metrics.handshakes_accepted += 1
+        _record_proxy_compatibility(metrics, compatibility_check)
         metrics.negotiation_codec = str(ack.get("codec") or "")
         version = ack.get("version")
         metrics.negotiation_version = int(version) if version is not None else None
@@ -880,7 +1077,7 @@ def _handle_egress_connection(
 ) -> None:
     _set_socket_options(tunnel)
     started_ns = time.perf_counter_ns()
-    control_bytes, ack = _accept_proxy_handshake(
+    control_bytes, ack, compatibility_check = _accept_proxy_handshake(
         tunnel,
         level=level,
         backend=backend,
@@ -891,6 +1088,7 @@ def _handle_egress_connection(
     metrics.record_stage("handshake_accept", time.perf_counter_ns() - started_ns)
     metrics.tunnel_control_framed_bytes += control_bytes
     metrics.handshakes_accepted += 1
+    _record_proxy_compatibility(metrics, compatibility_check)
     metrics.negotiation_codec = str(ack.get("codec") or "")
     version = ack.get("version")
     metrics.negotiation_version = int(version) if version is not None else None

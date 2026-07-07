@@ -20,9 +20,11 @@ try:
         decode_demo_control_frame,
         demo_messages,
         encode_route_status_control,
+        encode_transport_compatibility_control,
         print_result,
         raw_size,
         route_status_payload,
+        verify_transport_compatibility_control,
     )
 except ImportError:  # pragma: no cover - direct script execution.
     from aiwire_transport_common import (
@@ -33,9 +35,11 @@ except ImportError:  # pragma: no cover - direct script execution.
         decode_demo_control_frame,
         demo_messages,
         encode_route_status_control,
+        encode_transport_compatibility_control,
         print_result,
         raw_size,
         route_status_payload,
+        verify_transport_compatibility_control,
     )
 
 from aura_compression import AIWireSessionDecoder, AIWireSessionEncoder
@@ -53,11 +57,31 @@ async def run_async_demo(count: int = 8, seed: int = 4404) -> TransportDemoResul
     received: list[dict[str, Any]] = []
     server_control_received = 0
     server_control_sent = 0
+    server_compatibility_checks = 0
 
     async def handler(websocket: Any) -> None:
-        nonlocal server_control_received, server_control_sent
+        nonlocal server_control_received, server_control_sent, server_compatibility_checks
         decoder = AIWireSessionDecoder()
         encoder = AIWireSessionEncoder(level=3)
+        raw_compatibility = await websocket.recv()
+        if isinstance(raw_compatibility, str):
+            raw_compatibility = raw_compatibility.encode("latin1")
+        compatibility_frame = TransportCarrierFrame.from_bytes(raw_compatibility)
+        if compatibility_frame.lane != CONTROL_LANE:
+            raise ValueError("expected compatibility control before data frames")
+        verify_transport_compatibility_control(
+            compatibility_frame.payload,
+            expected_role="client",
+        )
+        server_compatibility_checks += 1
+        server_control_received += 1
+        await websocket.send(
+            TransportCarrierFrame(
+                CONTROL_LANE,
+                encode_transport_compatibility_control("server"),
+            ).to_bytes()
+        )
+        server_control_sent += 1
         for index in range(count):
             raw_control = await websocket.recv()
             if isinstance(raw_control, str):
@@ -107,18 +131,44 @@ async def run_async_demo(count: int = 8, seed: int = 4404) -> TransportDemoResul
 
     server = await websockets.serve(handler, "127.0.0.1", 0)
     try:
-        port = server.sockets[0].getsockname()[1]
+        sockets = list(server.sockets or ())
+        if not sockets:
+            raise RuntimeError("WebSocket demo server did not expose a bound socket")
+        port = int(sockets[0].getsockname()[1])
         encoder = AIWireSessionEncoder(level=3)
         decoder = AIWireSessionDecoder()
         replies = 0
         wire_bytes = 0
         control_sent = 0
         control_received = 0
+        compatibility_checks = 0
         async with websockets.connect(f"ws://127.0.0.1:{port}") as websocket:
-            for message in messages:
+            compatibility_frame = TransportCarrierFrame(
+                CONTROL_LANE,
+                encode_transport_compatibility_control("client"),
+            ).to_bytes()
+            wire_bytes += len(compatibility_frame)
+            await websocket.send(compatibility_frame)
+            control_sent += 1
+
+            reply_compatibility = await websocket.recv()
+            if isinstance(reply_compatibility, str):
+                reply_compatibility = reply_compatibility.encode("latin1")
+            reply_compatibility_frame = TransportCarrierFrame.from_bytes(reply_compatibility)
+            if reply_compatibility_frame.lane != CONTROL_LANE:
+                raise ValueError("expected compatibility control reply")
+            verify_transport_compatibility_control(
+                reply_compatibility_frame.payload,
+                expected_role="server",
+            )
+            wire_bytes += len(reply_compatibility)
+            control_received += 1
+            compatibility_checks += 1
+
+            for index, message in enumerate(messages):
                 control_payload = route_status_payload(
                     transport="websocket",
-                    sequence=control_sent,
+                    sequence=index,
                     direction="client_to_server",
                     status="ready",
                     trace_id=message.get("trace_id"),
@@ -168,6 +218,8 @@ async def run_async_demo(count: int = 8, seed: int = 4404) -> TransportDemoResul
         control_frames_received=control_received + server_control_received,
         raw_bytes=raw_size(messages),
         wire_bytes=wire_bytes,
+        compatibility_checks=compatibility_checks + server_compatibility_checks,
+        compatibility_codec="aiwire",
     )
 
 

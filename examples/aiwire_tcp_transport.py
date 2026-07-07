@@ -18,9 +18,11 @@ try:
         decode_demo_control_frame,
         demo_messages,
         encode_route_status_control,
+        encode_transport_compatibility_control,
         print_result,
         raw_size,
         route_status_payload,
+        verify_transport_compatibility_control,
     )
 except ImportError:  # pragma: no cover - direct script execution.
     from aiwire_transport_common import (
@@ -31,9 +33,11 @@ except ImportError:  # pragma: no cover - direct script execution.
         decode_demo_control_frame,
         demo_messages,
         encode_route_status_control,
+        encode_transport_compatibility_control,
         print_result,
         raw_size,
         route_status_payload,
+        verify_transport_compatibility_control,
     )
 
 from aura_compression import AIWireSessionDecoder, AIWireSessionEncoder
@@ -65,7 +69,9 @@ def _read_frame(sock: socket.socket) -> TransportCarrierFrame:
 
 def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
     messages = demo_messages(count, seed)
-    received: "queue.Queue[tuple[list[dict[str, Any]], int, int] | BaseException]" = queue.Queue()
+    received: "queue.Queue[tuple[list[dict[str, Any]], int, int, int] | BaseException]" = (
+        queue.Queue()
+    )
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -81,6 +87,25 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
                     server_messages: list[dict[str, Any]] = []
                     control_received = 0
                     control_sent = 0
+                    compatibility_checks = 0
+
+                    compatibility_frame = _read_frame(conn)
+                    if compatibility_frame.lane != CONTROL_LANE:
+                        raise ValueError("expected compatibility control before data frames")
+                    verify_transport_compatibility_control(
+                        compatibility_frame.payload,
+                        expected_role="client",
+                    )
+                    compatibility_checks += 1
+                    control_received += 1
+                    _write_frame(
+                        conn,
+                        TransportCarrierFrame(
+                            CONTROL_LANE,
+                            encode_transport_compatibility_control("server"),
+                        ),
+                    )
+                    control_sent += 1
                     for index in range(count):
                         control_frame = _read_frame(conn)
                         if control_frame.lane != CONTROL_LANE:
@@ -124,7 +149,14 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
                                 encoder.compress_message(reply),
                             ),
                         )
-                    received.put((server_messages, control_received, control_sent))
+                    received.put(
+                        (
+                            server_messages,
+                            control_received,
+                            control_sent,
+                            compatibility_checks,
+                        )
+                    )
             except BaseException as exc:  # pragma: no cover - surfaced through queue.
                 received.put(exc)
 
@@ -137,10 +169,27 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
             decoder = AIWireSessionDecoder()
             control_sent = 0
             control_received = 0
-            for message in messages:
+            compatibility_checks = 0
+            compatibility_frame = TransportCarrierFrame(
+                CONTROL_LANE,
+                encode_transport_compatibility_control("client"),
+            )
+            wire_bytes += _write_frame(sock, compatibility_frame)
+            control_sent += 1
+            reply_compatibility = _read_frame(sock)
+            if reply_compatibility.lane != CONTROL_LANE:
+                raise ValueError("expected compatibility control reply")
+            wire_bytes += U32.size + len(reply_compatibility.to_bytes())
+            verify_transport_compatibility_control(
+                reply_compatibility.payload,
+                expected_role="server",
+            )
+            compatibility_checks += 1
+            control_received += 1
+            for index, message in enumerate(messages):
                 control_payload = route_status_payload(
                     transport="tcp",
-                    sequence=control_sent,
+                    sequence=index,
                     direction="client_to_server",
                     status="ready",
                     trace_id=message.get("trace_id"),
@@ -177,7 +226,12 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
         if isinstance(server_result, BaseException):
             raise RuntimeError("TCP demo server failed") from server_result
 
-    server_messages, server_control_received, server_control_sent = server_result
+    (
+        server_messages,
+        server_control_received,
+        server_control_sent,
+        server_compatibility_checks,
+    ) = server_result
 
     return TransportDemoResult(
         transport="tcp",
@@ -188,6 +242,8 @@ def run_demo(count: int = 8, seed: int = 4101) -> TransportDemoResult:
         control_frames_received=control_received + server_control_received,
         raw_bytes=raw_size(messages),
         wire_bytes=wire_bytes,
+        compatibility_checks=compatibility_checks + server_compatibility_checks,
+        compatibility_codec="aiwire",
     )
 
 

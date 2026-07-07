@@ -16,9 +16,11 @@ try:
         decode_demo_control_frame,
         demo_messages,
         encode_route_status_control,
+        encode_transport_compatibility_control,
         print_result,
         raw_size,
         route_status_payload,
+        verify_transport_compatibility_control,
     )
 except ImportError:  # pragma: no cover - direct script execution.
     from aiwire_transport_common import (
@@ -29,9 +31,11 @@ except ImportError:  # pragma: no cover - direct script execution.
         decode_demo_control_frame,
         demo_messages,
         encode_route_status_control,
+        encode_transport_compatibility_control,
         print_result,
         raw_size,
         route_status_payload,
+        verify_transport_compatibility_control,
     )
 
 from aura_compression import AIWireSessionDecoder, AIWireSessionEncoder
@@ -61,11 +65,29 @@ def run_demo(count: int = 8, seed: int = 4303) -> TransportDemoResult:
     received: list[dict[str, Any]] = []
     worker_control_received = 0
     worker_control_sent = 0
+    worker_compatibility_checks = 0
 
     def worker() -> None:
-        nonlocal worker_control_received, worker_control_sent
+        nonlocal worker_control_received, worker_control_sent, worker_compatibility_checks
         decoder = AIWireSessionDecoder()
         encoder = AIWireSessionEncoder(level=3)
+        compatibility_frame = broker.consume(inbound)
+        if compatibility_frame.lane != CONTROL_LANE:
+            raise ValueError("expected compatibility control before data frames")
+        verify_transport_compatibility_control(
+            compatibility_frame.payload,
+            expected_role="client",
+        )
+        worker_compatibility_checks += 1
+        worker_control_received += 1
+        broker.publish(
+            outbound,
+            TransportCarrierFrame(
+                CONTROL_LANE,
+                encode_transport_compatibility_control("worker"),
+            ),
+        )
+        worker_control_sent += 1
         for index in range(count):
             control_frame = broker.consume(inbound)
             if control_frame.lane != CONTROL_LANE:
@@ -113,6 +135,24 @@ def run_demo(count: int = 8, seed: int = 4303) -> TransportDemoResult:
     replies = 0
     control_sent = 0
     control_received = 0
+    compatibility_checks = 0
+    compatibility_frame = TransportCarrierFrame(
+        CONTROL_LANE,
+        encode_transport_compatibility_control("client"),
+    )
+    wire_bytes += len(compatibility_frame.to_bytes())
+    broker.publish(inbound, compatibility_frame)
+    control_sent += 1
+    reply_compatibility = broker.consume(outbound)
+    if reply_compatibility.lane != CONTROL_LANE:
+        raise ValueError("expected compatibility control reply")
+    verify_transport_compatibility_control(
+        reply_compatibility.payload,
+        expected_role="worker",
+    )
+    compatibility_checks += 1
+    wire_bytes += len(reply_compatibility.to_bytes())
+    control_received += 1
     for index, message in enumerate(messages):
         control_payload = route_status_payload(
             transport="local-broker",
@@ -161,6 +201,8 @@ def run_demo(count: int = 8, seed: int = 4303) -> TransportDemoResult:
         control_frames_received=control_received + worker_control_received,
         raw_bytes=raw_size(messages),
         wire_bytes=wire_bytes,
+        compatibility_checks=compatibility_checks + worker_compatibility_checks,
+        compatibility_codec="aiwire",
     )
 
 

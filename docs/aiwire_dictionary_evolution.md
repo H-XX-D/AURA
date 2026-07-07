@@ -57,9 +57,12 @@ first local fallback codec and records the AIWire rejection reason. With
 `--no-fallback`, mismatches return exit code `2`.
 
 The manifest does not replace the live handshake. It is a release, deployment,
-and preflight artifact. The live handshake still proves the session before data
-flows, and session dictionary updates still require the diff/ACK path described
-in [AIWire session dictionary safety](aiwire_session_dictionary.md).
+and startup preflight artifact. `aura-aiwire-compatibility` can compare manifests
+offline, while the explicit `aura-proxy` startup path and transport examples now
+exchange and verify the manifest before semantic frames move. The live handshake
+still proves the session before data flows, and session dictionary updates still
+require the diff/ACK path described in
+[AIWire session dictionary safety](aiwire_session_dictionary.md).
 
 ## Safety Rules
 
@@ -73,4 +76,3 @@ in [AIWire session dictionary safety](aiwire_session_dictionary.md).
   ACK verifies the exact next state hash.
 - Mission-critical control remains explicit system control and is not folded
   into routine LUT entries.
-

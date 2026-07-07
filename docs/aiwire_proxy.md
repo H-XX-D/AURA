@@ -36,9 +36,13 @@ Lane tags:
 | `0x01` | `control` | Canonical JSON control frame |
 | `0x02` | `semantic` | AIWire-compressed data frame |
 
-The control lane carries an inspectable proxy handshake containing the normal
-AIWire handshake and negotiation objects. The semantic lane carries the live
-AIWire stream. Each direction has its own encoder/decoder state.
+The first control exchange carries an inspectable compatibility preflight:
+each side sends an `aura.aiwire.compatibility_manifest.v1` payload plus its
+manifest hash. The egress side fails closed before semantic frames move unless
+the static dictionary, delta version, session dictionary state, zlib parameters,
+and routine-control LUT state are compatible. The same exchange still carries
+the normal AIWire handshake and negotiation objects. The semantic lane carries
+the live AIWire stream. Each direction has its own encoder/decoder state.
 
 ## Run It
 
@@ -79,6 +83,8 @@ For smoke tests or one-shot jobs, add `--once`. For service mode, omit
 Metrics JSON includes:
 
 - accepted connections and handshakes
+- AIWire compatibility codec, delta version, reason, and local/peer manifest
+  hashes
 - raw request/response payload bytes
 - raw framed bytes
 - tunnel request/response framed bytes
@@ -376,6 +382,7 @@ The proxy fails closed on:
 - frames larger than `--max-frame-bytes`
 - unsupported lane tags
 - malformed control JSON
+- failed AIWire compatibility manifest check
 - failed AIWire handshake or dictionary negotiation
 - non-AIWire negotiated codec
 

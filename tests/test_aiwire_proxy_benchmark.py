@@ -107,6 +107,10 @@ def test_proxy_benchmark_round_trips_fixture_pairs(tmp_path: Path) -> None:
     assert result["tunnel_saved_percent"] > 0
     assert result["modeled_tunnel_gain_vs_raw"] > 1
     assert result["ingress_metrics"]["negotiation_codec"] == "aiwire"
+    assert result["ingress_metrics"]["compatibility_codec"] == "aiwire"
+    assert result["egress_metrics"]["compatibility_codec"] == "aiwire"
+    assert result["ingress_metrics"]["compatibility_reason"] is None
+    assert result["egress_metrics"]["compatibility_reason"] is None
     assert result["ingress_metrics"]["accepted_connections"] == 2
     assert result["egress_metrics"]["accepted_connections"] == 2
     assert result["upstream"]["accepted_connections"] == 2

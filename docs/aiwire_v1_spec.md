@@ -90,13 +90,13 @@ The static dictionary is implementation-versioned by SHA-256. Peers MUST compare
 the static dictionary SHA-256 and byte size when `use_static_dictionary` is
 true.
 
-Implementations SHOULD also be able to emit an
-`aura.aiwire.compatibility_manifest.v1` record for release and deployment
-preflight. The manifest pins protocol versions, delta versions, static
-dictionary identity, zlib parameters, fallback codecs, session dictionary state,
-routine-control LUT state, and hard safety limits. It does not replace the live
-handshake; it is an inspectable compatibility matrix that lets operators reject
-or fall back before moving data.
+Implementations SHOULD also be able to emit and verify an
+`aura.aiwire.compatibility_manifest.v1` record for release, deployment, and
+transport startup preflight. The manifest pins protocol versions, delta
+versions, static dictionary identity, zlib parameters, fallback codecs, session
+dictionary state, routine-control LUT state, and hard safety limits. It does
+not replace the live handshake; it is an inspectable compatibility matrix that
+lets operators or sidecars reject or fall back before moving data.
 
 ## Serialization
 
@@ -354,6 +354,11 @@ touches the payload:
 - HTTP streaming bindings MAY use one event per carrier frame and SHOULD name
   control events separately from semantic events when the platform exposes event
   names.
+- Transport bindings SHOULD exchange a control payload containing an
+  `aura.aiwire.compatibility_manifest.v1` manifest before semantic data frames.
+  Bindings MUST fail closed when required dictionary, delta-version,
+  session-template, session-dictionary, or routine-control LUT state does not
+  match and no explicit fallback was selected.
 - A routine-control LUT frame MAY be as small as two bytes after the carrier
   lane discriminator. It MUST NOT be appended to a semantic deflate frame.
 - Mission-critical system control messages SHOULD be sent on the control lane

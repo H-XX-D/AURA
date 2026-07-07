@@ -7,7 +7,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -16,14 +16,19 @@ if str(SRC) not in sys.path:
 
 from aura_compression import (
     AIWireControlLUTEntry,
+    AIWireHandshakeError,
+    aiwire_compatibility_manifest_sha256,
+    build_aiwire_compatibility_manifest,
     build_structured_ai_messages,
     decode_aiwire_control_lut_frame,
     encode_ai_wire_message,
     encode_aiwire_control_lut_frame,
+    verify_aiwire_compatibility_manifest,
 )
 
 SEMANTIC_LANE = "semantic"
 CONTROL_LANE = "control"
+TRANSPORT_COMPATIBILITY_SCHEMA = "aura.aiwire.transport_compatibility.v1"
 _LANE_TO_TAG = {SEMANTIC_LANE: 0x01, CONTROL_LANE: 0x02}
 _TAG_TO_LANE = {value: key for key, value in _LANE_TO_TAG.items()}
 
@@ -72,6 +77,8 @@ class TransportDemoResult:
     control_frames_received: int
     raw_bytes: int
     wire_bytes: int
+    compatibility_checks: int
+    compatibility_codec: str
 
     @property
     def ratio(self) -> float:
@@ -87,12 +94,14 @@ class TransportDemoResult:
             "control_frames_received": self.control_frames_received,
             "raw_bytes": self.raw_bytes,
             "wire_bytes": self.wire_bytes,
+            "compatibility_checks": self.compatibility_checks,
+            "compatibility_codec": self.compatibility_codec,
             "ratio": round(self.ratio, 3),
         }
 
 
 def demo_messages(count: int, seed: int) -> list[dict[str, Any]]:
-    return build_structured_ai_messages(count=count, seed=seed)
+    return cast(list[dict[str, Any]], build_structured_ai_messages(count=count, seed=seed))
 
 
 def raw_size(messages: list[dict[str, Any]]) -> int:
@@ -119,15 +128,67 @@ def route_status_payload(
 
 
 def encode_route_status_control(payload: Mapping[str, Any]) -> bytes:
-    return encode_aiwire_control_lut_frame(
-        DEMO_CONTROL_LUT,
-        meaning="route_status",
-        payload=payload,
+    return cast(
+        bytes,
+        encode_aiwire_control_lut_frame(
+            DEMO_CONTROL_LUT,
+            meaning="route_status",
+            payload=payload,
+        ),
     )
 
 
 def decode_demo_control_frame(frame: bytes) -> dict[str, object]:
-    return decode_aiwire_control_lut_frame(DEMO_CONTROL_LUT, frame).to_dict()
+    return cast(
+        dict[str, object], decode_aiwire_control_lut_frame(DEMO_CONTROL_LUT, frame).to_dict()
+    )
+
+
+def encode_transport_compatibility_control(role: str) -> bytes:
+    manifest = build_aiwire_compatibility_manifest(fallback_codecs=())
+    payload = {
+        "schema": TRANSPORT_COMPATIBILITY_SCHEMA,
+        "role": role,
+        "manifest": manifest.to_dict(),
+        "manifest_sha256": aiwire_compatibility_manifest_sha256(manifest),
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+
+def verify_transport_compatibility_control(
+    frame: bytes,
+    *,
+    expected_role: str,
+) -> dict[str, object]:
+    try:
+        payload = json.loads(frame.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("transport compatibility control must be JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("transport compatibility control must be an object")
+    if payload.get("schema") != TRANSPORT_COMPATIBILITY_SCHEMA:
+        raise ValueError("unsupported transport compatibility control schema")
+    if payload.get("role") != expected_role:
+        raise ValueError(
+            f"expected compatibility role {expected_role!r}, got {payload.get('role')!r}"
+        )
+    manifest = payload.get("manifest")
+    if not isinstance(manifest, Mapping):
+        raise ValueError("transport compatibility control is missing manifest")
+    actual_hash = aiwire_compatibility_manifest_sha256(manifest)
+    if payload.get("manifest_sha256") != actual_hash:
+        raise ValueError("transport compatibility manifest hash mismatch")
+    try:
+        check = verify_aiwire_compatibility_manifest(
+            manifest,
+            local_manifest=build_aiwire_compatibility_manifest(fallback_codecs=()),
+            allow_fallback=False,
+        )
+    except AIWireHandshakeError as exc:
+        raise ValueError(str(exc)) from exc
+    if not check.accepted or check.codec != "aiwire":
+        raise ValueError(check.reason or "transport compatibility rejected")
+    return cast(dict[str, object], check.to_dict())
 
 
 def b64(payload: bytes) -> str:

@@ -94,7 +94,7 @@ Relevant public protocol context:
 | AIWire lane model | Semantic lane implemented; control/session structures implemented for handshake, template, dictionary, and resume flow; blob descriptor lane specified |
 | AIToken and AIToken+AIWire | Working structural-token path and combined small-frame path |
 | Session templates | Discovery, forced handshake, SHA verification, bounded session dictionaries |
-| Dictionary compatibility | Compatibility manifest and fail-closed checker for static dictionary, session dictionary, delta version, and LUT state |
+| Dictionary compatibility | Compatibility manifest and fail-closed checker for static dictionary, session dictionary, delta version, and LUT state; wired into proxy/example startup |
 | Structured message helpers | Working canonical JSON encode/decode helpers |
 | AI-to-AI benchmark harness | Working LAN, realistic-profile, and concurrent-agent tooling |
 | Explicit sidecar proxy | Working TCP ingress/egress sidecar for raw length-prefixed agent frames over an AIWire tunnel |
@@ -484,8 +484,9 @@ local agent -> ingress sidecar -> AIWire tunnel -> egress sidecar -> upstream ag
 
 Local client and upstream sockets keep using uint32 length-prefixed raw payload
 bytes. The sidecar-to-sidecar hop performs a fail-closed AIWire handshake,
-keeps control frames separately inspectable, and moves semantic frames through
-the AIWire session stream.
+exchanges and verifies an AIWire compatibility manifest before semantic data
+moves, keeps control frames separately inspectable, and moves semantic frames
+through the AIWire session stream.
 
 Egress side, next to the upstream service:
 
@@ -975,9 +976,10 @@ PYTHONPATH=src python tools/stress_ai_wire_roundtrip_z6.py nary-client \
 ## Transport Examples
 
 AIWire frames are ordinary bytes after the session handshake. The repo includes
-small examples for common transport boundaries. Each example now carries both
-semantic frames and compact routine-control LUT frames so route/status control
-stays inspectable without decompressing the semantic stream:
+small examples for common transport boundaries. Each example first exchanges and
+verifies an AIWire compatibility manifest, then carries both semantic frames and
+compact routine-control LUT frames so route/status control stays inspectable
+without decompressing the semantic stream:
 
 - [Length-prefixed TCP](examples/aiwire_tcp_transport.py)
 - [WebSocket binary messages](examples/aiwire_websocket_transport.py)
@@ -1076,8 +1078,9 @@ Current phase state:
   CI smoke thresholds.
 - Phase 4 Native and Edge Performance: next active performance track.
 - Phase 5 Transport Examples: implemented for TCP, WebSocket, HTTP streaming,
-  and local broker; replay-log polish remains.
-- Phase 6 Dictionary Evolution: active; compatibility manifest/checker landed.
+  and local broker with manifest preflight; replay-log polish remains.
+- Phase 6 Dictionary Evolution: active; compatibility manifest/checker landed
+  and is enforced by the explicit proxy startup path.
 - Phase 7 General AURA Cleanup: planned.
 
 Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).

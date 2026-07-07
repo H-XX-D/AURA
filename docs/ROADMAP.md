@@ -175,12 +175,14 @@ HTTP streaming, local broker use, deterministic replay-log audit capture, and
 an explicit TCP sidecar proxy for raw length-prefixed agent frames over an
 AIWire tunnel. The sidecar path now has an end-to-end local benchmark harness
 and an SSH-managed cross-machine benchmark runner, cluster-varied fixture replay,
-and editable systemd/launchd templates.
+editable systemd/launchd templates, and fail-closed compatibility-manifest
+startup checks.
 
-- Raw TCP example with length-prefixed frames.
-- WebSocket example for browser/service use.
-- HTTP streaming or SSE example for server-pushed agent updates.
-- Local broker adapter example.
+- Raw TCP example with length-prefixed frames and manifest preflight.
+- WebSocket example for browser/service use with manifest preflight.
+- HTTP streaming or SSE example for server-pushed agent updates with manifest
+  preflight.
+- Local broker adapter example with manifest preflight.
 - Replay log format for offline benchmark capture.
 - Explicit `aura-proxy` ingress/egress sidecar for controlled TCP links.
 - `aura-proxy-benchmark` for sustained local sidecar byte-movement checks.
@@ -203,11 +205,14 @@ Status: active. The first compatibility gate is implemented: AIWire can now
 emit and compare a manifest that pins protocol version, static dictionary hash
 and size, zlib parameters, delta version, session dictionary state, routine
 control-LUT state, fallback codecs, and safety limits before a peer/release is
-trusted.
+trusted. The explicit proxy now uses that manifest as part of session startup
+before it accepts semantic AIWire frames.
 
 - Version static dictionaries and session-template catalogs explicitly.
 - Keep `aura-aiwire-compatibility` available as the release/deployment preflight
   for dictionary, template, delta-version, and LUT compatibility.
+- Keep runtime startup paths, including `aura-proxy` and transport examples,
+  fail-closed on compatibility-manifest mismatch before data frames move.
 - Add corpus-driven dictionary generation tooling.
 - Keep a compatibility matrix for dictionary hash, protocol version, and
   template hash, delta version, and fallback codec.

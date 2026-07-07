@@ -25,8 +25,10 @@ def _assert_demo_result(result, transport: str, count: int) -> None:
     assert result.messages_sent == count
     assert result.messages_received == count
     assert result.replies_received == count
-    assert result.control_frames_sent == count * 2
-    assert result.control_frames_received == count * 2
+    assert result.control_frames_sent == count * 2 + 2
+    assert result.control_frames_received == count * 2 + 2
+    assert result.compatibility_checks == 2
+    assert result.compatibility_codec == "aiwire"
     assert result.raw_bytes > 0
     assert result.wire_bytes > 0
 

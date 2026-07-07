@@ -12,6 +12,7 @@ if str(TOOLS) not in sys.path:
 from compare_aiwire_coordinators import (  # noqa: E402
     DEFAULT_FIXTURE_CORPUS,
     SCHEMA,
+    _looks_like_startup_refusal,
     render_markdown,
     run_coordinator_comparison,
 )
@@ -104,3 +105,10 @@ def test_coordinator_comparison_markdown_summarizes_results() -> None:
     assert "| threaded | raw |" in markdown
     assert "| asyncio | aiwire |" in markdown
     assert "| threaded | asyncio | aiwire |" in markdown
+
+
+def test_startup_refusal_classifier_matches_windows_and_posix_errors() -> None:
+    assert _looks_like_startup_refusal("ConnectionRefusedError: refused") is True
+    assert _looks_like_startup_refusal("socket error ECONNREFUSED") is True
+    assert _looks_like_startup_refusal("ConnectionRefusedError: [WinError 1225]") is True
+    assert _looks_like_startup_refusal("payload mismatch") is False

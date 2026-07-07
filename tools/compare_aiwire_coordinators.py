@@ -128,10 +128,15 @@ def _start_servers(
         servers.append(server)
     startup_delay = max(
         float(args.server_start_delay),
-        1.0 if sys.platform == "win32" else 0.0,
+        2.0 if sys.platform == "win32" else 0.0,
     )
     time.sleep(startup_delay)
     return servers
+
+
+def _looks_like_startup_refusal(stderr: str | None) -> bool:
+    text = stderr or ""
+    return "ConnectionRefusedError" in text or "ECONNREFUSED" in text or "WinError 1225" in text
 
 
 def _run_nary_client(
@@ -190,22 +195,31 @@ def _run_nary_client(
         label = str(target["label"])
         endpoint = f"{target['host']}:{target['port']}"
         client_cmd.extend(["--target", f"{label}={endpoint}"])
-    try:
-        completed = subprocess.run(
-            client_cmd,
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=args.timeout + args.seconds * max(2, _codec_count(codecs)) + 30,
-        )
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            "n-ary client failed for coordinator "
-            f"{coordinator!r} with exit code {exc.returncode}\n"
-            f"stdout:\n{exc.stdout or ''}\n"
-            f"stderr:\n{exc.stderr or ''}"
-        ) from exc
+    max_attempts = 4 if sys.platform == "win32" else 2
+    completed: subprocess.CompletedProcess[str] | None = None
+    for attempt in range(max_attempts):
+        try:
+            completed = subprocess.run(
+                client_cmd,
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=args.timeout + args.seconds * max(2, _codec_count(codecs)) + 30,
+            )
+            break
+        except subprocess.CalledProcessError as exc:
+            if attempt + 1 < max_attempts and _looks_like_startup_refusal(exc.stderr):
+                time.sleep(max(0.25, float(args.server_start_delay)) * (attempt + 1))
+                continue
+            raise RuntimeError(
+                "n-ary client failed for coordinator "
+                f"{coordinator!r} with exit code {exc.returncode}\n"
+                f"stdout:\n{exc.stdout or ''}\n"
+                f"stderr:\n{exc.stderr or ''}"
+            ) from exc
+    if completed is None:
+        raise RuntimeError(f"n-ary client did not run for coordinator {coordinator!r}")
     payload = json.loads(completed.stdout)
     if not isinstance(payload, dict):
         raise RuntimeError(

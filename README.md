@@ -558,6 +558,9 @@ use per-target `remote_root=/home/<user>/AURA` when different edge machines use
 different SSH users or checkout paths. For bootstrap reports, target lines can
 also include `ssh_public_key=/path/to/key.pub` so labs with dedicated per-target
 keys do not accidentally emit the same authorized-key command for every edge.
+For larger labs, start from the public-safe target file example at
+`deploy/aura-proxy/proxy-cluster.targets.example` and keep the real filled-in
+copy untracked.
 
 Preflight checks SSH alias resolution, SSH TCP reachability, batch-mode
 authentication, remote AURA importability, fixture corpus presence, and native
@@ -568,6 +571,8 @@ launchd.
 
 Details:
 [AIWire Explicit Sidecar Proxy](docs/aiwire_proxy.md)
+and
+[AIWire Proxy Edge Readiness Runbook](docs/aiwire_proxy_edge_readiness.md)
 
 ## Benchmarking AIWire
 

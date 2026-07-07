@@ -186,6 +186,22 @@ python tools/run_aiwire_proxy_cluster.py \
   --summary-output /tmp/aura-proxy-cluster.md
 ```
 
+For larger or mixed-user labs, keep targets in an untracked local file:
+
+```bash
+cp deploy/aura-proxy/proxy-cluster.targets.example /tmp/aura-targets.txt
+
+python tools/run_aiwire_proxy_cluster.py \
+  --targets-file /tmp/aura-targets.txt \
+  --ssh-bootstrap \
+  --preflight \
+  --seconds 60 \
+  --backend native \
+  --fixture-variation-profile cluster \
+  --output /tmp/aura-edge-readiness.json \
+  --summary-output /tmp/aura-edge-readiness.md
+```
+
 Target lines may include public labels and deployment-specific overrides:
 
 ```text
@@ -226,6 +242,9 @@ The `--preflight` mode checks the path before launching sidecars:
 
 When `--preflight --run` is used together, the runner exits before launching
 remote processes unless every target is ready.
+
+The edge readiness runbook expands the bootstrap and failure-recovery workflow:
+[AIWire Proxy Edge Readiness Runbook](aiwire_proxy_edge_readiness.md).
 
 The cluster variation profile deterministically changes role, workload, route,
 epoch, queue depth, token window, telemetry, and trace identifiers per peer.

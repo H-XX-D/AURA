@@ -1,0 +1,21 @@
+# Public-safe AIWire proxy cluster target file.
+#
+# Copy this to an untracked local path, replace the placeholders with your lab
+# aliases/hosts, and pass it with:
+#
+#   python tools/run_aiwire_proxy_cluster.py --targets-file /tmp/aura-targets.txt ...
+#
+# One target per line:
+# label=ssh-host,proxy_host=lan-host,remote_root=/home/user/AURA,ssh_public_key=/path/key.pub
+#
+# Ready edge targets. These should pass SSH TCP, batch auth, remote import, and
+# native backend preflight before any benchmark run starts.
+edge-a=edge-a-ssh,proxy_host=edge-a-lan,remote_root=/home/edge-a/AURA,ssh_public_key=~/.ssh/id_edge_a.pub
+edge-b=edge-b-ssh,proxy_host=edge-b-lan,remote_root=/home/edge-b/AURA,ssh_public_key=~/.ssh/id_edge_b.pub
+edge-c=edge-c-ssh,proxy_host=edge-c-lan,remote_root=/home/edge-c/AURA,ssh_public_key=~/.ssh/id_edge_c.pub
+
+# Blocked edge targets. Keep these commented until their bootstrap/preflight
+# report is clean. Leaving them in comments keeps the desired cluster shape
+# visible without blocking --run.
+# edge-d=edge-d-ssh,proxy_host=edge-d-lan,remote_root=/home/edge-d/AURA,ssh_public_key=~/.ssh/id_edge_d.pub
+# edge-e=edge-e-ssh,proxy_host=edge-e-lan,remote_root=/home/edge-e/AURA,ssh_public_key=~/.ssh/id_edge_e.pub

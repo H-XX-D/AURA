@@ -95,7 +95,7 @@ Relevant public protocol context:
 | AIToken and AIToken+AIWire | Working structural-token path and combined small-frame path |
 | Session templates | Discovery, forced handshake, SHA verification, bounded session dictionaries |
 | Session resume cache | Persistent local cache for known peer dictionary states; supports resume hello/response negotiation, proxy startup resume, and fail-closed verification |
-| Dictionary compatibility | Compatibility manifest and fail-closed checker for static dictionary, session dictionary, delta version, and LUT state; wired into proxy/example startup |
+| Dictionary compatibility | Compatibility manifest and fail-closed checker for static dictionary, private dictionary-extension digests, session dictionary, delta version, and LUT state; wired into proxy/example startup |
 | Structured message helpers | Working canonical JSON encode/decode helpers |
 | AI-to-AI benchmark harness | Working LAN, realistic-profile, and concurrent-agent tooling |
 | Explicit sidecar proxy | Working TCP ingress/egress sidecar for raw length-prefixed agent frames over an AIWire tunnel with optional cached-session resume |
@@ -1122,7 +1122,9 @@ Current phase state:
   and is enforced by the explicit proxy startup path; corpus-driven dictionary
   candidate reports are available through `aura-aiwire-dictionary-generate`,
   with a first comparison matrix in
-  [AIWire Dictionary Matrix](docs/perf/aiwire_dictionary_matrix_2026-07-08.md).
+  [AIWire Dictionary Matrix](docs/perf/aiwire_dictionary_matrix_2026-07-08.md);
+  private application dictionary extensions can be pinned by digest without
+  serializing private terms into manifests.
 - Phase 7 General AURA Cleanup: planned.
 
 Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).

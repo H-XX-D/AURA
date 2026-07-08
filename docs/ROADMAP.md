@@ -218,6 +218,9 @@ optional zlib dictionary bytes from the public AIWire fixture corpus without
 mutating the pinned v1 static dictionary. The first dictionary comparison matrix
 (`docs/perf/aiwire_dictionary_matrix_2026-07-08.md`) compares the pinned v1
 dictionary, a combined generated candidate, and protocol-specific candidates.
+Private application dictionary extensions are now supported as digest-only
+compatibility inputs and opt-in runtime dictionary bytes, so deployments can pin
+local terms without putting those terms in public manifests.
 
 - Version static dictionaries and session-template catalogs explicitly.
 - Keep `aura-aiwire-compatibility` available as the release/deployment preflight
@@ -232,8 +235,8 @@ dictionary, a combined generated candidate, and protocol-specific candidates.
   template hash, delta version, and fallback codec.
 - Keep measuring whether protocol-specific dictionaries outperform one combined
   dictionary as the fixture corpus expands.
-- Add application-provided dictionary extensions for private deployments without
-  putting private terms into the public repo.
+- Keep application-provided dictionary extensions digest-only in public
+  compatibility artifacts and fail closed when extension metadata mismatches.
 
 Definition of done:
 

@@ -14,6 +14,9 @@
       },
       "client_handshake": {
         "backend": "python",
+        "dictionary_extension_count": 0,
+        "dictionary_extensions": [],
+        "dictionary_extensions_sha256": "",
         "dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
         "dictionary_size": 32768,
         "fallback_codecs": [
@@ -1861,6 +1864,9 @@
         "schema": "aura.aiwire.negotiation.v1",
         "server": {
           "backend": "python",
+          "dictionary_extension_count": 0,
+          "dictionary_extensions": [],
+          "dictionary_extensions_sha256": "",
           "dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
           "dictionary_size": 32768,
           "fallback_codecs": [
@@ -2048,6 +2054,9 @@
       },
       "client_handshake": {
         "backend": "python",
+        "dictionary_extension_count": 0,
+        "dictionary_extensions": [],
+        "dictionary_extensions_sha256": "",
         "dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
         "dictionary_size": 32768,
         "fallback_codecs": [
@@ -3895,6 +3904,9 @@
         "schema": "aura.aiwire.negotiation.v1",
         "server": {
           "backend": "python",
+          "dictionary_extension_count": 0,
+          "dictionary_extensions": [],
+          "dictionary_extensions_sha256": "",
           "dictionary_sha256": "f5c9d524606a4cec9c397cb7ae177a8e1ec87f9819c749f6fd0b24a155313117",
           "dictionary_size": 32768,
           "fallback_codecs": [

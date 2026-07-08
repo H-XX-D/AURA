@@ -175,9 +175,11 @@ def test_package_cli_benchmark_supports_bursty_profile(capsys):
 
 def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
     templates = tmp_path / "templates.json"
+    dictionary_extension = tmp_path / "tenant-alpha.dict"
     manifest = tmp_path / "manifest.json"
     check = tmp_path / "check.json"
     templates.write_text(json.dumps({"128": "agent {0} calls tool {1}"}), encoding="utf-8")
+    dictionary_extension.write_bytes(b'"tenant_private_route":"alpha"')
 
     assert (
         compatibility_main(
@@ -186,6 +188,8 @@ def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
                 str(templates),
                 "--session-template-epoch",
                 "1",
+                "--dictionary-extension",
+                str(dictionary_extension),
                 "--output",
                 str(manifest),
             ]
@@ -195,6 +199,9 @@ def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
     manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
     assert manifest_payload["schema"] == "aura.aiwire.compatibility_manifest.v1"
     assert len(manifest_payload["manifest_sha256"]) == 64
+    assert manifest_payload["dictionary_extension_count"] == 1
+    assert manifest_payload["dictionary_extensions"][0]["name"] == "tenant-alpha.dict"
+    assert "tenant_private_route" not in manifest.read_text(encoding="utf-8")
 
     assert (
         compatibility_main(
@@ -203,6 +210,8 @@ def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
                 str(templates),
                 "--session-template-epoch",
                 "1",
+                "--dictionary-extension",
+                str(dictionary_extension),
                 "--peer-manifest",
                 str(manifest),
                 "--output",

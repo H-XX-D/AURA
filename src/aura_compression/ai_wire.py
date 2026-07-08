@@ -42,6 +42,7 @@ AI_WIRE_HANDSHAKE_SCHEMA = "aura.aiwire.handshake.v1"
 AI_WIRE_NEGOTIATION_SCHEMA = "aura.aiwire.negotiation.v1"
 AI_WIRE_NARY_NEGOTIATION_SCHEMA = "aura.aiwire.nary_negotiation.v1"
 AI_WIRE_COMPATIBILITY_MANIFEST_SCHEMA = "aura.aiwire.compatibility_manifest.v1"
+AI_WIRE_DICTIONARY_EXTENSION_SCHEMA = "aura.aiwire.dictionary_extension.v1"
 AI_WIRE_CONTROL_LUT_SCHEMA = "aura.aiwire.control_lut.v1"
 AI_WIRE_SYSTEM_CONTROL_SCHEMA = "aura.aiwire.system_control.v1"
 AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA = "aura.aiwire.session_templates.update.v1"
@@ -61,6 +62,7 @@ AI_WIRE_MAX_SESSION_TEMPLATES = 4096
 AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS = 128
 AI_WIRE_MAX_SESSION_TEMPLATE_BYTES = 4096
 AI_WIRE_MAX_SESSION_DICTIONARY_BYTES = 262144
+AI_WIRE_MAX_DICTIONARY_EXTENSION_BYTES = 262144
 AI_WIRE_MAX_CONTROL_LUT_ENTRIES = 1024
 AI_WIRE_NONCE_BYTES = 16
 AI_WIRE_MISSION_CRITICAL = "mission_critical"
@@ -281,6 +283,7 @@ AI_WIRE_DICTIONARY_SHA256 = hashlib.sha256(AI_WIRE_STATIC_DICTIONARY).hexdigest(
 AIWireSessionTemplates = Mapping[int, str] | Iterable[tuple[int, str] | Mapping[str, Any]]
 AIWireControlLUTEntries = Iterable[Any]
 AIWireAuthKey = bytes | bytearray | memoryview | str | None
+AIWireDictionaryExtensionBytes = Iterable[bytes | bytearray | memoryview]
 
 
 def normalize_aiwire_session_templates(
@@ -1627,8 +1630,16 @@ def _build_session_dictionary(
     *,
     use_static_dictionary: bool,
     session_templates: tuple[tuple[int, str], ...],
+    dictionary_extensions: AIWireDictionaryExtensionBytes | None = None,
 ) -> bytes | None:
     dictionary = AI_WIRE_STATIC_DICTIONARY if use_static_dictionary else b""
+    for extension in dictionary_extensions or ():
+        extension_bytes = bytes(extension)
+        if not extension_bytes:
+            raise AIWireHandshakeError("dictionary extension payload must not be empty")
+        if len(extension_bytes) > AI_WIRE_MAX_DICTIONARY_EXTENSION_BYTES:
+            raise AIWireHandshakeError("dictionary extension exceeds byte limit")
+        dictionary += b"\n" + extension_bytes
     if session_templates:
         template_terms = "\n".join(
             f"{template_id}:{pattern}" for template_id, pattern in session_templates
@@ -1997,6 +2008,9 @@ class AIWireHandshake:
     wbits: int
     mem_level: int
     flush_mode: str
+    dictionary_extensions: tuple[AIWireDictionaryExtension, ...]
+    dictionary_extension_count: int
+    dictionary_extensions_sha256: str
     level: int
     use_static_dictionary: bool
     backend: str
@@ -2024,6 +2038,11 @@ class AIWireHandshake:
             "wbits": self.wbits,
             "mem_level": self.mem_level,
             "flush_mode": self.flush_mode,
+            "dictionary_extensions": [
+                extension.to_dict() for extension in self.dictionary_extensions
+            ],
+            "dictionary_extension_count": self.dictionary_extension_count,
+            "dictionary_extensions_sha256": self.dictionary_extensions_sha256,
             "level": self.level,
             "use_static_dictionary": self.use_static_dictionary,
             "backend": self.backend,
@@ -2064,6 +2083,31 @@ class AIWireHandshake:
                 value.get("session_templates", ())
             )
             control_lut = normalize_aiwire_control_lut(value.get("control_lut", ()))
+            dictionary_extensions = normalize_aiwire_dictionary_extensions(
+                value.get("dictionary_extensions", ())
+            )
+            dictionary_extension_count = int(
+                value.get("dictionary_extension_count", len(dictionary_extensions))
+            )
+            if dictionary_extension_count != len(dictionary_extensions):
+                raise AIWireHandshakeError(
+                    "dictionary extension count does not match handshake payload"
+                )
+            dictionary_extensions_sha256 = str(
+                value.get(
+                    "dictionary_extensions_sha256",
+                    aiwire_dictionary_extensions_sha256(dictionary_extensions),
+                )
+            )
+            if dictionary_extensions_sha256:
+                _validate_sha256_hex(
+                    dictionary_extensions_sha256,
+                    "dictionary_extensions_sha256",
+                )
+            if dictionary_extensions_sha256 != aiwire_dictionary_extensions_sha256(
+                dictionary_extensions
+            ):
+                raise AIWireHandshakeError("dictionary extension hash does not match payload")
             session_template_sha256 = str(
                 value.get(
                     "session_template_sha256",
@@ -2093,6 +2137,9 @@ class AIWireHandshake:
                 wbits=int(value["wbits"]),
                 mem_level=int(value["mem_level"]),
                 flush_mode=str(value["flush_mode"]),
+                dictionary_extensions=dictionary_extensions,
+                dictionary_extension_count=dictionary_extension_count,
+                dictionary_extensions_sha256=dictionary_extensions_sha256,
                 level=int(value["level"]),
                 use_static_dictionary=bool(value["use_static_dictionary"]),
                 backend=str(value.get("backend", "unknown")),
@@ -2174,6 +2221,107 @@ class AIWireNaryNegotiation:
 
 
 @dataclass(frozen=True)
+class AIWireDictionaryExtension:
+    """Digest-only metadata for a private application dictionary extension."""
+
+    name: str
+    sha256: str
+    size: int
+    fnv1a64: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": AI_WIRE_DICTIONARY_EXTENSION_SCHEMA,
+            "name": self.name,
+            "sha256": self.sha256,
+            "size": self.size,
+            "fnv1a64": self.fnv1a64,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "AIWireDictionaryExtension":
+        schema = value.get("schema", AI_WIRE_DICTIONARY_EXTENSION_SCHEMA)
+        if schema != AI_WIRE_DICTIONARY_EXTENSION_SCHEMA:
+            raise AIWireHandshakeError("unsupported AIWire dictionary extension schema")
+        try:
+            name = str(value["name"]).strip()
+            sha256 = str(value["sha256"])
+            size = int(value["size"])
+            fnv1a64 = str(value["fnv1a64"]).lower()
+            if not name:
+                raise AIWireHandshakeError("dictionary extension name is required")
+            _validate_sha256_hex(sha256, "dictionary extension sha256")
+            if size <= 0:
+                raise AIWireHandshakeError("dictionary extension size must be positive")
+            if size > AI_WIRE_MAX_DICTIONARY_EXTENSION_BYTES:
+                raise AIWireHandshakeError("dictionary extension exceeds byte limit")
+            if len(fnv1a64) != 16 or any(char not in "0123456789abcdef" for char in fnv1a64):
+                raise AIWireHandshakeError("dictionary extension fnv1a64 must be 16 hex chars")
+            return cls(name=name, sha256=sha256, size=size, fnv1a64=fnv1a64)
+        except (KeyError, TypeError, ValueError, AIWireHandshakeError) as exc:
+            raise AIWireHandshakeError(f"malformed AIWire dictionary extension: {exc}") from exc
+
+
+def build_aiwire_dictionary_extension(
+    name: str,
+    payload: bytes | bytearray | memoryview,
+) -> AIWireDictionaryExtension:
+    """Build digest-only metadata for a private dictionary extension."""
+
+    data = bytes(payload)
+    if not data:
+        raise AIWireHandshakeError("dictionary extension payload must not be empty")
+    if len(data) > AI_WIRE_MAX_DICTIONARY_EXTENSION_BYTES:
+        raise AIWireHandshakeError("dictionary extension exceeds byte limit")
+    normalized_name = str(name).strip()
+    if not normalized_name:
+        raise AIWireHandshakeError("dictionary extension name is required")
+    return AIWireDictionaryExtension(
+        name=normalized_name,
+        sha256=_sha256_hex(data),
+        size=len(data),
+        fnv1a64=f"{_fnv1a64(data):016x}",
+    )
+
+
+def normalize_aiwire_dictionary_extensions(
+    extensions: Iterable[AIWireDictionaryExtension | Mapping[str, Any]] | None = None,
+) -> tuple[AIWireDictionaryExtension, ...]:
+    """Return deterministic extension metadata for compatibility comparison."""
+
+    if extensions is None:
+        return ()
+    normalized = tuple(
+        (
+            extension
+            if isinstance(extension, AIWireDictionaryExtension)
+            else AIWireDictionaryExtension.from_dict(extension)
+        )
+        for extension in extensions
+    )
+    seen: set[str] = set()
+    for extension in normalized:
+        key = extension.name
+        if key in seen:
+            raise AIWireHandshakeError(f"duplicate dictionary extension name: {key}")
+        seen.add(key)
+    return normalized
+
+
+def aiwire_dictionary_extensions_sha256(
+    extensions: Iterable[AIWireDictionaryExtension | Mapping[str, Any]] | None = None,
+) -> str:
+    """Hash dictionary extension metadata without including private dictionary bytes."""
+
+    normalized = normalize_aiwire_dictionary_extensions(extensions)
+    if not normalized:
+        return ""
+    return _sha256_hex(
+        _canonical_json_bytes({"extensions": [extension.to_dict() for extension in normalized]})
+    )
+
+
+@dataclass(frozen=True)
 class AIWireCompatibilityManifest:
     """Stable AIWire compatibility record for peers, releases, and deployments."""
 
@@ -2184,6 +2332,9 @@ class AIWireCompatibilityManifest:
     static_dictionary_sha256: str
     static_dictionary_size: int
     static_dictionary_fnv1a64: str
+    dictionary_extensions: tuple[AIWireDictionaryExtension, ...]
+    dictionary_extension_count: int
+    dictionary_extensions_sha256: str
     wbits: int
     mem_level: int
     flush_mode: str
@@ -2209,6 +2360,11 @@ class AIWireCompatibilityManifest:
             "static_dictionary_sha256": self.static_dictionary_sha256,
             "static_dictionary_size": self.static_dictionary_size,
             "static_dictionary_fnv1a64": self.static_dictionary_fnv1a64,
+            "dictionary_extensions": [
+                extension.to_dict() for extension in self.dictionary_extensions
+            ],
+            "dictionary_extension_count": self.dictionary_extension_count,
+            "dictionary_extensions_sha256": self.dictionary_extensions_sha256,
             "wbits": self.wbits,
             "mem_level": self.mem_level,
             "flush_mode": self.flush_mode,
@@ -2236,6 +2392,31 @@ class AIWireCompatibilityManifest:
             session_dictionary_state_hash = str(value["session_dictionary_state_hash"])
             _validate_sha256_hex(static_dictionary_sha256, "static_dictionary_sha256")
             _validate_sha256_hex(session_dictionary_state_hash, "session_dictionary_state_hash")
+            dictionary_extensions = normalize_aiwire_dictionary_extensions(
+                value.get("dictionary_extensions", ())
+            )
+            dictionary_extension_count = int(
+                value.get("dictionary_extension_count", len(dictionary_extensions))
+            )
+            if dictionary_extension_count != len(dictionary_extensions):
+                raise AIWireHandshakeError(
+                    "dictionary extension count does not match manifest payload"
+                )
+            dictionary_extensions_sha256 = str(
+                value.get(
+                    "dictionary_extensions_sha256",
+                    aiwire_dictionary_extensions_sha256(dictionary_extensions),
+                )
+            )
+            if dictionary_extensions_sha256:
+                _validate_sha256_hex(
+                    dictionary_extensions_sha256,
+                    "dictionary_extensions_sha256",
+                )
+            if dictionary_extensions_sha256 != aiwire_dictionary_extensions_sha256(
+                dictionary_extensions
+            ):
+                raise AIWireHandshakeError("dictionary extension hash does not match payload")
 
             session_template_sha256 = str(value.get("session_template_sha256", ""))
             if session_template_sha256:
@@ -2265,6 +2446,9 @@ class AIWireCompatibilityManifest:
                 static_dictionary_sha256=static_dictionary_sha256,
                 static_dictionary_size=int(value["static_dictionary_size"]),
                 static_dictionary_fnv1a64=static_dictionary_fnv1a64,
+                dictionary_extensions=dictionary_extensions,
+                dictionary_extension_count=dictionary_extension_count,
+                dictionary_extensions_sha256=dictionary_extensions_sha256,
                 wbits=int(value["wbits"]),
                 mem_level=int(value["mem_level"]),
                 flush_mode=str(value["flush_mode"]),
@@ -2319,6 +2503,7 @@ class AIWireCompatibilityCheck:
 
 def _aiwire_compatibility_limits() -> tuple[tuple[str, int], ...]:
     return (
+        ("max_dictionary_extension_bytes", AI_WIRE_MAX_DICTIONARY_EXTENSION_BYTES),
         ("max_control_lut_entries", AI_WIRE_MAX_CONTROL_LUT_ENTRIES),
         ("max_session_dictionary_bytes", AI_WIRE_MAX_SESSION_DICTIONARY_BYTES),
         ("max_session_dictionary_diff_additions", AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS),
@@ -2334,6 +2519,7 @@ def build_aiwire_compatibility_manifest(
     session_template_epoch: int = 0,
     session_dictionary_epoch: int | None = None,
     supported_delta_versions: Iterable[int] = (AI_WIRE_DELTA_VERSION,),
+    dictionary_extensions: Iterable[AIWireDictionaryExtension | Mapping[str, Any]] | None = None,
     control_lut: AIWireControlLUTEntries | None = None,
     control_lut_epoch: int = 0,
 ) -> AIWireCompatibilityManifest:
@@ -2341,6 +2527,7 @@ def build_aiwire_compatibility_manifest(
 
     normalized_templates = normalize_aiwire_session_templates(session_templates)
     normalized_control_lut = normalize_aiwire_control_lut(control_lut)
+    normalized_dictionary_extensions = normalize_aiwire_dictionary_extensions(dictionary_extensions)
     dictionary_epoch = (
         session_template_epoch if session_dictionary_epoch is None else session_dictionary_epoch
     )
@@ -2361,6 +2548,11 @@ def build_aiwire_compatibility_manifest(
         static_dictionary_sha256=AI_WIRE_DICTIONARY_SHA256,
         static_dictionary_size=len(AI_WIRE_STATIC_DICTIONARY),
         static_dictionary_fnv1a64=f"{AI_WIRE_DICTIONARY_FNV1A64:016x}",
+        dictionary_extensions=normalized_dictionary_extensions,
+        dictionary_extension_count=len(normalized_dictionary_extensions),
+        dictionary_extensions_sha256=aiwire_dictionary_extensions_sha256(
+            normalized_dictionary_extensions
+        ),
         wbits=AI_WIRE_WBITS,
         mem_level=AI_WIRE_MEM_LEVEL,
         flush_mode=AI_WIRE_FLUSH_MODE,
@@ -2448,6 +2640,10 @@ def verify_aiwire_compatibility_manifest(
         reason = "dictionary_size_mismatch"
     elif peer.static_dictionary_fnv1a64 != local.static_dictionary_fnv1a64:
         reason = "dictionary_fnv1a64_mismatch"
+    elif peer.dictionary_extension_count != local.dictionary_extension_count:
+        reason = "dictionary_extension_count_mismatch"
+    elif peer.dictionary_extensions_sha256 != local.dictionary_extensions_sha256:
+        reason = "dictionary_extensions_sha256_mismatch"
     elif peer.wbits != local.wbits:
         reason = "zlib_window_mismatch"
     elif peer.mem_level != local.mem_level:
@@ -2518,6 +2714,7 @@ def build_aiwire_handshake(
     use_static_dictionary: bool = True,
     use_native: bool | None = None,
     fallback_codecs: Iterable[str] = AI_WIRE_FALLBACK_CODECS,
+    dictionary_extensions: Iterable[AIWireDictionaryExtension | Mapping[str, Any]] | None = None,
     session_templates: AIWireSessionTemplates | None = None,
     session_template_epoch: int = 0,
     require_session_templates: bool = False,
@@ -2530,6 +2727,7 @@ def build_aiwire_handshake(
 
     normalized_templates = normalize_aiwire_session_templates(session_templates)
     normalized_control_lut = normalize_aiwire_control_lut(control_lut)
+    normalized_dictionary_extensions = normalize_aiwire_dictionary_extensions(dictionary_extensions)
     normalized_fallback_codecs = tuple(
         _normalize_aiwire_fallback_codec(codec) for codec in fallback_codecs
     )
@@ -2550,6 +2748,11 @@ def build_aiwire_handshake(
         wbits=AI_WIRE_WBITS,
         mem_level=AI_WIRE_MEM_LEVEL,
         flush_mode=AI_WIRE_FLUSH_MODE,
+        dictionary_extensions=normalized_dictionary_extensions,
+        dictionary_extension_count=len(normalized_dictionary_extensions),
+        dictionary_extensions_sha256=aiwire_dictionary_extensions_sha256(
+            normalized_dictionary_extensions
+        ),
         level=level,
         use_static_dictionary=use_static_dictionary,
         backend=backend,
@@ -2576,6 +2779,7 @@ def negotiate_aiwire_nary_handshake(
     use_native: bool | None = None,
     fallback_codecs: Iterable[str] = AI_WIRE_FALLBACK_CODECS,
     allow_fallback: bool = True,
+    dictionary_extensions: Iterable[AIWireDictionaryExtension | Mapping[str, Any]] | None = None,
     session_templates: AIWireSessionTemplates | None = None,
     session_template_epoch: int = 0,
     require_session_templates: bool = False,
@@ -2600,6 +2804,7 @@ def negotiate_aiwire_nary_handshake(
         use_static_dictionary=use_static_dictionary,
         use_native=use_native,
         fallback_codecs=fallback_codecs,
+        dictionary_extensions=dictionary_extensions,
         session_templates=session_templates,
         session_template_epoch=session_template_epoch,
         require_session_templates=require_session_templates,
@@ -2615,6 +2820,7 @@ def negotiate_aiwire_nary_handshake(
             use_native=use_native,
             fallback_codecs=fallback_codecs,
             allow_fallback=allow_fallback,
+            dictionary_extensions=dictionary_extensions,
             session_templates=session_templates,
             session_template_epoch=session_template_epoch,
             require_session_templates=require_session_templates,
@@ -2671,6 +2877,7 @@ def negotiate_aiwire_handshake(
     use_native: bool | None = None,
     fallback_codecs: Iterable[str] = AI_WIRE_FALLBACK_CODECS,
     allow_fallback: bool = True,
+    dictionary_extensions: Iterable[AIWireDictionaryExtension | Mapping[str, Any]] | None = None,
     session_templates: AIWireSessionTemplates | None = None,
     session_template_epoch: int = 0,
     require_session_templates: bool = False,
@@ -2688,6 +2895,7 @@ def negotiate_aiwire_handshake(
         use_static_dictionary=use_static_dictionary,
         use_native=use_native,
         fallback_codecs=fallback_codecs,
+        dictionary_extensions=dictionary_extensions,
         session_templates=session_templates,
         session_template_epoch=session_template_epoch,
         require_session_templates=require_session_templates,
@@ -2732,6 +2940,10 @@ def negotiate_aiwire_handshake(
         reason = "dictionary_sha256_mismatch"
     elif peer.use_static_dictionary and peer.dictionary_size != local.dictionary_size:
         reason = "dictionary_size_mismatch"
+    elif peer.dictionary_extension_count != local.dictionary_extension_count:
+        reason = "dictionary_extension_count_mismatch"
+    elif peer.dictionary_extensions_sha256 != local.dictionary_extensions_sha256:
+        reason = "dictionary_extensions_sha256_mismatch"
     elif peer.wbits != local.wbits:
         reason = "zlib_window_mismatch"
     elif peer.flush_mode != local.flush_mode:
@@ -2995,6 +3207,7 @@ class AIWireSessionEncoder:
         level: int = AI_WIRE_DEFAULT_LEVEL,
         use_static_dictionary: bool = True,
         session_templates: AIWireSessionTemplates | None = None,
+        dictionary_extension_bytes: AIWireDictionaryExtensionBytes | None = None,
         use_native: bool | None = None,
     ) -> None:
         if not 0 <= level <= 9:
@@ -3003,6 +3216,9 @@ class AIWireSessionEncoder:
         self.level = level
         self.use_static_dictionary = use_static_dictionary
         self.session_templates = normalize_aiwire_session_templates(session_templates)
+        self.dictionary_extension_bytes = tuple(
+            bytes(extension) for extension in dictionary_extension_bytes or ()
+        )
         self.backend = "python"
         self._native: _NativeAIWireEncoder | None = None
         self._compressor: Any | None = None
@@ -3013,6 +3229,7 @@ class AIWireSessionEncoder:
         dictionary = _build_session_dictionary(
             use_static_dictionary=use_static_dictionary,
             session_templates=self.session_templates,
+            dictionary_extensions=self.dictionary_extension_bytes,
         )
 
         if _native_enabled(use_native):
@@ -3020,7 +3237,11 @@ class AIWireSessionEncoder:
                 self._native = _NativeAIWireEncoder(
                     level=level,
                     use_static_dictionary=use_static_dictionary,
-                    dictionary=dictionary if self.session_templates else None,
+                    dictionary=(
+                        dictionary
+                        if self.session_templates or self.dictionary_extension_bytes
+                        else None
+                    ),
                 )
                 self.backend = "native"
                 return
@@ -3093,10 +3314,14 @@ class AIWireSessionDecoder:
         *,
         use_static_dictionary: bool = True,
         session_templates: AIWireSessionTemplates | None = None,
+        dictionary_extension_bytes: AIWireDictionaryExtensionBytes | None = None,
         use_native: bool | None = None,
     ) -> None:
         self.use_static_dictionary = use_static_dictionary
         self.session_templates = normalize_aiwire_session_templates(session_templates)
+        self.dictionary_extension_bytes = tuple(
+            bytes(extension) for extension in dictionary_extension_bytes or ()
+        )
         self.backend = "python"
         self._native: _NativeAIWireDecoder | None = None
         self._decompressor: Any | None = None
@@ -3108,13 +3333,18 @@ class AIWireSessionDecoder:
         dictionary = _build_session_dictionary(
             use_static_dictionary=use_static_dictionary,
             session_templates=self.session_templates,
+            dictionary_extensions=self.dictionary_extension_bytes,
         )
 
         if _native_enabled(use_native):
             try:
                 self._native = _NativeAIWireDecoder(
                     use_static_dictionary=use_static_dictionary,
-                    dictionary=dictionary if self.session_templates else None,
+                    dictionary=(
+                        dictionary
+                        if self.session_templates or self.dictionary_extension_bytes
+                        else None
+                    ),
                 )
                 self.backend = "native"
                 return
@@ -3216,12 +3446,14 @@ def compress_ai_wire_frames(
     level: int = AI_WIRE_DEFAULT_LEVEL,
     use_static_dictionary: bool = True,
     session_templates: AIWireSessionTemplates | None = None,
+    dictionary_extension_bytes: AIWireDictionaryExtensionBytes | None = None,
     use_native: bool | None = None,
 ) -> tuple[list[bytes], AIWireStats]:
     encoder = AIWireSessionEncoder(
         level=level,
         use_static_dictionary=use_static_dictionary,
         session_templates=session_templates,
+        dictionary_extension_bytes=dictionary_extension_bytes,
         use_native=use_native,
     )
     try:
@@ -3236,11 +3468,13 @@ def decompress_ai_wire_frames(
     *,
     use_static_dictionary: bool = True,
     session_templates: AIWireSessionTemplates | None = None,
+    dictionary_extension_bytes: AIWireDictionaryExtensionBytes | None = None,
     use_native: bool | None = None,
 ) -> tuple[list[bytes], AIWireStats]:
     decoder = AIWireSessionDecoder(
         use_static_dictionary=use_static_dictionary,
         session_templates=session_templates,
+        dictionary_extension_bytes=dictionary_extension_bytes,
         use_native=use_native,
     )
     try:

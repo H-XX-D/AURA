@@ -110,10 +110,47 @@ dictionary, and protocol-specific generated dictionaries. Candidate dictionaries
 are marked as candidate-only in the compatibility matrix until a release pins a
 new dictionary hash.
 
+## Private Application Dictionary Extensions
+
+Private deployments can add local zlib dictionary bytes without committing those
+terms to the public repo. The extension bytes stay local; compatibility
+manifests and live handshakes carry only digest metadata:
+
+```bash
+aura-aiwire-compatibility \
+  --dictionary-extension /etc/aura/tenant-alpha.dict \
+  --output /tmp/aura-aiwire-tenant-alpha-compat.json
+```
+
+Each extension record includes a name, byte size, SHA-256, and FNV-1a64. The
+manifest also includes a canonical hash of the extension metadata list. Peers
+must advertise the same extension metadata before AIWire is selected; otherwise
+the checker returns a `dictionary_extension_*` mismatch reason and either fails
+closed or selects an explicit fallback if one is allowed.
+
+Runtime callers pass the same private bytes to both sides of the session:
+
+```python
+from pathlib import Path
+
+from aura_compression import AIWireSessionDecoder, AIWireSessionEncoder
+
+extension = Path("/etc/aura/tenant-alpha.dict").read_bytes()
+
+encoder = AIWireSessionEncoder(dictionary_extension_bytes=[extension])
+decoder = AIWireSessionDecoder(dictionary_extension_bytes=[extension])
+```
+
+This is intentionally deployment-local. Promoting an extension into the public
+static dictionary still requires a versioned compatibility manifest, benchmark
+evidence, and an explicit release decision.
+
 ## Safety Rules
 
 - Static dictionary changes are compatibility breaks unless the peer explicitly
   selects a fallback.
+- Private dictionary extensions are selected only when extension metadata
+  matches; extension bytes are never serialized into compatibility artifacts.
 - Matching template hashes are not enough for resume; the session dictionary
   state hash also includes the epoch, static dictionary hash, and delta version.
 - A template ID is append-only within a session dictionary. Changing a shape

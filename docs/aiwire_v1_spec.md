@@ -94,9 +94,12 @@ Implementations SHOULD also be able to emit and verify an
 `aura.aiwire.compatibility_manifest.v1` record for release, deployment, and
 transport startup preflight. The manifest pins protocol versions, delta
 versions, static dictionary identity, zlib parameters, fallback codecs, session
-dictionary state, routine-control LUT state, and hard safety limits. It does
-not replace the live handshake; it is an inspectable compatibility matrix that
-lets operators or sidecars reject or fall back before moving data.
+dictionary state, private dictionary-extension metadata, routine-control LUT
+state, and hard safety limits. Private extension bytes are never serialized into
+the manifest; peers compare extension name, size, SHA-256, FNV-1a64, and the
+canonical metadata-list hash. It does not replace the live handshake; it is an
+inspectable compatibility matrix that lets operators or sidecars reject or fall
+back before moving data.
 
 ## Serialization
 

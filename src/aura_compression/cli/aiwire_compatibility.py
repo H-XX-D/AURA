@@ -11,6 +11,7 @@ from aura_compression.ai_wire import (
     AIWireHandshakeError,
     aiwire_compatibility_manifest_sha256,
     build_aiwire_compatibility_manifest,
+    build_aiwire_dictionary_extension,
     verify_aiwire_compatibility_manifest,
 )
 
@@ -35,6 +36,14 @@ def _write_json(payload: dict[str, object], output: str | None) -> None:
         print(rendered, end="")
 
 
+def _dictionary_extensions(paths: list[str] | None) -> list[object]:
+    extensions: list[object] = []
+    for path_value in paths or []:
+        path = Path(path_value)
+        extensions.append(build_aiwire_dictionary_extension(path.name, path.read_bytes()))
+    return extensions
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Emit or compare AIWire compatibility manifests.",
@@ -54,6 +63,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--fallback-codecs",
         default="zlib,raw",
         help="Comma-separated fallback codecs to advertise.",
+    )
+    parser.add_argument(
+        "--dictionary-extension",
+        action="append",
+        help=(
+            "Private zlib dictionary extension file to pin by digest in the manifest. "
+            "May be repeated; file contents are not written to the manifest."
+        ),
     )
     parser.add_argument(
         "--peer-manifest",
@@ -92,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         manifest = build_aiwire_compatibility_manifest(
             fallback_codecs=fallback_codecs,
+            dictionary_extensions=_dictionary_extensions(args.dictionary_extension),
             session_templates=_load_json(args.session_templates),
             session_template_epoch=args.session_template_epoch,
             session_dictionary_epoch=args.session_dictionary_epoch,

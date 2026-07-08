@@ -21,6 +21,7 @@ from aura_compression.ai_wire import (
     aiwire_compatibility_manifest_sha256,
     aiwire_control_lut_frame_hex,
     aiwire_control_lut_sha256,
+    aiwire_dictionary_extensions_sha256,
     aiwire_native_status,
     aiwire_session_dictionary_state_sha256,
     aiwire_session_templates_sha256,
@@ -28,6 +29,7 @@ from aura_compression.ai_wire import (
     apply_aiwire_session_template_update,
     build_ai_wire_messages,
     build_aiwire_compatibility_manifest,
+    build_aiwire_dictionary_extension,
     build_aiwire_handshake,
     build_aiwire_session_dictionary_diff,
     build_aiwire_session_resume_hello,
@@ -48,6 +50,7 @@ from aura_compression.ai_wire import (
     negotiate_aiwire_nary_handshake,
     negotiate_aiwire_session_resume,
     normalize_aiwire_control_lut,
+    normalize_aiwire_dictionary_extensions,
     summarize_ai_wire_corpus,
     verify_aiwire_compatibility_manifest,
     verify_aiwire_session_dictionary_ack,
@@ -151,6 +154,86 @@ def test_aiwire_compatibility_manifest_can_select_explicit_fallback() -> None:
     assert check.version is None
     assert check.reason == "dictionary_sha256_mismatch"
     assert check.shared_fallback_codecs == ("zlib", "raw")
+
+
+def test_aiwire_dictionary_extensions_are_digest_only_compatibility_inputs() -> None:
+    private_terms = b'"tenant_private_route":"alpha"\n"internal_tool":"planner"'
+    extension = build_aiwire_dictionary_extension("tenant-alpha.dict", private_terms)
+    local = build_aiwire_compatibility_manifest(dictionary_extensions=[extension])
+    peer = build_aiwire_compatibility_manifest(dictionary_extensions=[extension]).to_dict()
+    payload = local.to_dict()
+
+    assert payload["dictionary_extension_count"] == 1
+    assert payload["dictionary_extensions_sha256"] == aiwire_dictionary_extensions_sha256(
+        [extension]
+    )
+    assert private_terms.decode("utf-8") not in str(payload)
+    assert normalize_aiwire_dictionary_extensions([extension.to_dict()]) == (extension,)
+
+    check = verify_aiwire_compatibility_manifest(
+        peer,
+        local_manifest=local,
+        allow_fallback=False,
+    )
+    assert check.accepted is True
+    assert check.codec == "aiwire"
+
+    stale_peer = build_aiwire_compatibility_manifest().to_dict()
+    rejected = verify_aiwire_compatibility_manifest(
+        stale_peer,
+        local_manifest=local,
+        allow_fallback=False,
+    )
+    assert rejected.accepted is False
+    assert rejected.reason == "dictionary_extension_count_mismatch"
+
+
+def test_aiwire_handshake_rejects_private_dictionary_extension_mismatch() -> None:
+    extension = build_aiwire_dictionary_extension(
+        "tenant-alpha.dict",
+        b'"tenant_private_route":"alpha"',
+    )
+    peer = build_aiwire_handshake(dictionary_extensions=[extension]).to_dict()
+
+    accepted = negotiate_aiwire_handshake(
+        peer,
+        dictionary_extensions=[extension],
+        allow_fallback=False,
+    )
+    assert accepted.accepted is True
+    assert accepted.codec == "aiwire"
+
+    rejected = negotiate_aiwire_handshake(
+        peer,
+        dictionary_extensions=[],
+        allow_fallback=False,
+    )
+    assert rejected.accepted is False
+    assert rejected.reason == "dictionary_extension_count_mismatch"
+
+
+def test_ai_wire_round_trips_with_application_dictionary_extension_bytes() -> None:
+    extension_bytes = b'"tenant_private_route":"alpha"\n"internal_tool":"planner"'
+    message = {
+        "protocol": "local.agent",
+        "tenant_private_route": "alpha",
+        "internal_tool": "planner",
+    }
+
+    encoder = AIWireSessionEncoder(
+        dictionary_extension_bytes=[extension_bytes],
+        use_native=False,
+    )
+    decoder = AIWireSessionDecoder(
+        dictionary_extension_bytes=[extension_bytes],
+        use_native=False,
+    )
+
+    restored = decoder.decompress_message(encoder.compress_message(message))
+
+    assert restored == message
+    assert encoder.stats.frames == 1
+    assert decoder.stats.frames == 1
 
 
 def test_ai_wire_round_trips_ordered_frames() -> None:

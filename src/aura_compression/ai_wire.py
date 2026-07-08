@@ -42,6 +42,8 @@ AI_WIRE_HANDSHAKE_SCHEMA = "aura.aiwire.handshake.v1"
 AI_WIRE_NEGOTIATION_SCHEMA = "aura.aiwire.negotiation.v1"
 AI_WIRE_NARY_NEGOTIATION_SCHEMA = "aura.aiwire.nary_negotiation.v1"
 AI_WIRE_COMPATIBILITY_MANIFEST_SCHEMA = "aura.aiwire.compatibility_manifest.v1"
+AI_WIRE_STATIC_DICTIONARY_CATALOG_SCHEMA = "aura.aiwire.static_dictionary_catalog.v1"
+AI_WIRE_SESSION_TEMPLATE_CATALOG_SCHEMA = "aura.aiwire.session_template_catalog.v1"
 AI_WIRE_DICTIONARY_EXTENSION_SCHEMA = "aura.aiwire.dictionary_extension.v1"
 AI_WIRE_CONTROL_LUT_SCHEMA = "aura.aiwire.control_lut.v1"
 AI_WIRE_SYSTEM_CONTROL_SCHEMA = "aura.aiwire.system_control.v1"
@@ -58,6 +60,8 @@ AI_WIRE_FLUSH_MODE = "z_sync_flush"
 AI_WIRE_SYNC_FLUSH_SUFFIX = b"\x00\x00\xff\xff"
 AI_WIRE_FALLBACK_CODECS = ("zlib", "raw")
 AI_WIRE_DELTA_VERSION = 1
+AI_WIRE_STATIC_DICTIONARY_VERSION = "aiwire-static-v1"
+AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION = "session-templates-v1"
 AI_WIRE_MAX_SESSION_TEMPLATES = 4096
 AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS = 128
 AI_WIRE_MAX_SESSION_TEMPLATE_BYTES = 4096
@@ -354,6 +358,83 @@ def _sha256_hex(payload: bytes) -> str:
 def _validate_sha256_hex(value: str, field_name: str) -> None:
     if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
         raise AIWireHandshakeError(f"{field_name} must be a lowercase sha256 hex digest")
+
+
+def build_aiwire_static_dictionary_catalog(
+    *,
+    version: str = AI_WIRE_STATIC_DICTIONARY_VERSION,
+) -> dict[str, object]:
+    """Return explicit release-catalog metadata for the pinned static dictionary."""
+
+    normalized_version = str(version).strip()
+    if not normalized_version:
+        raise AIWireHandshakeError("static dictionary catalog version is required")
+    return {
+        "schema": AI_WIRE_STATIC_DICTIONARY_CATALOG_SCHEMA,
+        "protocol": AI_WIRE_PROTOCOL,
+        "version": normalized_version,
+        "aiwire_version": AI_WIRE_VERSION,
+        "sha256": AI_WIRE_DICTIONARY_SHA256,
+        "size": len(AI_WIRE_STATIC_DICTIONARY),
+        "fnv1a64": f"{AI_WIRE_DICTIONARY_FNV1A64:016x}",
+    }
+
+
+def aiwire_static_dictionary_catalog_sha256(
+    *,
+    version: str = AI_WIRE_STATIC_DICTIONARY_VERSION,
+) -> str:
+    """Hash static-dictionary catalog metadata in canonical form."""
+
+    return _sha256_hex(
+        _canonical_json_bytes(build_aiwire_static_dictionary_catalog(version=version))
+    )
+
+
+def build_aiwire_session_template_catalog(
+    session_templates: AIWireSessionTemplates | None = None,
+    *,
+    version: str = AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION,
+    epoch: int = 0,
+) -> dict[str, object]:
+    """Return digest-only catalog metadata for a session-template set."""
+
+    normalized_version = str(version).strip()
+    if not normalized_version:
+        raise AIWireHandshakeError("session template catalog version is required")
+    normalized_templates = normalize_aiwire_session_templates(session_templates)
+    return {
+        "schema": AI_WIRE_SESSION_TEMPLATE_CATALOG_SCHEMA,
+        "protocol": AI_WIRE_PROTOCOL,
+        "version": normalized_version,
+        "aiwire_version": AI_WIRE_VERSION,
+        "epoch": int(epoch),
+        "template_count": len(normalized_templates),
+        "template_sha256": aiwire_session_templates_sha256(normalized_templates),
+        "state_hash": aiwire_session_dictionary_state_sha256(
+            normalized_templates,
+            epoch=int(epoch),
+        ),
+    }
+
+
+def aiwire_session_template_catalog_sha256(
+    session_templates: AIWireSessionTemplates | None = None,
+    *,
+    version: str = AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION,
+    epoch: int = 0,
+) -> str:
+    """Hash session-template catalog metadata without serializing template patterns."""
+
+    return _sha256_hex(
+        _canonical_json_bytes(
+            build_aiwire_session_template_catalog(
+                session_templates,
+                version=version,
+                epoch=epoch,
+            )
+        )
+    )
 
 
 def _auth_key_bytes(auth_key: AIWireAuthKey) -> bytes | None:
@@ -2332,6 +2413,8 @@ class AIWireCompatibilityManifest:
     static_dictionary_sha256: str
     static_dictionary_size: int
     static_dictionary_fnv1a64: str
+    static_dictionary_version: str
+    static_dictionary_catalog_sha256: str
     dictionary_extensions: tuple[AIWireDictionaryExtension, ...]
     dictionary_extension_count: int
     dictionary_extensions_sha256: str
@@ -2342,6 +2425,8 @@ class AIWireCompatibilityManifest:
     session_template_sha256: str
     session_template_count: int
     session_template_epoch: int
+    session_template_catalog_version: str
+    session_template_catalog_sha256: str
     session_dictionary_state_hash: str
     session_dictionary_epoch: int
     control_lut_sha256: str
@@ -2360,6 +2445,8 @@ class AIWireCompatibilityManifest:
             "static_dictionary_sha256": self.static_dictionary_sha256,
             "static_dictionary_size": self.static_dictionary_size,
             "static_dictionary_fnv1a64": self.static_dictionary_fnv1a64,
+            "static_dictionary_version": self.static_dictionary_version,
+            "static_dictionary_catalog_sha256": self.static_dictionary_catalog_sha256,
             "dictionary_extensions": [
                 extension.to_dict() for extension in self.dictionary_extensions
             ],
@@ -2372,6 +2459,8 @@ class AIWireCompatibilityManifest:
             "session_template_sha256": self.session_template_sha256,
             "session_template_count": self.session_template_count,
             "session_template_epoch": self.session_template_epoch,
+            "session_template_catalog_version": self.session_template_catalog_version,
+            "session_template_catalog_sha256": self.session_template_catalog_sha256,
             "session_dictionary_state_hash": self.session_dictionary_state_hash,
             "session_dictionary_epoch": self.session_dictionary_epoch,
             "control_lut_sha256": self.control_lut_sha256,
@@ -2431,6 +2520,38 @@ class AIWireCompatibilityManifest:
                 char not in "0123456789abcdef" for char in static_dictionary_fnv1a64
             ):
                 raise AIWireHandshakeError("static_dictionary_fnv1a64 must be 16 hex chars")
+            static_dictionary_version = str(
+                value.get("static_dictionary_version", AI_WIRE_STATIC_DICTIONARY_VERSION)
+            ).strip()
+            if not static_dictionary_version:
+                raise AIWireHandshakeError("static dictionary version is required")
+            static_dictionary_catalog_sha256 = str(
+                value.get(
+                    "static_dictionary_catalog_sha256",
+                    aiwire_static_dictionary_catalog_sha256(
+                        version=static_dictionary_version,
+                    ),
+                )
+            )
+            _validate_sha256_hex(
+                static_dictionary_catalog_sha256,
+                "static_dictionary_catalog_sha256",
+            )
+
+            session_template_catalog_version = str(
+                value.get(
+                    "session_template_catalog_version",
+                    AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION,
+                )
+            ).strip()
+            if not session_template_catalog_version:
+                raise AIWireHandshakeError("session template catalog version is required")
+            session_template_catalog_sha256 = str(value.get("session_template_catalog_sha256", ""))
+            if session_template_catalog_sha256:
+                _validate_sha256_hex(
+                    session_template_catalog_sha256,
+                    "session_template_catalog_sha256",
+                )
 
             limits_value = value.get("limits", {})
             if not isinstance(limits_value, Mapping):
@@ -2446,6 +2567,8 @@ class AIWireCompatibilityManifest:
                 static_dictionary_sha256=static_dictionary_sha256,
                 static_dictionary_size=int(value["static_dictionary_size"]),
                 static_dictionary_fnv1a64=static_dictionary_fnv1a64,
+                static_dictionary_version=static_dictionary_version,
+                static_dictionary_catalog_sha256=static_dictionary_catalog_sha256,
                 dictionary_extensions=dictionary_extensions,
                 dictionary_extension_count=dictionary_extension_count,
                 dictionary_extensions_sha256=dictionary_extensions_sha256,
@@ -2459,6 +2582,8 @@ class AIWireCompatibilityManifest:
                 session_template_sha256=session_template_sha256,
                 session_template_count=int(value.get("session_template_count", 0)),
                 session_template_epoch=int(value.get("session_template_epoch", 0)),
+                session_template_catalog_version=session_template_catalog_version,
+                session_template_catalog_sha256=session_template_catalog_sha256,
                 session_dictionary_state_hash=session_dictionary_state_hash,
                 session_dictionary_epoch=int(value.get("session_dictionary_epoch", 0)),
                 control_lut_sha256=control_lut_sha256,
@@ -2515,7 +2640,9 @@ def _aiwire_compatibility_limits() -> tuple[tuple[str, int], ...]:
 def build_aiwire_compatibility_manifest(
     *,
     fallback_codecs: Iterable[str] = AI_WIRE_FALLBACK_CODECS,
+    static_dictionary_version: str = AI_WIRE_STATIC_DICTIONARY_VERSION,
     session_templates: AIWireSessionTemplates | None = None,
+    session_template_catalog_version: str = AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION,
     session_template_epoch: int = 0,
     session_dictionary_epoch: int | None = None,
     supported_delta_versions: Iterable[int] = (AI_WIRE_DELTA_VERSION,),
@@ -2548,6 +2675,10 @@ def build_aiwire_compatibility_manifest(
         static_dictionary_sha256=AI_WIRE_DICTIONARY_SHA256,
         static_dictionary_size=len(AI_WIRE_STATIC_DICTIONARY),
         static_dictionary_fnv1a64=f"{AI_WIRE_DICTIONARY_FNV1A64:016x}",
+        static_dictionary_version=static_dictionary_version,
+        static_dictionary_catalog_sha256=aiwire_static_dictionary_catalog_sha256(
+            version=static_dictionary_version,
+        ),
         dictionary_extensions=normalized_dictionary_extensions,
         dictionary_extension_count=len(normalized_dictionary_extensions),
         dictionary_extensions_sha256=aiwire_dictionary_extensions_sha256(
@@ -2560,6 +2691,12 @@ def build_aiwire_compatibility_manifest(
         session_template_sha256=aiwire_session_templates_sha256(normalized_templates),
         session_template_count=len(normalized_templates),
         session_template_epoch=session_template_epoch,
+        session_template_catalog_version=session_template_catalog_version,
+        session_template_catalog_sha256=aiwire_session_template_catalog_sha256(
+            normalized_templates,
+            version=session_template_catalog_version,
+            epoch=session_template_epoch,
+        ),
         session_dictionary_state_hash=aiwire_session_dictionary_state_sha256(
             normalized_templates,
             epoch=dictionary_epoch,
@@ -2640,6 +2777,10 @@ def verify_aiwire_compatibility_manifest(
         reason = "dictionary_size_mismatch"
     elif peer.static_dictionary_fnv1a64 != local.static_dictionary_fnv1a64:
         reason = "dictionary_fnv1a64_mismatch"
+    elif peer.static_dictionary_version != local.static_dictionary_version:
+        reason = "static_dictionary_version_mismatch"
+    elif peer.static_dictionary_catalog_sha256 != local.static_dictionary_catalog_sha256:
+        reason = "static_dictionary_catalog_sha256_mismatch"
     elif peer.dictionary_extension_count != local.dictionary_extension_count:
         reason = "dictionary_extension_count_mismatch"
     elif peer.dictionary_extensions_sha256 != local.dictionary_extensions_sha256:
@@ -2655,10 +2796,20 @@ def verify_aiwire_compatibility_manifest(
     elif templates_are_required and peer.session_template_sha256 != local.session_template_sha256:
         reason = "session_template_sha256_mismatch"
     elif (
+        templates_are_required
+        and peer.session_template_catalog_version != local.session_template_catalog_version
+    ):
+        reason = "session_template_catalog_version_mismatch"
+    elif (
         dictionary_is_required
         and peer.session_dictionary_state_hash != local.session_dictionary_state_hash
     ):
         reason = "session_dictionary_state_hash_mismatch"
+    elif (
+        templates_are_required
+        and peer.session_template_catalog_sha256 != local.session_template_catalog_sha256
+    ):
+        reason = "session_template_catalog_sha256_mismatch"
     elif control_lut_is_required and peer.control_lut_count != local.control_lut_count:
         reason = "control_lut_count_mismatch"
     elif control_lut_is_required and peer.control_lut_sha256 != local.control_lut_sha256:

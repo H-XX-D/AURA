@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from aura_compression.ai_wire import (
+    AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION,
+    AI_WIRE_STATIC_DICTIONARY_VERSION,
+    AIWireDictionaryExtension,
     AIWireHandshakeError,
     aiwire_compatibility_manifest_sha256,
     build_aiwire_compatibility_manifest,
@@ -36,8 +39,8 @@ def _write_json(payload: dict[str, object], output: str | None) -> None:
         print(rendered, end="")
 
 
-def _dictionary_extensions(paths: list[str] | None) -> list[object]:
-    extensions: list[object] = []
+def _dictionary_extensions(paths: list[str] | None) -> list[AIWireDictionaryExtension]:
+    extensions: list[AIWireDictionaryExtension] = []
     for path_value in paths or []:
         path = Path(path_value)
         extensions.append(build_aiwire_dictionary_extension(path.name, path.read_bytes()))
@@ -63,6 +66,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--fallback-codecs",
         default="zlib,raw",
         help="Comma-separated fallback codecs to advertise.",
+    )
+    parser.add_argument(
+        "--static-dictionary-version",
+        default=AI_WIRE_STATIC_DICTIONARY_VERSION,
+        help="Release/catalog version label for the pinned static dictionary.",
+    )
+    parser.add_argument(
+        "--session-template-catalog-version",
+        default=AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION,
+        help="Release/catalog version label for the provided session templates.",
     )
     parser.add_argument(
         "--dictionary-extension",
@@ -109,8 +122,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         manifest = build_aiwire_compatibility_manifest(
             fallback_codecs=fallback_codecs,
+            static_dictionary_version=args.static_dictionary_version,
             dictionary_extensions=_dictionary_extensions(args.dictionary_extension),
             session_templates=_load_json(args.session_templates),
+            session_template_catalog_version=args.session_template_catalog_version,
             session_template_epoch=args.session_template_epoch,
             session_dictionary_epoch=args.session_dictionary_epoch,
             control_lut=_load_json(args.control_lut),

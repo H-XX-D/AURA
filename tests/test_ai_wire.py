@@ -11,6 +11,7 @@ from aura_compression.ai_wire import (
     AI_WIRE_DICTIONARY_SHA256,
     AI_WIRE_FALLBACK_CODECS,
     AI_WIRE_STATIC_DICTIONARY,
+    AI_WIRE_STATIC_DICTIONARY_VERSION,
     AI_WIRE_SYNC_FLUSH_SUFFIX,
     AIWireControlLUTEntry,
     AIWireFallbackError,
@@ -24,7 +25,9 @@ from aura_compression.ai_wire import (
     aiwire_dictionary_extensions_sha256,
     aiwire_native_status,
     aiwire_session_dictionary_state_sha256,
+    aiwire_session_template_catalog_sha256,
     aiwire_session_templates_sha256,
+    aiwire_static_dictionary_catalog_sha256,
     apply_aiwire_session_dictionary_diff,
     apply_aiwire_session_template_update,
     build_ai_wire_messages,
@@ -33,7 +36,9 @@ from aura_compression.ai_wire import (
     build_aiwire_handshake,
     build_aiwire_session_dictionary_diff,
     build_aiwire_session_resume_hello,
+    build_aiwire_session_template_catalog,
     build_aiwire_session_template_update,
+    build_aiwire_static_dictionary_catalog,
     build_aiwire_system_control_message,
     build_delta_structured_ai_messages,
     build_structured_ai_messages,
@@ -85,15 +90,41 @@ def test_aiwire_compatibility_manifest_records_dictionary_and_session_state() ->
     payload = manifest.to_dict()
 
     assert payload["schema"] == "aura.aiwire.compatibility_manifest.v1"
+    assert payload["static_dictionary_version"] == AI_WIRE_STATIC_DICTIONARY_VERSION
+    assert payload["static_dictionary_catalog_sha256"] == aiwire_static_dictionary_catalog_sha256()
     assert payload["static_dictionary_sha256"] == AI_WIRE_DICTIONARY_SHA256
     assert payload["static_dictionary_fnv1a64"] == "94dd21718372952e"
     assert payload["session_template_count"] == 1
+    assert payload["session_template_catalog_version"] == "session-templates-v1"
+    assert payload["session_template_catalog_sha256"] == aiwire_session_template_catalog_sha256(
+        templates,
+        epoch=3,
+    )
     assert payload["session_dictionary_epoch"] == 3
     assert payload["session_dictionary_state_hash"] == aiwire_session_dictionary_state_sha256(
         templates,
         epoch=3,
     )
     assert len(aiwire_compatibility_manifest_sha256(manifest)) == 64
+
+
+def test_aiwire_catalog_helpers_are_digest_only() -> None:
+    templates = {128: "private tenant shape {0}"}
+
+    static_catalog = build_aiwire_static_dictionary_catalog()
+    template_catalog = build_aiwire_session_template_catalog(
+        templates,
+        version="tenant-catalog-v7",
+        epoch=4,
+    )
+
+    assert static_catalog["schema"] == "aura.aiwire.static_dictionary_catalog.v1"
+    assert static_catalog["version"] == AI_WIRE_STATIC_DICTIONARY_VERSION
+    assert static_catalog["sha256"] == AI_WIRE_DICTIONARY_SHA256
+    assert template_catalog["schema"] == "aura.aiwire.session_template_catalog.v1"
+    assert template_catalog["version"] == "tenant-catalog-v7"
+    assert template_catalog["template_count"] == 1
+    assert "private tenant shape" not in str(template_catalog)
 
 
 def test_aiwire_compatibility_manifest_accepts_matching_peer() -> None:
@@ -114,6 +145,29 @@ def test_aiwire_compatibility_manifest_accepts_matching_peer() -> None:
     assert check.version == 1
     assert check.selected_delta_version == 1
     assert check.reason is None
+
+
+def test_aiwire_compatibility_manifest_rejects_catalog_version_mismatch() -> None:
+    templates = {128: "agent {0} calls tool {1}"}
+    local = build_aiwire_compatibility_manifest(
+        session_templates=templates,
+        session_template_catalog_version="tenant-catalog-v2",
+        session_template_epoch=1,
+    )
+    stale_peer = build_aiwire_compatibility_manifest(
+        session_templates=templates,
+        session_template_catalog_version="tenant-catalog-v1",
+        session_template_epoch=1,
+    )
+
+    check = verify_aiwire_compatibility_manifest(
+        stale_peer,
+        local_manifest=local,
+        allow_fallback=False,
+    )
+
+    assert check.accepted is False
+    assert check.reason == "session_template_catalog_version_mismatch"
 
 
 def test_aiwire_compatibility_manifest_fails_closed_on_session_state_mismatch() -> None:

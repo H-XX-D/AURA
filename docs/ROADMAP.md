@@ -220,9 +220,12 @@ mutating the pinned v1 static dictionary. The first dictionary comparison matrix
 dictionary, a combined generated candidate, and protocol-specific candidates.
 Private application dictionary extensions are now supported as digest-only
 compatibility inputs and opt-in runtime dictionary bytes, so deployments can pin
-local terms without putting those terms in public manifests.
+local terms without putting those terms in public manifests. Static dictionary
+and session-template catalog version labels and catalog hashes are now carried
+in compatibility manifests so release/deployment preflight can reject peers on a
+different catalog before semantic frames move.
 
-- Version static dictionaries and session-template catalogs explicitly.
+- Keep static dictionaries and session-template catalogs explicitly versioned.
 - Keep `aura-aiwire-compatibility` available as the release/deployment preflight
   for dictionary, template, delta-version, and LUT compatibility.
 - Keep runtime startup paths, including `aura-proxy` and transport examples,

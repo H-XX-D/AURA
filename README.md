@@ -95,7 +95,7 @@ Relevant public protocol context:
 | AIToken and AIToken+AIWire | Working structural-token path and combined small-frame path |
 | Session templates | Discovery, forced handshake, SHA verification, bounded session dictionaries |
 | Session resume cache | Persistent local cache for known peer dictionary states; supports resume hello/response negotiation, proxy startup resume, and fail-closed verification |
-| Dictionary compatibility | Compatibility manifest and fail-closed checker for static dictionary, private dictionary-extension digests, session dictionary, delta version, and LUT state; wired into proxy/example startup |
+| Dictionary compatibility | Compatibility manifest and fail-closed checker for static/template catalog versions, private dictionary-extension digests, session dictionary, delta version, and LUT state; wired into proxy/example startup |
 | Structured message helpers | Working canonical JSON encode/decode helpers |
 | AI-to-AI benchmark harness | Working LAN, realistic-profile, and concurrent-agent tooling |
 | Explicit sidecar proxy | Working TCP ingress/egress sidecar for raw length-prefixed agent frames over an AIWire tunnel with optional cached-session resume |

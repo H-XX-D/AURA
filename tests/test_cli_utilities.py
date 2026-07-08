@@ -188,6 +188,8 @@ def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
                 str(templates),
                 "--session-template-epoch",
                 "1",
+                "--session-template-catalog-version",
+                "tenant-catalog-v1",
                 "--dictionary-extension",
                 str(dictionary_extension),
                 "--output",
@@ -199,6 +201,9 @@ def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
     manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
     assert manifest_payload["schema"] == "aura.aiwire.compatibility_manifest.v1"
     assert len(manifest_payload["manifest_sha256"]) == 64
+    assert manifest_payload["static_dictionary_version"] == "aiwire-static-v1"
+    assert manifest_payload["session_template_catalog_version"] == "tenant-catalog-v1"
+    assert len(manifest_payload["session_template_catalog_sha256"]) == 64
     assert manifest_payload["dictionary_extension_count"] == 1
     assert manifest_payload["dictionary_extensions"][0]["name"] == "tenant-alpha.dict"
     assert "tenant_private_route" not in manifest.read_text(encoding="utf-8")
@@ -210,6 +215,8 @@ def test_package_cli_aiwire_compatibility_manifest_and_check(tmp_path: Path):
                 str(templates),
                 "--session-template-epoch",
                 "1",
+                "--session-template-catalog-version",
+                "tenant-catalog-v1",
                 "--dictionary-extension",
                 str(dictionary_extension),
                 "--peer-manifest",

@@ -11,10 +11,12 @@ The first job is handled by an AIWire compatibility manifest. The manifest is a
 stable JSON record with:
 
 - AIWire protocol versions and delta versions
-- static dictionary SHA-256, byte size, and FNV-1a64
+- static dictionary catalog version, catalog hash, SHA-256, byte size, and
+  FNV-1a64
 - zlib window, memory level, and flush mode
 - fallback codecs
-- session template hash, count, epoch, and session dictionary state hash
+- session template catalog version, catalog hash, template hash, count, epoch,
+  and session dictionary state hash
 - routine-control LUT hash, count, and epoch
 - hard safety limits for template count, template bytes, total session
   dictionary bytes, diff additions, and LUT entries
@@ -38,6 +40,7 @@ JSON
 aura-aiwire-compatibility \
   --session-templates /tmp/session-templates.json \
   --session-template-epoch 1 \
+  --session-template-catalog-version tenant-alpha-templates-v1 \
   --output /tmp/aura-aiwire-session-compat.json
 ```
 
@@ -47,6 +50,7 @@ Compare a peer manifest:
 aura-aiwire-compatibility \
   --session-templates /tmp/session-templates.json \
   --session-template-epoch 1 \
+  --session-template-catalog-version tenant-alpha-templates-v1 \
   --peer-manifest /tmp/peer-aiwire-compat.json \
   --no-fallback
 ```
@@ -55,6 +59,13 @@ The checker selects `aiwire` only when the compatibility state matches. If
 fallback is allowed and both peers advertise a common fallback, it selects the
 first local fallback codec and records the AIWire rejection reason. With
 `--no-fallback`, mismatches return exit code `2`.
+
+Static dictionary and session-template catalog versions are operator-facing
+labels carried beside content hashes. They let a deployment fail closed when a
+peer is on a different release catalog even if the raw hashes are otherwise
+inspectable. Session-template catalog metadata is digest-only; template patterns
+remain in the explicit `--session-templates` input and are not duplicated in the
+catalog hash fields.
 
 The manifest does not replace the live handshake. It is a release, deployment,
 and startup preflight artifact. `aura-aiwire-compatibility` can compare manifests
@@ -149,6 +160,8 @@ evidence, and an explicit release decision.
 
 - Static dictionary changes are compatibility breaks unless the peer explicitly
   selects a fallback.
+- Static dictionary and session-template catalog versions must match for AIWire
+  selection when those catalogs are required.
 - Private dictionary extensions are selected only when extension metadata
   matches; extension bytes are never serialized into compatibility artifacts.
 - Matching template hashes are not enough for resume; the session dictionary

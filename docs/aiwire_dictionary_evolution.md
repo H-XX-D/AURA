@@ -94,6 +94,22 @@ wired into `AI_WIRE_STATIC_DICTIONARY`; a new static dictionary still needs a
 versioned compatibility manifest, benchmark evidence, and an explicit release
 decision.
 
+Compare generated dictionaries against the pinned v1 static dictionary:
+
+```bash
+PYTHONPATH=src python tools/compare_aiwire_dictionaries.py \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --json-output docs/perf/aiwire_dictionary_matrix_2026-07-08.json \
+  --markdown-output docs/perf/aiwire_dictionary_matrix_2026-07-08.md
+```
+
+The first matrix report is
+[AIWire Dictionary Comparison Matrix](perf/aiwire_dictionary_matrix_2026-07-08.md).
+It compares the current static dictionary, a combined generated candidate
+dictionary, and protocol-specific generated dictionaries. Candidate dictionaries
+are marked as candidate-only in the compatibility matrix until a release pins a
+new dictionary hash.
+
 ## Safety Rules
 
 - Static dictionary changes are compatibility breaks unless the peer explicitly

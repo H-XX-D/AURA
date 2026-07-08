@@ -108,15 +108,6 @@ from .ai_wire_fixtures import (
     load_aiwire_session_fixture_corpus,
     write_aiwire_session_fixture_corpus,
 )
-from .aiwire_dictionary_generation import (
-    AIWIRE_DICTIONARY_CANDIDATES_SCHEMA,
-    AIWireDictionaryCandidate,
-    build_aiwire_candidate_dictionary_bytes,
-    build_aiwire_dictionary_candidate_report,
-    discover_aiwire_dictionary_candidates,
-    write_aiwire_candidate_dictionary,
-    write_aiwire_dictionary_candidate_report,
-)
 from .ai_wire_token import (
     AI_WIRE_TOKEN_MAGIC,
     AI_WIRE_TOKEN_VERSION,
@@ -131,6 +122,24 @@ from .ai_wire_token import (
     decode_ai_wire_token_frames,
     encode_ai_wire_token_aiwire_frames,
     encode_ai_wire_token_frames,
+)
+from .aiwire_dictionary_comparison import (
+    AIWIRE_DICTIONARY_COMPARISON_SCHEMA,
+    build_aiwire_dictionary_comparison_report,
+    render_aiwire_dictionary_comparison_markdown,
+    write_aiwire_dictionary_comparison_markdown,
+    write_aiwire_dictionary_comparison_report,
+)
+from .aiwire_dictionary_generation import (
+    AIWIRE_DICTIONARY_CANDIDATES_SCHEMA,
+    AIWireDictionaryCandidate,
+    build_aiwire_candidate_dictionary_bytes,
+    build_aiwire_dictionary_candidate_report,
+    discover_aiwire_dictionary_candidates,
+    load_aiwire_fixture_messages,
+    load_aiwire_fixture_template_terms,
+    write_aiwire_candidate_dictionary,
+    write_aiwire_dictionary_candidate_report,
 )
 from .aiwire_proxy import (
     AIWIRE_PROXY_CONTROL_LANE,
@@ -366,6 +375,21 @@ __all__ = [
     "build_aiwire_session_fixture_corpus",
     "load_aiwire_session_fixture_corpus",
     "write_aiwire_session_fixture_corpus",
+    # AIWire dictionary evolution tooling
+    "AIWIRE_DICTIONARY_CANDIDATES_SCHEMA",
+    "AIWIRE_DICTIONARY_COMPARISON_SCHEMA",
+    "AIWireDictionaryCandidate",
+    "build_aiwire_candidate_dictionary_bytes",
+    "build_aiwire_dictionary_candidate_report",
+    "build_aiwire_dictionary_comparison_report",
+    "discover_aiwire_dictionary_candidates",
+    "load_aiwire_fixture_messages",
+    "load_aiwire_fixture_template_terms",
+    "render_aiwire_dictionary_comparison_markdown",
+    "write_aiwire_candidate_dictionary",
+    "write_aiwire_dictionary_candidate_report",
+    "write_aiwire_dictionary_comparison_markdown",
+    "write_aiwire_dictionary_comparison_report",
     # AIWire structural token codec
     "AI_WIRE_TOKEN_MAGIC",
     "AI_WIRE_TOKEN_VERSION",

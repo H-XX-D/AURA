@@ -116,6 +116,26 @@ def _fixture_template_terms(corpus: Mapping[str, Any]) -> dict[str, set[str]]:
     return sources
 
 
+def load_aiwire_fixture_messages(
+    fixture_corpus: str | Path = DEFAULT_PUBLIC_FIXTURE_CORPUS,
+) -> tuple[Mapping[str, Any], list[Mapping[str, Any]]]:
+    """Load an AIWire fixture corpus and return its canonical message payloads."""
+
+    corpus_path = Path(fixture_corpus)
+    corpus = load_aiwire_session_fixture_corpus(corpus_path)
+    return corpus, _fixture_messages(corpus)
+
+
+def load_aiwire_fixture_template_terms(
+    fixture_corpus: str | Path = DEFAULT_PUBLIC_FIXTURE_CORPUS,
+) -> dict[str, set[str]]:
+    """Load template/dictionary-diff terms from an AIWire fixture corpus."""
+
+    corpus_path = Path(fixture_corpus)
+    corpus = load_aiwire_session_fixture_corpus(corpus_path)
+    return _fixture_template_terms(corpus)
+
+
 @dataclass(frozen=True)
 class AIWireDictionaryCandidate:
     """One deterministic corpus-derived dictionary term candidate."""

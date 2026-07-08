@@ -1120,7 +1120,9 @@ Current phase state:
   and local broker with manifest preflight; replay-log polish remains.
 - Phase 6 Dictionary Evolution: active; compatibility manifest/checker landed
   and is enforced by the explicit proxy startup path; corpus-driven dictionary
-  candidate reports are available through `aura-aiwire-dictionary-generate`.
+  candidate reports are available through `aura-aiwire-dictionary-generate`,
+  with a first comparison matrix in
+  [AIWire Dictionary Matrix](docs/perf/aiwire_dictionary_matrix_2026-07-08.md).
 - Phase 7 General AURA Cleanup: planned.
 
 Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).

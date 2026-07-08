@@ -215,7 +215,9 @@ known dictionary state hashes and fail closed if the selected state cannot be
 resolved locally. Corpus-driven candidate generation is available through
 `aura-aiwire-dictionary-generate`; it produces deterministic JSON reports and
 optional zlib dictionary bytes from the public AIWire fixture corpus without
-mutating the pinned v1 static dictionary.
+mutating the pinned v1 static dictionary. The first dictionary comparison matrix
+(`docs/perf/aiwire_dictionary_matrix_2026-07-08.md`) compares the pinned v1
+dictionary, a combined generated candidate, and protocol-specific candidates.
 
 - Version static dictionaries and session-template catalogs explicitly.
 - Keep `aura-aiwire-compatibility` available as the release/deployment preflight
@@ -228,8 +230,8 @@ mutating the pinned v1 static dictionary.
   the public fixture corpus.
 - Keep a compatibility matrix for dictionary hash, protocol version, and
   template hash, delta version, and fallback codec.
-- Measure whether protocol-specific dictionaries outperform one combined
-  dictionary.
+- Keep measuring whether protocol-specific dictionaries outperform one combined
+  dictionary as the fixture corpus expands.
 - Add application-provided dictionary extensions for private deployments without
   putting private terms into the public repo.
 

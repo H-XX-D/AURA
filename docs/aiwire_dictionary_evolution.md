@@ -64,6 +64,36 @@ still proves the session before data flows, and session dictionary updates still
 require the diff/ACK path described in
 [AIWire session dictionary safety](aiwire_session_dictionary.md).
 
+## Corpus-Driven Dictionary Candidates
+
+Static dictionary changes remain compatibility breaks, so generation is a
+proposal step, not an automatic protocol mutation. The package installs
+`aura-aiwire-dictionary-generate` to analyze the public fixture corpus and emit
+a deterministic candidate artifact:
+
+```bash
+aura-aiwire-dictionary-generate \
+  --fixture-corpus fixtures/aiwire_sessions/public_session_corpus_v1.json \
+  --max-entries 128 \
+  --output /tmp/aura-aiwire-dictionary-candidates.json \
+  --dictionary-output /tmp/aura-aiwire-candidate.dict
+```
+
+The JSON report records:
+
+- source fixture schema, session count, message count, and corpus summary
+- the current pinned AIWire v1 static dictionary SHA-256, FNV-1a64, and byte size
+- ranked candidate terms with byte length, occurrence count, frame count,
+  estimated saved bytes, source handles, and whether the term already exists in
+  the pinned static dictionary
+- candidate dictionary byte size, SHA-256, FNV-1a64, and term count
+
+The raw `.dict` file is suitable for offline zlib experiments and future
+combined-vs-protocol-specific dictionary benchmarks. It is intentionally not
+wired into `AI_WIRE_STATIC_DICTIONARY`; a new static dictionary still needs a
+versioned compatibility manifest, benchmark evidence, and an explicit release
+decision.
+
 ## Safety Rules
 
 - Static dictionary changes are compatibility breaks unless the peer explicitly

@@ -212,7 +212,10 @@ trusted. The explicit proxy now uses that manifest as part of session startup
 before it accepts semantic AIWire frames. Persistent session resume cache
 support is wired into `aura-proxy` startup so repeat peer connections can offer
 known dictionary state hashes and fail closed if the selected state cannot be
-resolved locally.
+resolved locally. Corpus-driven candidate generation is available through
+`aura-aiwire-dictionary-generate`; it produces deterministic JSON reports and
+optional zlib dictionary bytes from the public AIWire fixture corpus without
+mutating the pinned v1 static dictionary.
 
 - Version static dictionaries and session-template catalogs explicitly.
 - Keep `aura-aiwire-compatibility` available as the release/deployment preflight
@@ -221,7 +224,8 @@ resolved locally.
   fail-closed on compatibility-manifest mismatch before data frames move.
 - Keep `aura-aiwire-resume-cache` available as the local peer-state store for
   future-connection resume handshakes.
-- Add corpus-driven dictionary generation tooling.
+- Keep corpus-driven dictionary generation tooling deterministic and backed by
+  the public fixture corpus.
 - Keep a compatibility matrix for dictionary hash, protocol version, and
   template hash, delta version, and fallback codec.
 - Measure whether protocol-specific dictionaries outperform one combined

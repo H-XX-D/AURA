@@ -1119,7 +1119,8 @@ Current phase state:
 - Phase 5 Transport Examples: implemented for TCP, WebSocket, HTTP streaming,
   and local broker with manifest preflight; replay-log polish remains.
 - Phase 6 Dictionary Evolution: active; compatibility manifest/checker landed
-  and is enforced by the explicit proxy startup path.
+  and is enforced by the explicit proxy startup path; corpus-driven dictionary
+  candidate reports are available through `aura-aiwire-dictionary-generate`.
 - Phase 7 General AURA Cleanup: planned.
 
 Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).

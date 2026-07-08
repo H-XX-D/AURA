@@ -108,6 +108,15 @@ from .ai_wire_fixtures import (
     load_aiwire_session_fixture_corpus,
     write_aiwire_session_fixture_corpus,
 )
+from .aiwire_dictionary_generation import (
+    AIWIRE_DICTIONARY_CANDIDATES_SCHEMA,
+    AIWireDictionaryCandidate,
+    build_aiwire_candidate_dictionary_bytes,
+    build_aiwire_dictionary_candidate_report,
+    discover_aiwire_dictionary_candidates,
+    write_aiwire_candidate_dictionary,
+    write_aiwire_dictionary_candidate_report,
+)
 from .ai_wire_token import (
     AI_WIRE_TOKEN_MAGIC,
     AI_WIRE_TOKEN_VERSION,

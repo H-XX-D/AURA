@@ -44,12 +44,15 @@ aura-proxy-fixture-server = "aura_compression.cli.proxy_fixture_server:main"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "black>=22.0.0",
-    "isort>=5.12.0",
-    "flake8>=5.0.0",
-    "mypy>=0.990",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "pytest-asyncio==1.4.0",
+    "black==26.5.1",
+    "isort==8.0.1",
+    "flake8==7.3.0",
+    "mypy==2.2.0",
+    "build==1.5.1",
+    "twine==6.2.0",
 ]
 websocket = [
     "websockets>=10.0",
@@ -70,8 +73,9 @@ profile = "black"
 line_length = 100
 
 [tool.pytest.ini_options]
-minversion = "7.0"
+minversion = "9.1"
 addopts = "-ra -q --strict-markers"
+asyncio_default_fixture_loop_scope = "function"
 pythonpath = ["src"]
 # coverage options (requires pytest-cov: pip install pytest-cov)
 # addopts = "-ra -q --strict-markers --cov=src/aura_compression --cov-report=html --cov-report=term --cov-fail-under=80"

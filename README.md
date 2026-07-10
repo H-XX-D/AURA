@@ -105,6 +105,74 @@ Relevant public protocol context:
 
 The package targets CPython 3.10+.
 
+## Python API Stability
+
+New AIWire integrations should import the versioned public contract from
+`aura_compression.aiwire`:
+
+```python
+from aura_compression.aiwire import AIWireSessionDecoder, AIWireSessionEncoder
+```
+
+Historical imports from the `aura_compression` package root remain compatible.
+Experimental BRIO, AIToken, hybrid-compression, metadata, discovery, ML, and
+CUDA surfaces are grouped under `aura_compression.research`. See
+[API Stability](docs/api_stability.md) for the promotion and compatibility
+rules.
+
+## How AURA Fits the Product Ecosystem
+
+AURA is independently deployable at the message and transport boundary. It does
+not require a shared database, a particular agent runtime, or a matching
+application framework. A product can adopt AIWire for one link, keep its
+existing message semantics, and remove or replace the codec without changing
+the rest of the system.
+
+The integration shape is deliberately layered:
+
+```text
+Product applications and agents
+  MCP, A2A, JSON-RPC, tool calls, traces, tasks, handoffs
+        |
+        v
+AURA AIWire boundary
+  canonical messages, templates, deltas, compatibility, resume state
+        |
+        +--> Python package / stable aura_compression.aiwire API
+        +--> JavaScript helpers for Node-based services
+        +--> aura-proxy sidecars for existing TCP agent links
+        +--> TCP, HTTP streaming, WebSocket, broker, and LAN transports
+        +--> replay logs, metrics, route status, and deployment templates
+        |
+        v
+Existing product services, edge workers, and agent networks
+```
+
+The surrounding product remains the owner of identity, authorization, task
+semantics, storage, orchestration, and business policy. AURA owns the narrow
+wire concern: negotiating shared structure, moving semantic deltas, carrying
+control/session metadata, and describing opaque blobs. This keeps AURA useful
+as a library, a sidecar, or a transport capability inside a larger product
+without making the larger product depend on AURA internals.
+
+The practical connection points are:
+
+- Applications pass mappings or canonical JSON messages through the stable
+  `aura_compression.aiwire` facade.
+- Existing services can use the explicit `aura-proxy` ingress/egress pair
+  without changing their agent protocol.
+- Node services can use the npm package for canonical message and blob-descriptor
+  helpers while Python or native peers carry the full session codec.
+- Operations can use compatibility manifests, resume caches, replay logs, and
+  metrics as inspectable deployment artifacts rather than hidden codec state.
+- Deployments can start with Python, add the optional native backend on supported
+  workstation or edge targets, and fall back to raw or zlib when negotiation
+  does not succeed.
+
+This boundary makes AURA an ecosystem component rather than an ecosystem-wide
+assumption: products can integrate it incrementally, test it against their own
+traffic, and keep the rest of their architecture independent.
+
 ## Benchmark Snapshot
 
 On 2026-07-04, AURA was measured against protocol-shaped AI request/response
@@ -1067,6 +1135,7 @@ delta streams.
 ## Docs
 
 - [Architecture](docs/architecture.md)
+- [API stability](docs/api_stability.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Current project context](docs/AURA_SYSTEM_CONTEXT.md)
 - [AIWire v1 protocol spec](docs/aiwire_v1_spec.md)

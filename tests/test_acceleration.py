@@ -50,19 +50,11 @@ def test_metadata_signature():
     print(f"Signature 2 key: {key2}")
     print(f"Signature 3 key: {key3}")
 
-    if key1 == key2:
-        print("✅ PASSED: Identical signatures produce same key")
-    else:
-        print("❌ FAILED: Identical signatures should produce same key")
-        return False
+    assert key1 == key2, "identical signatures should produce the same key"
+    print("✅ PASSED: Identical signatures produce same key")
 
-    if key1 != key3:
-        print("✅ PASSED: Different signatures produce different keys")
-    else:
-        print("❌ FAILED: Different signatures should produce different keys")
-        return False
-
-    return True
+    assert key1 != key3, "different signatures should produce different keys"
+    print("✅ PASSED: Different signatures produce different keys")
 
 
 def test_cached_response():
@@ -83,19 +75,11 @@ def test_cached_response():
     print(f"After touch hit count: {cached.hit_count}")
     print(f"Time updated: {cached.last_accessed > initial_time}")
 
-    if cached.hit_count == initial_count + 1:
-        print("✅ PASSED: Touch increments hit count")
-    else:
-        print("❌ FAILED: Touch should increment hit count")
-        return False
+    assert cached.hit_count == initial_count + 1, "touch should increment hit count"
+    print("✅ PASSED: Touch increments hit count")
 
-    if cached.last_accessed > initial_time:
-        print("✅ PASSED: Touch updates last_accessed")
-    else:
-        print("❌ FAILED: Touch should update last_accessed")
-        return False
-
-    return True
+    assert cached.last_accessed > initial_time, "touch should update last_accessed"
+    print("✅ PASSED: Touch updates last_accessed")
 
 
 def test_lru_cache():
@@ -113,48 +97,34 @@ def test_lru_cache():
 
     print(f"Cache size after 3 items: {cache.size()}")
 
-    if cache.size() != 3:
-        print("❌ FAILED: Cache should have 3 items")
-        return False
+    assert cache.size() == 3, "cache should have 3 items"
 
     # Access key1 to make it most recent
     result = cache.get("key1")
     print(f"Retrieved key1: {result}")
 
-    if result != "response1":
-        print("❌ FAILED: Should retrieve correct response")
-        return False
+    assert result == "response1", "cache should retrieve the correct response"
 
     # Add 4th item, should evict key2 (least recently used)
     cache.put("key4", "response4")
 
     print(f"Cache size after adding 4th item: {cache.size()}")
 
-    if cache.size() != 3:
-        print("❌ FAILED: Cache should stay at max_size")
-        return False
+    assert cache.size() == 3, "cache should stay at max_size"
 
     # key2 should be evicted
     result2 = cache.get("key2")
-    if result2 is None:
-        print("✅ PASSED: LRU eviction works (key2 evicted)")
-    else:
-        print("❌ FAILED: key2 should have been evicted")
-        return False
+    assert result2 is None, "key2 should have been evicted"
+    print("✅ PASSED: LRU eviction works (key2 evicted)")
 
     # key1 should still be there
     result1 = cache.get("key1")
-    if result1 == "response1":
-        print("✅ PASSED: Recently accessed key1 not evicted")
-    else:
-        print("❌ FAILED: key1 should not have been evicted")
-        return False
+    assert result1 == "response1", "key1 should not have been evicted"
+    print("✅ PASSED: Recently accessed key1 not evicted")
 
     # Test hit rate
     hit_rate = cache.get_hit_rate()
     print(f"Cache hit rate: {hit_rate:.2%}")
-
-    return True
 
 
 def test_conversation_accelerator_basic():
@@ -180,9 +150,7 @@ def test_conversation_accelerator_basic():
     result = accelerator.try_fast_path(metadata)
     print(f"First attempt (should be None): {result}")
 
-    if result is not None:
-        print("❌ FAILED: First attempt should be cache miss")
-        return False
+    assert result is None, "first attempt should be a cache miss"
 
     # Cache a response
     accelerator.cache_response(metadata, "cached response")
@@ -191,9 +159,7 @@ def test_conversation_accelerator_basic():
     result = accelerator.try_fast_path(metadata)
     print(f"Second attempt (should be cached): {result}")
 
-    if result != "cached response":
-        print("❌ FAILED: Should retrieve cached response")
-        return False
+    assert result == "cached response", "accelerator should retrieve the cached response"
 
     print("✅ PASSED: Basic cache operations work")
 
@@ -203,8 +169,6 @@ def test_conversation_accelerator_basic():
     print(f"  Cache hits: {metrics['cache_hits']}")
     print(f"  Cache misses: {metrics['cache_misses']}")
     print(f"  Hit rate: {metrics['hit_rate']:.2%}")
-
-    return True
 
 
 def test_conversation_accelerator_hit_rate():
@@ -250,12 +214,8 @@ def test_conversation_accelerator_hit_rate():
     hit_rate = accelerator.get_hit_rate()
     print(f"Hit rate: {hit_rate:.2%}")
 
-    if hit_rate == 1.0:
-        print("✅ PASSED: 100% hit rate for cached patterns")
-    else:
-        print(f"⚠️  WARNING: Expected 100% hit rate, got {hit_rate:.2%}")
-
-    return True
+    assert hit_rate == 1.0, f"expected 100% hit rate, got {hit_rate:.2%}"
+    print("✅ PASSED: 100% hit rate for cached patterns")
 
 
 def test_platform_wide_learning():
@@ -286,12 +246,8 @@ def test_platform_wide_learning():
     result = accelerator.try_fast_path(metadata)
     print(f"Retrieved from platform cache: {result}")
 
-    if result == "platform cached":
-        print("✅ PASSED: Platform-wide learning works")
-        return True
-    else:
-        print("❌ FAILED: Should retrieve from platform cache")
-        return False
+    assert result == "platform cached", "accelerator should retrieve from platform cache"
+    print("✅ PASSED: Platform-wide learning works")
 
 
 def test_speedup_calculation():
@@ -307,16 +263,12 @@ def test_speedup_calculation():
     speedup = accelerator.get_speedup_factor(baseline_latency_ms=13.0)
     print(f"Initial speedup factor: {speedup:.2f}x")
 
-    # With preloaded profile, we should see significant speedup
-    if speedup > 10:
-        print(f"✅ PASSED: Preloaded profile shows {speedup:.2f}x speedup")
-    else:
-        print(f"⚠️  WARNING: Expected >10x speedup with preload, got {speedup:.2f}x")
+    # The preloaded profile should improve on the supplied baseline latency.
+    assert speedup > 1, f"expected preload speedup above baseline, got {speedup:.2f}x"
+    print(f"✅ PASSED: Preloaded profile shows {speedup:.2f}x speedup")
 
     avg_latency = accelerator.get_average_latency()
     print(f"Average latency: {avg_latency:.4f}ms")
-
-    return True
 
 
 def test_signature_extraction():
@@ -344,19 +296,11 @@ def test_signature_extraction():
     print(f"  Has literals: {signature.has_literals}")
     print(f"  Token count: {signature.token_count}")
 
-    if signature.compression_method == "binary_semantic":
-        print("✅ PASSED: Method extracted correctly")
-    else:
-        print("❌ FAILED: Method not extracted correctly")
-        return False
+    assert signature.compression_method == "binary_semantic", "method was not extracted"
+    print("✅ PASSED: Method extracted correctly")
 
-    if signature.template_ids == (1, 2, 3, 4):
-        print("✅ PASSED: Template IDs extracted correctly")
-    else:
-        print("❌ FAILED: Template IDs not extracted correctly")
-        return False
-
-    return True
+    assert signature.template_ids == (1, 2, 3, 4), "template IDs were not extracted"
+    print("✅ PASSED: Template IDs extracted correctly")
 
 
 def main():
@@ -366,21 +310,24 @@ def main():
 
     results = []
 
-    try:
-        results.append(("MetadataSignature", test_metadata_signature()))
-        results.append(("CachedResponse", test_cached_response()))
-        results.append(("LRU Cache", test_lru_cache()))
-        results.append(("Basic Accelerator", test_conversation_accelerator_basic()))
-        results.append(("Hit Rate", test_conversation_accelerator_hit_rate()))
-        results.append(("Platform Learning", test_platform_wide_learning()))
-        results.append(("Speedup Calculation", test_speedup_calculation()))
-        results.append(("Signature Extraction", test_signature_extraction()))
-    except Exception as e:
-        print(f"\n❌ FATAL ERROR: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return False
+    test_cases = (
+        ("MetadataSignature", test_metadata_signature),
+        ("CachedResponse", test_cached_response),
+        ("LRU Cache", test_lru_cache),
+        ("Basic Accelerator", test_conversation_accelerator_basic),
+        ("Hit Rate", test_conversation_accelerator_hit_rate),
+        ("Platform Learning", test_platform_wide_learning),
+        ("Speedup Calculation", test_speedup_calculation),
+        ("Signature Extraction", test_signature_extraction),
+    )
+    for name, test_case in test_cases:
+        try:
+            test_case()
+        except Exception as exc:
+            print(f"\n❌ {name} FAILED: {exc}")
+            results.append((name, False))
+        else:
+            results.append((name, True))
 
     # Summary
     print("\n" + "=" * 60)

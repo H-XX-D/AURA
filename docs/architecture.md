@@ -4,6 +4,11 @@ AURA is a Python-first compression research codebase with one clear current
 product direction: **AIWire for handshaked structure and delta movement in
 high-volume AI-to-AI messages**.
 
+The supported application import boundary is `aura_compression.aiwire`.
+Research components are grouped under `aura_compression.research`; historical
+package-root imports remain compatibility aliases. See
+[API Stability](api_stability.md).
+
 The repo still contains broader hybrid compression components. Those are useful
 for experiments and large-message research, but the most validated path today is
 the AIWire structural side channel.
@@ -271,20 +276,19 @@ ports unintentionally.
 Focused AIWire checks:
 
 ```bash
-PYTHONPATH=src pytest tests/test_ai_wire.py tests/test_aiwire_benchmark_smoke.py -q
+make test-aiwire
 ```
 
 Full test suite:
 
 ```bash
-pytest -q
+make test
 ```
 
 Formatting:
 
 ```bash
-uvx black --check src/aura_compression tests tools/stress_ai_wire_roundtrip_z6.py
-uvx isort --check-only src/aura_compression tests tools/stress_ai_wire_roundtrip_z6.py
+make format-check
 ```
 
 ## Current Risk Areas

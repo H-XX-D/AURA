@@ -9,7 +9,11 @@ __version__ = "2.0.3"
 __author__ = "Todd Hendricks"
 __license__ = "Apache 2.0"
 
-from .acceleration import ConversationAccelerator, ConversationSession, PlatformWideAccelerator
+from .acceleration import (
+    ConversationAccelerator,
+    ConversationSession,
+    PlatformWideAccelerator,
+)
 from .ai_wire import (
     AI_WIRE_COMPATIBILITY_MANIFEST_SCHEMA,
     AI_WIRE_CONTROL_LUT_SCHEMA,
@@ -217,7 +221,12 @@ from .cuda_native import (
 from .discovery import TemplateCandidate, TemplateDiscoveryEngine
 from .enums import CompressionMethod
 from .function_parser import AItoAIOrchestrator, FunctionCall, FunctionCallParser
-from .metadata import FastPathClassifier, MetadataExtractor, MetadataRouter, SecurityScreener
+from .metadata import (
+    FastPathClassifier,
+    MetadataExtractor,
+    MetadataRouter,
+    SecurityScreener,
+)
 from .metadata_sidechannel import (
     MessageCategory,
     MessageMetadata,

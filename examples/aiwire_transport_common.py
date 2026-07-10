@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import sys
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from aura_compression import (
+    AIWireCompatibilityManifest,
     AIWireControlLUTEntry,
     AIWireHandshakeError,
     aiwire_compatibility_manifest_sha256,
@@ -144,13 +146,30 @@ def decode_demo_control_frame(frame: bytes) -> dict[str, object]:
     )
 
 
-def encode_transport_compatibility_control(role: str) -> bytes:
-    manifest = build_aiwire_compatibility_manifest(fallback_codecs=())
+def _compatibility_manifest_payload(
+    manifest: AIWireCompatibilityManifest | Mapping[str, Any],
+) -> dict[str, object]:
+    if isinstance(manifest, AIWireCompatibilityManifest):
+        return manifest.to_dict()
+    return AIWireCompatibilityManifest.from_dict(manifest).to_dict()
+
+
+def encode_transport_compatibility_control(
+    role: str,
+    *,
+    manifest: AIWireCompatibilityManifest | Mapping[str, Any] | None = None,
+) -> bytes:
+    resolved_manifest = (
+        manifest
+        if manifest is not None
+        else build_aiwire_compatibility_manifest(fallback_codecs=())
+    )
+    manifest_payload = _compatibility_manifest_payload(resolved_manifest)
     payload = {
         "schema": TRANSPORT_COMPATIBILITY_SCHEMA,
         "role": role,
-        "manifest": manifest.to_dict(),
-        "manifest_sha256": aiwire_compatibility_manifest_sha256(manifest),
+        "manifest": manifest_payload,
+        "manifest_sha256": aiwire_compatibility_manifest_sha256(manifest_payload),
     }
     return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
@@ -159,6 +178,7 @@ def verify_transport_compatibility_control(
     frame: bytes,
     *,
     expected_role: str,
+    local_manifest: AIWireCompatibilityManifest | Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     try:
         payload = json.loads(frame.decode("utf-8"))
@@ -181,7 +201,11 @@ def verify_transport_compatibility_control(
     try:
         check = verify_aiwire_compatibility_manifest(
             manifest,
-            local_manifest=build_aiwire_compatibility_manifest(fallback_codecs=()),
+            local_manifest=(
+                local_manifest
+                if local_manifest is not None
+                else build_aiwire_compatibility_manifest(fallback_codecs=())
+            ),
             allow_fallback=False,
         )
     except AIWireHandshakeError as exc:
@@ -196,7 +220,10 @@ def b64(payload: bytes) -> str:
 
 
 def unb64(payload: str) -> bytes:
-    return base64.b64decode(payload.encode("ascii"))
+    try:
+        return base64.b64decode(payload.encode("ascii"), validate=True)
+    except (UnicodeEncodeError, binascii.Error) as exc:
+        raise ValueError("transport payload must be valid base64") from exc
 
 
 def print_result(result: TransportDemoResult) -> None:

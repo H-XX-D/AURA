@@ -23,6 +23,53 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Iterable, Mapping
 
+from ._aiwire_protocol import (
+    AI_WIRE_COMPATIBILITY_MANIFEST_SCHEMA,
+    AI_WIRE_CONTROL_LUT_SCHEMA,
+    AI_WIRE_DEFAULT_LEVEL,
+    AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION,
+    AI_WIRE_DELTA_VERSION,
+    AI_WIRE_DICTIONARY_EXTENSION_SCHEMA,
+    AI_WIRE_FALLBACK_CODECS,
+    AI_WIRE_FLUSH_MODE,
+    AI_WIRE_HANDSHAKE_SCHEMA,
+    AI_WIRE_MAX_CONTROL_LUT_ENTRIES,
+    AI_WIRE_MAX_DICTIONARY_EXTENSION_BYTES,
+    AI_WIRE_MAX_SESSION_DICTIONARY_BYTES,
+    AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS,
+    AI_WIRE_MAX_SESSION_TEMPLATE_BYTES,
+    AI_WIRE_MAX_SESSION_TEMPLATES,
+    AI_WIRE_MEM_LEVEL,
+    AI_WIRE_MISSION_CRITICAL,
+    AI_WIRE_MISSION_CRITICAL_CONTROL_TYPES,
+    AI_WIRE_NARY_NEGOTIATION_SCHEMA,
+    AI_WIRE_NEGOTIATION_SCHEMA,
+    AI_WIRE_NONCE_BYTES,
+    AI_WIRE_PROTOCOL,
+    AI_WIRE_ROUTINE_CONTROL_CRITICALITIES,
+    AI_WIRE_SESSION_DICTIONARY_ACK_SCHEMA,
+    AI_WIRE_SESSION_DICTIONARY_DIFF_SCHEMA,
+    AI_WIRE_SESSION_DICTIONARY_STATE_SCHEMA,
+    AI_WIRE_SESSION_RESUME_HELLO_SCHEMA,
+    AI_WIRE_SESSION_RESUME_RESPONSE_SCHEMA,
+    AI_WIRE_SESSION_TEMPLATE_CATALOG_SCHEMA,
+    AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA,
+    AI_WIRE_STATIC_DICTIONARY_CATALOG_SCHEMA,
+    AI_WIRE_STATIC_DICTIONARY_VERSION,
+    AI_WIRE_SUPPORTED_VERSIONS,
+    AI_WIRE_SYNC_FLUSH_SUFFIX,
+    AI_WIRE_SYSTEM_CONTROL_SCHEMA,
+    AI_WIRE_VERSION,
+    AI_WIRE_WBITS,
+)
+from ._aiwire_types import (
+    AIWireFallbackError,
+    AIWireFrameError,
+    AIWireHandshakeError,
+    AIWireNativeError,
+    AIWireNativeStatus,
+    AIWireStats,
+)
 from .ai_wire_messages import (
     AI_WIRE_CORPUS_METADATA_SCHEMA,
     AIWireFrame,
@@ -34,59 +81,6 @@ from .ai_wire_messages import (
     encode_ai_wire_message,
     summarize_ai_wire_corpus,
 )
-
-AI_WIRE_VERSION = 1
-AI_WIRE_SUPPORTED_VERSIONS = (AI_WIRE_VERSION,)
-AI_WIRE_PROTOCOL = "aura.aiwire"
-AI_WIRE_HANDSHAKE_SCHEMA = "aura.aiwire.handshake.v1"
-AI_WIRE_NEGOTIATION_SCHEMA = "aura.aiwire.negotiation.v1"
-AI_WIRE_NARY_NEGOTIATION_SCHEMA = "aura.aiwire.nary_negotiation.v1"
-AI_WIRE_COMPATIBILITY_MANIFEST_SCHEMA = "aura.aiwire.compatibility_manifest.v1"
-AI_WIRE_STATIC_DICTIONARY_CATALOG_SCHEMA = "aura.aiwire.static_dictionary_catalog.v1"
-AI_WIRE_SESSION_TEMPLATE_CATALOG_SCHEMA = "aura.aiwire.session_template_catalog.v1"
-AI_WIRE_DICTIONARY_EXTENSION_SCHEMA = "aura.aiwire.dictionary_extension.v1"
-AI_WIRE_CONTROL_LUT_SCHEMA = "aura.aiwire.control_lut.v1"
-AI_WIRE_SYSTEM_CONTROL_SCHEMA = "aura.aiwire.system_control.v1"
-AI_WIRE_SESSION_TEMPLATE_UPDATE_SCHEMA = "aura.aiwire.session_templates.update.v1"
-AI_WIRE_SESSION_DICTIONARY_STATE_SCHEMA = "aura.aiwire.session_dictionary.state.v1"
-AI_WIRE_SESSION_DICTIONARY_DIFF_SCHEMA = "aura.aiwire.session_dictionary.diff.v1"
-AI_WIRE_SESSION_DICTIONARY_ACK_SCHEMA = "aura.aiwire.session_dictionary.ack.v1"
-AI_WIRE_SESSION_RESUME_HELLO_SCHEMA = "aura.aiwire.session_resume.hello.v1"
-AI_WIRE_SESSION_RESUME_RESPONSE_SCHEMA = "aura.aiwire.session_resume.response.v1"
-AI_WIRE_WBITS = -15
-AI_WIRE_MEM_LEVEL = 8
-AI_WIRE_DEFAULT_LEVEL = 3
-AI_WIRE_FLUSH_MODE = "z_sync_flush"
-AI_WIRE_SYNC_FLUSH_SUFFIX = b"\x00\x00\xff\xff"
-AI_WIRE_FALLBACK_CODECS = ("zlib", "raw")
-AI_WIRE_DELTA_VERSION = 1
-AI_WIRE_STATIC_DICTIONARY_VERSION = "aiwire-static-v1"
-AI_WIRE_DEFAULT_SESSION_TEMPLATE_CATALOG_VERSION = "session-templates-v1"
-AI_WIRE_MAX_SESSION_TEMPLATES = 4096
-AI_WIRE_MAX_SESSION_DICTIONARY_DIFF_ADDITIONS = 128
-AI_WIRE_MAX_SESSION_TEMPLATE_BYTES = 4096
-AI_WIRE_MAX_SESSION_DICTIONARY_BYTES = 262144
-AI_WIRE_MAX_DICTIONARY_EXTENSION_BYTES = 262144
-AI_WIRE_MAX_CONTROL_LUT_ENTRIES = 1024
-AI_WIRE_NONCE_BYTES = 16
-AI_WIRE_MISSION_CRITICAL = "mission_critical"
-AI_WIRE_ROUTINE_CONTROL_CRITICALITIES = ("routine", "important")
-AI_WIRE_MISSION_CRITICAL_CONTROL_TYPES = frozenset(
-    {
-        "handshake_accept",
-        "handshake_reject",
-        "dictionary_update",
-        "epoch_reset",
-        "resync_required",
-        "auth_failure",
-        "safety_policy",
-        "key_rotation",
-        "emergency_stop",
-        "critical_route_authority",
-        "critical_verification_failure",
-    }
-)
-
 
 _COMMON_AI_JSON_TERMS: tuple[str, ...] = (
     # Generic JSON-RPC / tool-call scaffolding.
@@ -1742,52 +1736,6 @@ def _fnv1a64(data: bytes) -> int:
 AI_WIRE_DICTIONARY_FNV1A64 = _fnv1a64(AI_WIRE_STATIC_DICTIONARY)
 
 
-class AIWireNativeError(RuntimeError):
-    """Raised when the native C++ AIWire backend reports an error."""
-
-
-class AIWireFrameError(ValueError):
-    """Raised when an AIWire data frame cannot be safely decoded."""
-
-
-class AIWireFallbackError(ValueError):
-    """Raised when an AIWire negotiated fallback frame is invalid."""
-
-
-class AIWireHandshakeError(ValueError):
-    """Raised when an AIWire protocol handshake cannot be negotiated."""
-
-
-@dataclass(frozen=True)
-class AIWireNativeStatus:
-    """Runtime status for the optional native AIWire backend."""
-
-    available: bool
-    library_path: str | None
-    version: str | None = None
-    error: str | None = None
-    dictionary_size: int | None = None
-    dictionary_checksum: str | None = None
-    dictionary_matches_python: bool | None = None
-    supports_custom_dictionary: bool = False
-    supports_token_codec: bool = False
-    supports_token_aiwire: bool = False
-
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "available": self.available,
-            "library_path": self.library_path,
-            "version": self.version,
-            "error": self.error,
-            "dictionary_size": self.dictionary_size,
-            "dictionary_checksum": self.dictionary_checksum,
-            "dictionary_matches_python": self.dictionary_matches_python,
-            "supports_custom_dictionary": self.supports_custom_dictionary,
-            "supports_token_codec": self.supports_token_codec,
-            "supports_token_aiwire": self.supports_token_aiwire,
-        }
-
-
 class _NativeAIWireLibrary:
     """ctypes loader for ``libaura_aiwire``."""
 
@@ -3314,39 +3262,6 @@ class _NativeAIWireDecoder:
             self._handle,
             payload,
         )
-
-
-@dataclass(frozen=True)
-class AIWireStats:
-    """Simple byte/frame counters for one wire-codec session."""
-
-    frames: int
-    bytes_in: int
-    bytes_out: int
-
-    @property
-    def ratio(self) -> float:
-        return self.bytes_in / self.bytes_out if self.bytes_out else 0.0
-
-    @property
-    def average_bytes_in(self) -> float:
-        return self.bytes_in / self.frames if self.frames else 0.0
-
-    @property
-    def average_bytes_out(self) -> float:
-        return self.bytes_out / self.frames if self.frames else 0.0
-
-    def as_dict(self) -> dict[str, int | float]:
-        """Return the stable benchmark serialization for AIWire counters."""
-
-        return {
-            "frames": self.frames,
-            "bytes_in": self.bytes_in,
-            "bytes_out": self.bytes_out,
-            "ratio": self.ratio,
-            "average_bytes_in": self.average_bytes_in,
-            "average_bytes_out": self.average_bytes_out,
-        }
 
 
 class AIWireSessionEncoder:

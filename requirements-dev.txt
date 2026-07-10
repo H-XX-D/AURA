@@ -1,0 +1,11 @@
+# Keep this file synchronized with project.optional-dependencies.dev in
+# pyproject.toml. Exact versions make local and CI quality gates reproducible.
+pytest==9.1.1
+pytest-cov==7.1.0
+pytest-asyncio==1.4.0
+black==26.5.1
+isort==8.0.1
+flake8==7.3.0
+mypy==2.2.0
+build==1.5.1
+twine==6.2.0

@@ -29,12 +29,8 @@ def test_basic_compression():
     print(f"Decompressed text: {decompressed.text}")
 
     # Verify
-    if decompressed.text == test_text:
-        print("✅ PASSED: Text matches original")
-        return True
-    else:
-        print("❌ FAILED: Text doesn't match")
-        return False
+    assert decompressed.text == test_text, "decompressed text does not match"
+    print("✅ PASSED: Text matches original")
 
 
 def test_long_text():
@@ -55,12 +51,8 @@ def test_long_text():
 
     decompressed = decoder.decompress(compressed.payload)
 
-    if decompressed.text == test_text:
-        print("✅ PASSED: Long text compression works")
-        return True
-    else:
-        print("❌ FAILED: Decompressed text doesn't match")
-        return False
+    assert decompressed.text == test_text, "decompressed long text does not match"
+    print("✅ PASSED: Long text compression works")
 
 
 def test_edge_cases():
@@ -82,22 +74,13 @@ def test_edge_cases():
         ("\n\t\r", "Whitespace characters"),
     ]
 
-    passed = 0
     for text, description in test_cases:
-        try:
-            compressed = encoder.compress(text)
-            decompressed = decoder.decompress(compressed.payload)
+        compressed = encoder.compress(text)
+        decompressed = decoder.decompress(compressed.payload)
+        assert decompressed.text == text, f"{description} text does not match"
+        print(f"✅ {description}: PASSED")
 
-            if decompressed.text == text:
-                print(f"✅ {description}: PASSED")
-                passed += 1
-            else:
-                print(f"❌ {description}: FAILED - text mismatch")
-        except Exception as e:
-            print(f"⚠️  {description}: Exception - {e}")
-
-    print(f"\nPassed {passed}/{len(test_cases)} edge case tests")
-    return passed == len(test_cases)
+    print(f"\nPassed {len(test_cases)}/{len(test_cases)} edge case tests")
 
 
 def test_dictionary_compression():
@@ -120,12 +103,8 @@ def test_dictionary_compression():
 
     decompressed = decoder.decompress(compressed.payload)
 
-    if decompressed.text == test_text:
-        print("✅ PASSED: Dictionary compression works")
-        return True
-    else:
-        print("❌ FAILED: Decompressed text doesn't match")
-        return False
+    assert decompressed.text == test_text, "dictionary decompression does not match"
+    print("✅ PASSED: Dictionary compression works")
 
 
 def test_lz77_compression():
@@ -148,12 +127,8 @@ def test_lz77_compression():
 
     decompressed = decoder.decompress(compressed.payload)
 
-    if decompressed.text == test_text:
-        print("✅ PASSED: LZ77 compression works")
-        return True
-    else:
-        print("❌ FAILED: Decompressed text doesn't match")
-        return False
+    assert decompressed.text == test_text, "LZ77 decompression does not match"
+    print("✅ PASSED: LZ77 compression works")
 
 
 def test_realistic_data():
@@ -175,14 +150,11 @@ def test_realistic_data():
 
     decompressed = decoder.decompress(compressed.payload)
 
-    if decompressed.text == test_text:
-        print("✅ PASSED: Realistic data compression works")
-        return True
-    else:
-        print("❌ FAILED: Decompressed text doesn't match")
-        print(f"Expected: {test_text}")
-        print(f"Got: {decompressed.text}")
-        return False
+    assert decompressed.text == test_text, (
+        f"realistic data decompression does not match: expected {test_text!r}, "
+        f"got {decompressed.text!r}"
+    )
+    print("✅ PASSED: Realistic data compression works")
 
 
 def main():
@@ -192,19 +164,22 @@ def main():
 
     results = []
 
-    try:
-        results.append(("Basic Compression", test_basic_compression()))
-        results.append(("Long Text", test_long_text()))
-        results.append(("Edge Cases", test_edge_cases()))
-        results.append(("Dictionary Compression", test_dictionary_compression()))
-        results.append(("LZ77 Compression", test_lz77_compression()))
-        results.append(("Realistic Data", test_realistic_data()))
-    except Exception as e:
-        print(f"\n❌ FATAL ERROR: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return False
+    test_cases = (
+        ("Basic Compression", test_basic_compression),
+        ("Long Text", test_long_text),
+        ("Edge Cases", test_edge_cases),
+        ("Dictionary Compression", test_dictionary_compression),
+        ("LZ77 Compression", test_lz77_compression),
+        ("Realistic Data", test_realistic_data),
+    )
+    for name, test_case in test_cases:
+        try:
+            test_case()
+        except Exception as exc:
+            print(f"\n❌ {name} FAILED: {exc}")
+            results.append((name, False))
+        else:
+            results.append((name, True))
 
     # Summary
     print("\n" + "=" * 60)

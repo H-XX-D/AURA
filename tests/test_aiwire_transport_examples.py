@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from collections.abc import Iterable
 
 import pytest
 
+from aura_compression import AIWireHandshakeError, build_aiwire_compatibility_manifest
 from examples import (
     aiwire_http_streaming_transport,
     aiwire_local_broker,
@@ -14,9 +16,13 @@ from examples import (
 from examples.aiwire_transport_common import (
     CONTROL_LANE,
     TransportCarrierFrame,
+    b64,
     decode_demo_control_frame,
     encode_route_status_control,
+    encode_transport_compatibility_control,
     route_status_payload,
+    unb64,
+    verify_transport_compatibility_control,
 )
 
 
@@ -63,6 +69,126 @@ def test_transport_carrier_frame_round_trips_control_lane() -> None:
     assert restored.lane == CONTROL_LANE
     assert decoded["meaning"] == "route_status"
     assert decoded["payload"] == payload
+
+
+def test_transport_compatibility_preflight_rejects_catalog_version_mismatch() -> None:
+    session_templates = {128: "agent {0} calls tool {1}"}
+    peer_manifest = build_aiwire_compatibility_manifest(
+        fallback_codecs=(),
+        session_templates=session_templates,
+        session_template_catalog_version="tenant-alpha-templates-v1",
+    )
+    local_manifest = build_aiwire_compatibility_manifest(
+        fallback_codecs=(),
+        session_templates=session_templates,
+        session_template_catalog_version="tenant-beta-templates-v1",
+    )
+    frame = encode_transport_compatibility_control("client", manifest=peer_manifest)
+
+    with pytest.raises(ValueError, match="session_template_catalog_version_mismatch"):
+        verify_transport_compatibility_control(
+            frame,
+            expected_role="client",
+            local_manifest=local_manifest,
+        )
+
+
+def test_transport_compatibility_preflight_rejects_empty_manifest_overrides() -> None:
+    with pytest.raises(
+        AIWireHandshakeError,
+        match="unsupported AIWire compatibility manifest schema",
+    ):
+        encode_transport_compatibility_control("client", manifest={})
+
+    frame = encode_transport_compatibility_control("client")
+    with pytest.raises(
+        ValueError,
+        match="unsupported AIWire compatibility manifest schema",
+    ):
+        verify_transport_compatibility_control(
+            frame,
+            expected_role="client",
+            local_manifest={},
+        )
+
+
+def test_transport_compatibility_preflight_accepts_matching_mapping_overrides() -> None:
+    manifest = build_aiwire_compatibility_manifest(
+        fallback_codecs=(),
+        session_templates={128: "agent {0} calls tool {1}"},
+        session_template_catalog_version="tenant-alpha-templates-v1",
+    ).to_dict()
+    frame = encode_transport_compatibility_control("client", manifest=manifest)
+
+    check = verify_transport_compatibility_control(
+        frame,
+        expected_role="client",
+        local_manifest=manifest,
+    )
+
+    assert check["accepted"] is True
+    assert check["codec"] == "aiwire"
+
+
+def test_transport_compatibility_preflight_rejects_tampered_manifest() -> None:
+    frame = encode_transport_compatibility_control("client")
+    payload = json.loads(frame)
+    payload["manifest"]["session_template_catalog_version"] = "tampered-catalog"
+    tampered_frame = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+
+    with pytest.raises(ValueError, match="transport compatibility manifest hash mismatch"):
+        verify_transport_compatibility_control(
+            tampered_frame,
+            expected_role="client",
+        )
+
+
+@pytest.mark.parametrize(
+    ("frame", "error"),
+    [
+        (b"not-json", "transport compatibility control must be JSON"),
+        (b"[]", "transport compatibility control must be an object"),
+        (
+            b'{"schema":"aura.aiwire.transport.compatibility.unsupported"}',
+            "unsupported transport compatibility control schema",
+        ),
+        (
+            b'{"role":"client","schema":"aura.aiwire.transport_compatibility.v1"}',
+            "transport compatibility control is missing manifest",
+        ),
+    ],
+)
+def test_transport_compatibility_preflight_rejects_invalid_envelopes(
+    frame: bytes,
+    error: str,
+) -> None:
+    with pytest.raises(ValueError, match=error):
+        verify_transport_compatibility_control(
+            frame,
+            expected_role="client",
+        )
+
+
+def test_transport_compatibility_preflight_rejects_unexpected_role() -> None:
+    frame = encode_transport_compatibility_control("server")
+
+    with pytest.raises(ValueError, match="expected compatibility role 'client', got 'server'"):
+        verify_transport_compatibility_control(
+            frame,
+            expected_role="client",
+        )
+
+
+@pytest.mark.parametrize("encoded", ["YWJj$", "\N{SNOWMAN}"])
+def test_transport_base64_rejects_invalid_payload(encoded: str) -> None:
+    with pytest.raises(ValueError, match="transport payload must be valid base64"):
+        unb64(encoded)
+
+
+def test_transport_base64_round_trips_binary_payload() -> None:
+    payload = b"\x00aiwire\xff\x10"
+
+    assert unb64(b64(payload)) == payload
 
 
 def test_tcp_transport_frame_reader_handles_fragmented_reads() -> None:
